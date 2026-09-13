@@ -25,7 +25,7 @@ Every change is listed in [CHANGELOG.md](./CHANGELOG.md), and the dashboard rend
 | --- | --- |
 | **Token limit per key** | A key stops answering with HTTP `429` once it has spent its budget; usage is tracked live against the key. |
 | **Auto-reset interval** | `5h`, `7d`, `14d`, `30d` or a custom interval such as `10h`. The interval field only appears once a limit is set, and a limit of `0` means unlimited. |
-| **Allowed models** | A key can be locked to a list of models with exact names or wildcards (`claude-*`, `gpt-*`); anything else gets HTTP `403`. Models are picked in the same visual picker used for combos, never typed. |
+| **Allowed models** | A key can be locked to a list of models with exact names or wildcards (`claude-*`, `gpt-*`); anything else gets HTTP `403`, and `GET /v1/models` only lists the models that key may call. Models are picked in the same visual picker used for combos, never typed. |
 | **Expiry** | Optional `expiresAt`; an expired key is refused with `403 API key has expired`. |
 | **On/off switch** | Each key row has a toggle. A switched-off key is refused with `403 API key is disabled` on **every** endpoint — chat, embeddings, images, video, speech, transcription, search and web fetch — even while the gateway runs without required keys. |
 | **Names and editing** | Key names are unique (creating or renaming a duplicate is rejected with a clear message), a key can be duplicated with its settings, and used tokens can be zeroed by hand. |

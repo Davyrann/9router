@@ -66,14 +66,16 @@ export async function getStudioModels() {
 
   // Migration: older builds wrote a display alias for every studio name into the
   // modelAliases kv scope, which made the studio name REPLACE the original model
-  // in pickers. Studio names now resolve through getStudioModel, so delete any
-  // leftover alias that points at this studio entry's target. Idempotent, best-effort.
+  // in pickers. Two studio names on one model then answered as whichever alias
+  // matched first, so a call to one showed up as the other in usage. Studio names
+  // resolve through getStudioModel now, so drop every leftover alias keyed by a
+  // studio name, whatever value it stored. Idempotent, best-effort.
   if (models.length) {
     try {
       const { getModelAliases, deleteModelAlias } = await import("./aliasRepo.js");
       const aliases = await getModelAliases();
       for (const m of models) {
-        if (aliases[m.callName] === m.targetModel) await deleteModelAlias(m.callName);
+        if (m.callName in aliases) await deleteModelAlias(m.callName);
       }
     } catch {
       /* fail open — the studio list is still returned */

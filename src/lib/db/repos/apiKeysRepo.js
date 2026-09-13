@@ -163,6 +163,44 @@ export function recordApiKeyUsageInWindow(key, tokens = 0) {
   rateLimits[key].push({ ts: now, tokens: tokens || 0 });
 }
 
+/**
+ * Allowed-model patterns of a key, or null when the key may use every model.
+ * One definition for both the request gate and the /v1/models listing, so a key
+ * can never see a model it would be refused at request time.
+ */
+export function parseAllowedModels(allowedModels) {
+ const raw = String(allowedModels ?? "").trim();
+ if (!raw || raw === "*") return null;
+ const patterns = raw.split(",").map((model) => model.trim().toLowerCase()).filter(Boolean);
+ return patterns.length ? patterns : null;
+}
+
+/** Exact, `prefix*` and `*suffix` patterns, matched case-insensitively. */
+export function matchesAllowedModels(patterns, requestedModel) {
+ if (!patterns) return true;
+ const req = String(requestedModel || "").trim().toLowerCase();
+ if (!req) return false;
+ return patterns.some((allowed) => {
+ if (allowed === "*" || allowed === req) return true;
+ if (allowed.endsWith("*")) return req.startsWith(allowed.slice(0, -1));
+ if (allowed.startsWith("*")) return req.endsWith(allowed.slice(1));
+ return false;
+ });
+}
+
+/** Patterns of the key used by a request; null when there is no key or it allows all. */
+export async function getAllowedModelsOfKey(key) {
+ const raw = typeof key === "string" ? key.trim() : "";
+ if (!raw) return null;
+ try {
+ const db = await getAdapter();
+ const row = db.get(`SELECT allowedModels FROM apiKeys WHERE key = ?`, [raw]);
+ return row ? parseAllowedModels(row.allowedModels) : null;
+ } catch {
+ return null;
+ }
+}
+
 export async function validateApiKey(key, requestedModel = null, clientIp = null) {
   const db = await getAdapter();
   let result = false;
@@ -244,25 +282,9 @@ export async function validateApiKey(key, requestedModel = null, clientIp = null
     }
 
     // Check allowed models
-    if (requestedModel && allowedModels && allowedModels.trim() !== "*" && allowedModels.trim() !== "") {
-      const allowedList = allowedModels
-        .split(",")
-        .map((m) => m.trim().toLowerCase())
-        .filter(Boolean);
-
-      const req = requestedModel.toLowerCase();
-      const isAllowed = allowedList.some((allowed) => {
-        if (allowed === "*" || allowed === req) return true;
-        if (allowed.endsWith("*")) {
-          const prefix = allowed.slice(0, -1);
-          return req.startsWith(prefix);
-        }
-        if (allowed.startsWith("*")) {
-          const suffix = allowed.slice(1);
-          return req.endsWith(suffix);
-        }
-        return false;
-      });
+    const allowedPatterns = parseAllowedModels(allowedModels);
+ if (requestedModel && allowedPatterns) {
+      const isAllowed = matchesAllowedModels(allowedPatterns, requestedModel);
 
       if (!isAllowed) {
         result = "MODEL_NOT_ALLOWED";

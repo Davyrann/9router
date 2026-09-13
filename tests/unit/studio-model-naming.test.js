@@ -101,3 +101,87 @@ describe("response naming", () => {
  expect(applyModelAlias({ model: "x" }, null)).toBe(false);
  });
 });
+
+describe("two custom names on one model", () => {
+ async function addNamed(callName) {
+ await ctx.editor.setStudioModel({
+ callName, displayName: "", targetModel: "ossnode/gpt-oss-120b",
+ targetLabel: "ossnode/gpt-oss-120b", contextWindow: 0, systemPrompt: "",
+ });
+ }
+
+ it("keeps a leftover display alias from renaming its sibling", async () => {
+ const { setModelAlias, getModelAliases } = await import("@/lib/db/repos/aliasRepo.js");
+ await addNamed("model-1");
+ await addNamed("model-2");
+ // an older build stored one alias per studio name, and the first match won
+ await setModelAlias("model-1", "ossnode/gpt-oss-120b");
+ await setModelAlias("model-2", "ossnode/gpt-oss-120b");
+ await ctx.editor.getStudioModels();
+ const aliases = await getModelAliases();
+ expect(aliases["model-1"]).toBeUndefined();
+ expect(aliases["model-2"]).toBeUndefined();
+ const { getStudioModel } = await import("@/lib/db/repos/modelEditorRepo.js");
+ const one = await getStudioModel("model-1");
+ const two = await getStudioModel("model-2");
+ expect(one.callName).toBe("model-1");
+ expect(two.callName).toBe("model-2");
+ expect(one.targetModel).toBe(two.targetModel);
+ });
+
+ it("bills each name under itself, with the shared model beside it", async () => {
+ const { saveRequestUsage, getUsageHistory } = await import("@/lib/db/repos/usageRepo.js");
+ const stamp = Date.now();
+ for (const [offset, name] of ["model-1", "model-2"].entries()) {
+ await saveRequestUsage({
+ provider: ctx.nodeId,
+ model: "gpt-oss-120b",
+ requestedModel: name,
+ tokens: { prompt_tokens: 4 + offset, completion_tokens: 9 },
+ timestamp: new Date(stamp + offset).toISOString(),
+ });
+ }
+ // the adapter is cached on global, so only look at what this call wrote
+ const rows = (await getUsageHistory()).filter((r) => Number(new Date(r.timestamp)) >= stamp);
+ expect(rows.map((r) => r.model).sort()).toEqual(["model-1", "model-2"]);
+ expect(rows.every((r) => r.resolvedModel === "gpt-oss-120b")).toBe(true);
+ });
+});
+
+describe("per-key model visibility", () => {
+ it("reads the allow list the way the request gate does", async () => {
+ const { parseAllowedModels, matchesAllowedModels } = await import("@/lib/db/repos/apiKeysRepo.js");
+ expect(parseAllowedModels("*")).toBeNull();
+ expect(parseAllowedModels("")).toBeNull();
+ expect(parseAllowedModels(" a , B* ")).toEqual(["a", "b*"]);
+ const patterns = parseAllowedModels("claude-fable-5.1, neko/*");
+ expect(matchesAllowedModels(patterns, "claude-fable-5.1")).toBe(true);
+ expect(matchesAllowedModels(patterns, "CLAUDE-FABLE-5.1")).toBe(true);
+ expect(matchesAllowedModels(patterns, "neko/deep-think")).toBe(true);
+ expect(matchesAllowedModels(patterns, "other/deep-think")).toBe(false);
+ expect(matchesAllowedModels(null, "anything")).toBe(true);
+ expect(matchesAllowedModels(patterns, "")).toBe(false);
+ });
+
+ it("hides every model a restricted key would be refused", async () => {
+ await ctx.editor.setStudioModel({
+ callName: "only-me", displayName: "", targetModel: "ossnode/gpt-oss-120b",
+ targetLabel: "ossnode/gpt-oss-120b", contextWindow: 0, systemPrompt: "",
+ });
+ await ctx.editor.setStudioModel({
+ callName: "not-for-you", displayName: "", targetModel: "ossnode/gpt-oss-120b",
+ targetLabel: "ossnode/gpt-oss-120b", contextWindow: 0, systemPrompt: "",
+ });
+ const { createApiKey } = await import("@/lib/db/repos/apiKeysRepo.js");
+ const key = await createApiKey("restricted", "test-machine", { allowedModels: "only-me" });
+ const { buildModelsList } = await import("@/app/api/v1/models/route.js");
+ const request = new Request("http://router.test/v1/models", {
+ headers: { authorization: `Bearer ${key.key}` },
+ });
+ const ids = (await buildModelsList(["llm"], { skipDynamicFetch: true, request })).map((m) => m.id);
+ expect(ids).toEqual(["only-me"]);
+ const openIds = (await buildModelsList(["llm"], { skipDynamicFetch: true })).map((m) => m.id);
+ expect(openIds).toContain("only-me");
+ expect(openIds).toContain("not-for-you");
+ });
+});
