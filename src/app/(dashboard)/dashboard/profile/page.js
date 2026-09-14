@@ -88,11 +88,11 @@ export default function ProfilePage() {
   const [proxyTestLoading, setProxyTestLoading] = useState(false);
 
   useEffect(() => {
- loadAutoBackup();
- // eslint-disable-next-line react-hooks/exhaustive-deps
- }, []);
+  loadAutoBackup();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
- useEffect(() => {
+  useEffect(() => {
     fetch("/api/settings")
       .then((res) => res.json())
       .then((data) => {
@@ -662,8 +662,8 @@ export default function ProfilePage() {
       setSettings(data);
     } catch (err) {
       console.error("Failed to reload settings:", err);
- }
- };
+  }
+  };
 
 
   const loadAutoBackup = async () => {
@@ -719,7 +719,7 @@ export default function ProfilePage() {
   setTgHasTgToken(data.config.hasTgToken);
   setTgHasGhToken(data.config.hasGhToken);
   setTgForm((prev) => ({ ...prev, tgBotToken: "", ghToken: "" }));
-  setTgStatus({ type: "success", message: data.config.enabled ? "Configuration saved — backups run automatically" : "Configuration saved" });
+  setTgStatus({ type: "success", message: data.config.enabled ? "Configuration saved, backups run automatically" : "Configuration saved" });
   await loadAutoBackup();
   } catch {
   setTgStatus({ type: "error", message: "An error occurred while saving the configuration" });
@@ -832,7 +832,7 @@ export default function ProfilePage() {
     setDbAuth({ open: false, mode: "", password: "" });
     if (mode === "export") await handleExportDatabase(password);
     else if (mode === "import") await runImportDatabase(password);
- else if (mode === "tgtest") await runTestBackup(password);
+  else if (mode === "tgtest") await runTestBackup(password);
   };
 
   const observabilityEnabled = settings.enableObservability === true;
@@ -873,48 +873,48 @@ export default function ProfilePage() {
             </div>
             <div className="flex flex-col gap-2">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 w-full sm:w-auto">
-              <p className="font-medium text-sm sm:text-base">Automatic Backup</p>
-              <Button
-               variant="outline"
-               icon="cloud_sync"
-               onClick={() => { setTgModalOpen(true); loadAutoBackup(); }}
-               className="w-full sm:w-auto"
-              >
-               Automatic Backup
-              </Button>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <Button
-                  variant="secondary"
-                  icon="download"
-                  onClick={() => setDbAuth({ open: true, mode: "export", password: "" })}
-                  loading={dbLoading}
-                  className="w-full sm:w-auto"
-                >
-                  Download Backup
-                </Button>
+                <p className="font-medium text-sm sm:text-base">Automatic Backup</p>
                 <Button
                   variant="outline"
-                  icon="upload"
-                  onClick={() => importFileRef.current?.click()}
-                  disabled={dbLoading}
+                  icon="cloud_sync"
+                  onClick={() => { setTgModalOpen(true); loadAutoBackup(); }}
                   className="w-full sm:w-auto"
                 >
-                  Import Backup
+                  Automatic Backup
                 </Button>
-                <input
-                  ref={importFileRef}
-                  type="file"
-                  accept="application/json,.json"
-                  className="hidden"
-                  onChange={handleImportDatabase}
-                />
               </div>
-              {dbStatus.message && (
-                <p className={`text-sm ${dbStatus.type === "error" ? "text-red-500" : "text-green-600 dark:text-green-400"}`}>
-                  {dbStatus.message}
-                </p>
-              )}
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Button
+                    variant="secondary"
+                    icon="download"
+                    onClick={() => setDbAuth({ open: true, mode: "export", password: "" })}
+                    loading={dbLoading}
+                    className="w-full sm:w-auto"
+                  >
+                    Download Backup
+                  </Button>
+                  <Button
+                    variant="outline"
+                    icon="upload"
+                    onClick={() => importFileRef.current?.click()}
+                    disabled={dbLoading}
+                    className="w-full sm:w-auto"
+                  >
+                    Import Backup
+                  </Button>
+                  <input
+                    ref={importFileRef}
+                    type="file"
+                    accept="application/json,.json"
+                    className="hidden"
+                    onChange={handleImportDatabase}
+                  />
+                </div>
+                {dbStatus.message && (
+                  <p className={`text-sm ${dbStatus.type === "error" ? "text-red-500" : "text-green-600 dark:text-green-400"}`}>
+                    {dbStatus.message}
+                  </p>
+                )}
             </div>
             </div>
         </Card>
@@ -1709,8 +1709,8 @@ export default function ProfilePage() {
         loading={isShuttingDown}
       />
 
-       {/* Automatic Backup modal */}
-       <Modal
+      {/* Automatic Backup modal */}
+      <Modal
         isOpen={tgModalOpen}
         onClose={() => setTgModalOpen(false)}
         title="Automatic Backup"
@@ -1725,7 +1725,7 @@ export default function ProfilePage() {
         </Button>
         </>
         }
-       >
+      >
         <div className="flex flex-col gap-4">
         <div className="flex items-start sm:items-center justify-between gap-4">
         <div className="flex-1 min-w-0">
@@ -1752,13 +1752,14 @@ export default function ProfilePage() {
         type="password"
         value={tgForm.tgBotToken}
         onChange={(e) => updateTgForm({ tgBotToken: e.target.value })}
-        placeholder={tgHasTgToken ? "Saved (leave empty to keep)" : "123456789:AA..."}
+        placeholder={tgHasTgToken ? "Saved. Leave empty to keep" : "123456789:AA..."}
         />
         <Input
         label="Owner Chat ID"
         value={tgForm.tgChatId}
-        onChange={(e) => updateTgForm({ tgChatId: e.target.value })}
-        placeholder="e.g. 123456789 or @username"
+      placeholder="Numeric owner chat id, e.g. 123456789"
+      inputMode="numeric"
+      onChange={(e) => updateTgForm({ tgChatId: e.target.value.replace(/\D+/g, "") })}
         />
         </div>
         )}
@@ -1769,7 +1770,7 @@ export default function ProfilePage() {
         type="password"
         value={tgForm.ghToken}
         onChange={(e) => updateTgForm({ ghToken: e.target.value })}
-        placeholder={tgHasGhToken ? "Saved (leave empty to keep)" : "ghp_..."}
+        placeholder={tgHasGhToken ? "Saved. Leave empty to keep" : "ghp_..."}
         hint="Needs repo write access. Backups are committed to 9router-backups/ in the repository below."
         />
         <Input
@@ -1823,7 +1824,7 @@ export default function ProfilePage() {
         </p>
         )}
         </div>
-       </Modal>
+      </Modal>
 
 
       <Modal

@@ -97,7 +97,7 @@ export const QUOTA_AUTOPING_CONFIG = {
 export const AUTO_BACKUP_CONFIG = {
   minIntervalHours: 1, // refuse schedules tighter than hourly
   retryDelayMs: 1800000, // retry after a failed send (30min)
-  maxBytes: 45 * 1024 * 1024, // Telegram bot upload cap is 50MB — stay under it
+  maxBytes: 45 * 1024 * 1024, // Telegram bot upload cap is 50MB. stay under it
 };
 
 // Re-export from providers.js for backward compatibility

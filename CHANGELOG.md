@@ -1,3 +1,9 @@
+# v0.5.88-Custom (2026-09-14)
+
+## Improvements
+- **The Telegram owner id is now strictly numeric**: the Automatic Backup dialog only accepts digits (non-digits are filtered out while typing, the server rejects anything else with a clear message), since bot sends require the numeric owner id and the "@username" style hint was misleading.
+- **UI copy cleaned of decorative dashes**: status, hint and placeholder strings across the Automatic Backup dialog now use plain punctuation, and the few misaligned indent lines the previous feature commits introduced in the profile page were normalized to the file's existing style.
+
 # v0.5.87-Custom (2026-09-14)
 
 ## Custom Features & Enhancements

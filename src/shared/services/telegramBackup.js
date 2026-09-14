@@ -1,5 +1,5 @@
 // Automatic-backup scheduler: exports the full DB (same payload as the manual
-// Download Backup) and delivers it to the configured channel — a Telegram bot
+// Download Backup) and delivers it to the configured channel. a Telegram bot
 // chat or a GitHub repository commit. Schedule state (lastSentAt) persists in
 // the autoBackup KV scope, so restarts never re-send a backup that already
 // went out.
@@ -56,7 +56,7 @@ async function buildBackupBuffer() {
   const payload = await exportDb();
   const buf = Buffer.from(JSON.stringify(payload, null, 2));
   if (buf.length > C.maxBytes) {
-  throw new Error(`Backup too large (${formatMb(buf.length)} MB > ${formatMb(C.maxBytes)} MB) — use Download Backup instead`);
+  throw new Error(`Backup too large (${formatMb(buf.length)} MB > ${formatMb(C.maxBytes)} MB). use Download Backup instead`);
   }
   return buf;
 }
@@ -67,7 +67,7 @@ async function sendViaTelegram({ tgBotToken, tgChatId }, buf, stamp) {
   const form = new FormData();
   form.append("chat_id", tgChatId);
   form.append("document", new Blob([buf], { type: "application/json" }), `9router-backup-${stamp}.json`);
-  form.append("caption", `9Router auto backup v${getAppVersion()} — ${formatMb(buf.length)} MB`);
+  form.append("caption", `9Router auto backup v${getAppVersion()}. ${formatMb(buf.length)} MB`);
 
   // Respects the outbound-proxy env applied by applyOutboundProxyEnv().
   const res = await proxyAwareFetch(`https://api.telegram.org/bot${tgBotToken}/sendDocument`, {
@@ -113,7 +113,7 @@ async function sendViaGitHub({ ghToken, ghRepo }, buf, stamp) {
   try {
   baseSha = (await ghApi(ghToken, `/repos/${repo}/git/ref/heads/${branch}`)).object?.sha || null;
   } catch {
-  baseSha = null; // empty repository — the first commit creates the branch
+  baseSha = null; // empty repository. the first commit creates the branch
   }
 
   const blob = await ghApi(ghToken, `/repos/${repo}/git/blobs`, {
@@ -192,7 +192,7 @@ export async function sendTelegramBackupNow() {
 
 export async function runTelegramBackupTick() {
   if (g.running) {
-  schedule(60000); // a manual send is in flight — re-check in a minute
+  schedule(60000); // a manual send is in flight. re-check in a minute
   return;
   }
   g.running = true;
