@@ -1,0 +1,70 @@
+import { NextResponse } from "next/server";
+import { getAutoBackupConfig, setAutoBackupConfig, getAutoBackupStatus } from "@/lib/db/repos/autoBackupRepo.js";
+import { configureTelegramBackup, sendTelegramBackupNow } from "@/shared/services/telegramBackup";
+import { verifyDashboardPassword } from "@/lib/auth/dashboardSession";
+import { AUTO_BACKUP_CONFIG } from "@/shared/constants/config";
+
+export const dynamic = "force-dynamic";
+
+function publicConfig(config) {
+  // The bot token is write-only for the dashboard: it is never echoed back.
+  return {
+    enabled: config.enabled === true,
+    chatId: config.chatId || "",
+    intervalHours: config.intervalHours,
+    hasToken: Boolean(config.botToken),
+  };
+}
+
+function clampIntervalHours(value) {
+  const n = Math.floor(Number(value));
+  if (!Number.isFinite(n)) return AUTO_BACKUP_CONFIG.minIntervalHours;
+  return Math.max(AUTO_BACKUP_CONFIG.minIntervalHours, n);
+}
+
+export async function GET() {
+  try {
+    const config = await getAutoBackupConfig();
+    const status = await getAutoBackupStatus();
+    return NextResponse.json({ config: publicConfig(config), status });
+  } catch (error) {
+    console.log("Error loading auto-backup config:", error);
+    return NextResponse.json({ error: "Failed to load auto-backup config" }, { status: 500 });
+  }
+}
+
+export async function PATCH(request) {
+  try {
+    const body = await request.json();
+    const patch = {};
+    if (typeof body.enabled === "boolean") patch.enabled = body.enabled;
+    if (typeof body.chatId === "string") patch.chatId = body.chatId.trim();
+    if (body.intervalHours !== undefined) patch.intervalHours = clampIntervalHours(body.intervalHours);
+    // An empty botToken means "keep the stored one" so partial saves never wipe it.
+    if (typeof body.botToken === "string" && body.botToken.trim()) patch.botToken = body.botToken.trim();
+
+    const config = await setAutoBackupConfig(patch);
+    await configureTelegramBackup();
+    return NextResponse.json({ config: publicConfig(config) });
+  } catch (error) {
+    console.log("Error saving auto-backup config:", error);
+    return NextResponse.json({ error: error?.message || "Failed to save auto-backup config" }, { status: 500 });
+  }
+}
+
+export async function POST(request) {
+  try {
+    const { action, password } = await request.json();
+    if (action !== "test") {
+      return NextResponse.json({ error: "Unsupported action" }, { status: 400 });
+    }
+    if (!(await verifyDashboardPassword(password))) {
+      return NextResponse.json({ error: "Invalid password" }, { status: 401 });
+    }
+    const { sizeBytes } = await sendTelegramBackupNow();
+    return NextResponse.json({ ok: true, sizeBytes });
+  } catch (error) {
+    console.log("[Settings][AutoBackup] test send failed:", error);
+    return NextResponse.json({ ok: false, error: error?.message || "Failed to send test backup" }, { status: 200 });
+  }
+}

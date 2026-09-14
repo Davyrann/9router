@@ -110,6 +110,7 @@ export async function exportDb() {
     modelOverrides: {},
     pricing: {},
     disabledModels: {},
+    autoBackup: {},
   };
 
   for (const r of db.all(`SELECT key, value FROM kv WHERE scope = 'modelAliases'`)) out.modelAliases[r.key] = parseJson(r.value);
@@ -118,6 +119,7 @@ export async function exportDb() {
   for (const r of db.all(`SELECT key, value FROM kv WHERE scope = 'pricing'`)) out.pricing[r.key] = parseJson(r.value);
   for (const r of db.all(`SELECT key, value FROM kv WHERE scope = 'modelOverrides'`)) out.modelOverrides[r.key] = parseJson(r.value);
   for (const r of db.all(`SELECT key, value FROM kv WHERE scope = 'disabledModels'`)) out.disabledModels[r.key] = parseJson(r.value, []);
+  for (const r of db.all(`SELECT key, value FROM kv WHERE scope = 'autoBackup'`)) out.autoBackup[r.key] = parseJson(r.value);
 
   return out;
 }
@@ -144,7 +146,7 @@ export async function importDb(payload) {
     db.run(`DELETE FROM combos`);
     db.run(`DELETE FROM usageHistory`);
     db.run(`DELETE FROM usageDaily`);
-    db.run(`DELETE FROM kv WHERE scope IN ('modelAliases', 'customModels', 'mitmAlias', 'pricing', 'modelOverrides', 'disabledModels')`);
+    db.run(`DELETE FROM kv WHERE scope IN ('modelAliases', 'customModels', 'mitmAlias', 'pricing', 'modelOverrides', 'disabledModels', 'autoBackup')`);
     // requestDetails (observability request log) is intentionally NOT part of the
     // export payload — it is a large, auto-pruned log (see db/backup.js). It is
     // wiped here so a restore never leaves stale request rows mixed in with the
@@ -259,6 +261,9 @@ export async function importDb(payload) {
     }
     for (const [k, v] of Object.entries(payload.modelOverrides || {})) {
       db.run(`INSERT OR REPLACE INTO kv(scope, key, value) VALUES('modelOverrides', ?, ?)`, [k, stringifyJson(v)]);
+    }
+    for (const [key, value] of Object.entries(payload.autoBackup || {})) {
+      db.run(`INSERT OR REPLACE INTO kv(scope, key, value) VALUES('autoBackup', ?, ?)`, [key, stringifyJson(value)]);
     }
     // `disabledModels` (repos/disabledModelsRepo.js) uses the same (scope, key) upsert
     // that repo writes with. payload.disabledModels is optional: a backup produced
