@@ -875,7 +875,7 @@ export default function ProfilePage() {
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 w-full sm:w-auto">
                 <p className="font-medium text-sm sm:text-base">Automatic Backup</p>
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   icon="cloud_sync"
                   onClick={() => { setTgModalOpen(true); loadAutoBackup(); }}
                   className="w-full sm:w-auto"
