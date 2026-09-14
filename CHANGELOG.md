@@ -1,3 +1,8 @@
+# v0.5.87-Custom (2026-09-14)
+
+## Custom Features & Enhancements
+- **Automatic Backup moved into its own dialog and learned GitHub**: instead of a full card on the settings page, a single **Automatic Backup** button now sits right above Download Backup — it opens a modal where you pick the channel (Telegram bot or GitHub repository with a write-scoped token, committing to `9router-backups/` plus a `latest.json` pointer on a chosen branch), set the interval, then press **Save Configuration** to store everything and arm the schedule in one click; **Send Test Backup** delivers one backup immediately (password-confirmed) so the whole path can be verified on the spot. Both bot and GitHub tokens are now encrypted at rest with a machine-bound key, so no plaintext credential is ever written to the database or echoed back to the browser.
+
 # v0.5.86-Custom (2026-09-14)
 
 ## Custom Features & Enhancements
