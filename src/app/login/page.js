@@ -82,6 +82,9 @@ export default function LoginPage() {
           setMustChange(true);
           return;
         }
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem("9router:justLoggedIn", "true");
+        }
         window.location.assign("/dashboard");
       } else {
         const data = await res.json();
@@ -108,6 +111,9 @@ export default function LoginPage() {
         body: JSON.stringify({ currentPassword: password, newPassword }),
       });
       if (res.ok) {
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem("9router:justLoggedIn", "true");
+        }
         window.location.assign("/dashboard");
       } else {
         const data = await res.json();

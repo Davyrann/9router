@@ -13,11 +13,12 @@ export default function WelcomeModal() {
 
   useEffect(() => {
     const neverShow = localStorage.getItem("9router:welcomeNeverShow") === "true";
-    const afterLogin = localStorage.getItem("9router:welcomeAfterLogin") === "true";
+    const justLoggedIn = sessionStorage.getItem("9router:justLoggedIn") === "true";
 
-    if (neverShow || afterLogin) {
+    if (neverShow || !justLoggedIn) {
       setIsOpen(false);
     } else {
+      sessionStorage.removeItem("9router:justLoggedIn");
       setIsOpen(true);
     }
 
@@ -33,12 +34,10 @@ export default function WelcomeModal() {
 
   const handleDontShowAgain = () => {
     localStorage.setItem("9router:welcomeNeverShow", "true");
-    localStorage.setItem("9router:welcomeAfterLogin", "true");
     setIsOpen(false);
   };
 
   const handleClose = () => {
-    localStorage.setItem("9router:welcomeAfterLogin", "true");
     setIsOpen(false);
   };
 
