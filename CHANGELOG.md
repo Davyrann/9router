@@ -1,3 +1,11 @@
+# v0.5.91-Custom (2026-09-16)
+
+## Custom Features & Enhancements
+- **A custom (studio) model now hides the model behind it**: the moment a base model gets a studio name, that base model disappears from every place a client or a picker reads — `GET /v1/models` and its per-kind variants answer with the studio name only, the model pickers (API key allowed models, combos, CLI tool mappings, arena) offer the studio name only, and the provider page Models tab lists the studio name only. So with `qwen-3.8` pointed at `neko/qwen3.8-flash`, nothing shows `neko/qwen3.8-flash` anymore. The raw model is still routable and the Model Studio editor still sees it, because that is exactly where you pick the model a new name should call. The rule is shared in one helper (`buildStudioTargetIndex`) keyed by provider id plus model id, case-insensitive, so the same model name under another provider stays visible.
+
+## Fixes
+- **The x on an allowed-model chip now removes that model**: in the API key forms the chips called a handler that branched on which picker modal was last opened, so with a freshly opened form (or before ever pressing Select Models) clicking x did nothing. Removing and adding models now state plainly which field they edit, and the chip lists in both the create-key and edit-key forms work on their own.
+
 # v0.5.90-Custom (2026-09-16)
 
 ## Custom Features & Enhancements

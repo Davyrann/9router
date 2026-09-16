@@ -695,35 +695,29 @@ export default function APIPageClient({ machineId }) {
       .filter(Boolean);
   };
 
-  const handleSelectModelForPicker = (model) => {
-    const modelVal = model.value;
-    if (pickerTarget === "create") {
-      const currentList = parseAllowedModelsList(newKeyAllowedModels);
-      if (!currentList.includes(modelVal)) {
-        const nextList = [...currentList, modelVal];
-        setNewKeyAllowedModels(nextList.join(", "));
-      }
-    } else if (pickerTarget === "edit") {
-      const currentList = parseAllowedModelsList(editAllowedModels);
-      if (!currentList.includes(modelVal)) {
-        const nextList = [...currentList, modelVal];
-        setEditAllowedModels(nextList.join(", "));
-      }
-    }
+  const setAllowedModelsList = (target, list) => {
+    const joined = list.length === 0 ? "*" : list.join(", ");
+    if (target === "create") setNewKeyAllowedModels(joined);
+    else if (target === "edit") setEditAllowedModels(joined);
   };
 
-  const handleDeselectModelForPicker = (model) => {
-    const modelVal = model.value;
-    if (pickerTarget === "create") {
-      const currentList = parseAllowedModelsList(newKeyAllowedModels);
-      const nextList = currentList.filter((m) => m !== modelVal);
-      setNewKeyAllowedModels(nextList.length === 0 ? "*" : nextList.join(", "));
-    } else if (pickerTarget === "edit") {
-      const currentList = parseAllowedModelsList(editAllowedModels);
-      const nextList = currentList.filter((m) => m !== modelVal);
-      setEditAllowedModels(nextList.length === 0 ? "*" : nextList.join(", "));
-    }
+  const currentAllowedModels = (target) =>
+    parseAllowedModelsList(target === "create" ? newKeyAllowedModels : target === "edit" ? editAllowedModels : "");
+
+  const addAllowedModel = (target, modelVal) => {
+    const list = currentAllowedModels(target);
+    if (!modelVal || list.includes(modelVal)) return;
+    setAllowedModelsList(target, [...list, modelVal]);
   };
+
+  const removeAllowedModel = (target, modelVal) => {
+    setAllowedModelsList(target, currentAllowedModels(target).filter((m) => m !== modelVal));
+  };
+
+  // The picker modal serves whichever form opened it, so it routes by pickerTarget.
+  const handleSelectModelForPicker = (model) => addAllowedModel(pickerTarget, model?.value);
+  const handleDeselectModelForPicker = (model) => removeAllowedModel(pickerTarget, model?.value);
+
 
   const handleCreateKey = async () => {
     if (!newKeyName.trim()) return;
@@ -1404,7 +1398,7 @@ export default function APIPageClient({ machineId }) {
                     {m}
                     <button
                       type="button"
-                      onClick={() => handleDeselectModelForPicker({ value: m })}
+                      onClick={() => removeAllowedModel("create", m)}
                       className="hover:text-red-500 transition-colors"
                     >
                       <span className="material-symbols-outlined text-[14px]">close</span>
@@ -1534,7 +1528,7 @@ export default function APIPageClient({ machineId }) {
                     {m}
                     <button
                       type="button"
-                      onClick={() => handleDeselectModelForPicker({ value: m })}
+                      onClick={() => removeAllowedModel("edit", m)}
                       className="hover:text-red-500 transition-colors"
                     >
                       <span className="material-symbols-outlined text-[14px]">close</span>

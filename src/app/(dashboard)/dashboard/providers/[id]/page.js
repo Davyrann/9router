@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { getProviderIconSrc, markProviderIconMissing } from "@/shared/utils/providerIcon";
 import { getCustomLogo } from "@/shared/utils/providerLogo";
+import { buildStudioTargetIndex } from "@/shared/utils/studioModelVisibility";
 import { Card, Button, Badge, Input, Modal, CardSkeleton, OAuthModal, KiroOAuthWrapper, CursorAuthModal, XiaomiMimoAuthModal, IFlowCookieModal, GitLabAuthModal, Toggle, Select, EditConnectionModal, NoAuthProxyCard, ConfirmModal } from "@/shared/components";
 import { OAUTH_PROVIDERS, APIKEY_PROVIDERS, FREE_PROVIDERS, FREE_TIER_PROVIDERS, WEB_COOKIE_PROVIDERS, getProviderAlias, isOpenAICompatibleProvider, isAnthropicCompatibleProvider, AI_PROVIDERS } from "@/shared/constants/providers";
 import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
@@ -58,6 +59,7 @@ export default function ProviderDetailPage() {
   const [selectedConnection, setSelectedConnection] = useState(null);
   const [modelAliases, setModelAliases] = useState({});
   const [customModels, setCustomModels] = useState([]);
+  const [studioModels, setStudioModels] = useState([]);
   const [headerImgError, setHeaderImgError] = useState(false);
   const [modelTestResults, setModelTestResults] = useState({});
   const [modelsTestError, setModelsTestError] = useState("");
@@ -182,6 +184,8 @@ export default function ProviderDetailPage() {
     return levels && levels.includes(thinkingMode) ? thinkingMode : null;
   };
   const providerStorageAlias = isCompatible ? providerId : providerAlias;
+  // Studio names replace the model they point at: those models leave the list below.
+  const studioTargetIndex = buildStudioTargetIndex(studioModels);
   // Union of levels across this provider's reasoning models — drives the level picker options.
   // Include custom models too (e.g. manually added gpt-5.6-sol → max).
   const providerThinkingLevels = (() => {
@@ -290,6 +294,16 @@ export default function ProviderDetailPage() {
       }
     } catch (error) {
       console.log("Error fetching custom models:", error);
+    }
+  }, []);
+
+  const fetchStudioModels = useCallback(async () => {
+    try {
+      const res = await fetch("/api/model-editor", { cache: "no-store" });
+      const data = await res.json();
+      if (res.ok) setStudioModels(data.models || []);
+    } catch (error) {
+      console.log("Error fetching model studio models:", error);
     }
   }, []);
 
@@ -467,6 +481,7 @@ export default function ProviderDetailPage() {
     fetchConnections();
     fetchAliases();
     fetchCustomModels();
+    fetchStudioModels();
     fetchDisabledModels();
   }, [fetchConnections, fetchAliases, fetchCustomModels, fetchDisabledModels]);
 
@@ -1153,7 +1168,7 @@ export default function ProviderDetailPage() {
     const allModels = [
       ...models,
       ...kiloFreeModels.filter((fm) => !models.some((m) => m.id === fm.id)),
-    ].filter((m) => { const k = getModelKind(m); return !k || k === "llm"; });
+    ].filter((m) => { const k = getModelKind(m); return !k || k === "llm"; }).filter((m) => !studioTargetIndex.isStudioTarget([providerId, providerStorageAlias, providerDisplayAlias], m.id));
     const disabledSet = new Set(disabledModelIds);
     const displayModels = allModels.filter((m) => !disabledSet.has(m.id));
     const disabledDisplayModels = allModels.filter((m) => disabledSet.has(m.id));
@@ -1163,7 +1178,7 @@ export default function ProviderDetailPage() {
       providerAlias: providerStorageAlias,
       builtInModels: models,
       type: "llm",
-    });
+    }).filter((row) => !studioTargetIndex.isStudioTarget(providerStorageAlias, row.id));
 
     return (
       <div className="flex flex-wrap gap-3">

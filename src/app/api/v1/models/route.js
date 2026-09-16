@@ -8,6 +8,7 @@ import {
 import { getProviderConnections, getCombos, getCustomModels, getModelAliases, getStudioModels } from "@/lib/localDb";
 import { getAllowedModelsOfKey, matchesAllowedModels } from "@/lib/db/repos/apiKeysRepo.js";
 import { getDisabledModels } from "@/lib/disabledModelsDb";
+import { buildStudioTargetIndex } from "@/shared/utils/studioModelVisibility";
 import { resolveKiroModels } from "open-sse/services/kiroModels.js";
 import { resolveKimchiModels } from "open-sse/services/kimchiModels.js";
 import { resolveQoderModels, routableQoderModels } from "open-sse/services/qoderModels.js";
@@ -314,6 +315,9 @@ export async function buildModelsList(kindFilter, options = {}) {
   }
   const isDisabled = (alias, modelId) => Array.isArray(disabledByAlias[alias]) && disabledByAlias[alias].includes(modelId);
 
+  // A studio name hides the model it points at, everywhere it would be listed.
+  const studioTargets = buildStudioTargetIndex(studioModels);
+
   const activeConnectionByProvider = new Map();
   for (const conn of connections) {
     if (!activeConnectionByProvider.has(conn.provider)) {
@@ -365,6 +369,7 @@ export async function buildModelsList(kindFilter, options = {}) {
       for (const model of providerModels) {
         if (!kindFilter.includes(modelKind(model))) continue;
         if (isDisabled(alias, model.id)) continue;
+        if (studioTargets.isStudioTarget([providerId, alias], model.id)) continue;
         models.push({
           id: `${alias}/${model.id}`,
           object: "model",
@@ -382,6 +387,7 @@ export async function buildModelsList(kindFilter, options = {}) {
 
       const modelId = String(customModel.id).trim();
       if (!modelId) continue;
+      if (studioTargets.isStudioTarget(providerAlias, modelId)) continue;
 
       models.push({
         id: `${providerAlias}/${modelId}`,
@@ -521,6 +527,8 @@ export async function buildModelsList(kindFilter, options = {}) {
         const allowAsLlm = kind === "imageToText" && kindFilter.includes(LLM_KIND);
         if (!kindFilter.includes(kind) && !allowAsLlm) continue;
         if (isDisabled(outputAlias, modelId) || isDisabled(staticAlias, modelId)) continue;
+        // Hidden behind a studio name: only the studio name is published.
+        if (studioTargets.isStudioTarget([providerId, staticAlias, outputAlias], modelId)) continue;
 
         const model = {
           id: `${outputAlias}/${modelId}`,

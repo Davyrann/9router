@@ -8,6 +8,7 @@ import CapacityBadges from "./CapacityBadges";
 import { useModelCaps } from "@/shared/hooks/useModelCaps";
 import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
 import { OAUTH_PROVIDERS, APIKEY_PROVIDERS, FREE_PROVIDERS, FREE_TIER_PROVIDERS, AI_PROVIDERS, isOpenAICompatibleProvider, isAnthropicCompatibleProvider, getProviderAlias } from "@/shared/constants/providers";
+import { buildStudioTargetIndex } from "@/shared/utils/studioModelVisibility";
 
 // Provider order: OAuth first, then Free Tier, then API Key (matches dashboard/providers)
 const PROVIDER_ORDER = [
@@ -81,6 +82,7 @@ export default function ModelSelectModal({
   capFilter = null,
   addedModelValues = [],
   closeOnSelect = true,
+  showStudioTargets = false,
 }) {
   // Filter activeProviders by serviceKinds when kindFilter set (e.g. "webSearch", "webFetch")
   const filteredActiveProviders = useMemo(() => {
@@ -436,8 +438,18 @@ export default function ModelSelectModal({
       if (group.models.length === 0) delete groups[providerId];
     });
 
+
+    // Models a studio name stands in for stay out of the picker: the studio name
+    // is the one clients should use. The model editor opts out with showStudioTargets.
+    if (!showStudioTargets) {
+      const studioTargets = buildStudioTargetIndex(studioModels);
+      Object.entries(groups).forEach(([providerId, group]) => {
+        group.models = group.models.filter((m) => !studioTargets.isStudioTarget([providerId, group.alias], m.id));
+        if (group.models.length === 0) delete groups[providerId];
+      });
+    }
     return groups;
-  }, [filteredActiveProviders, modelAliases, allProviders, providerNodes, customModels, disabledModels, kindFilter, activeProviders, cursorModels, clineModels, clinepassModels]);
+  }, [filteredActiveProviders, modelAliases, allProviders, providerNodes, customModels, disabledModels, kindFilter, activeProviders, cursorModels, clineModels, clinepassModels, studioModels, showStudioTargets]);
 
   // Filter combos by search query (and hide combos when kindFilter is set — combos are LLM-only by design)
   const filteredCombos = useMemo(() => {
@@ -721,4 +733,5 @@ ModelSelectModal.propTypes = {
   kindFilter: PropTypes.string,
   addedModelValues: PropTypes.arrayOf(PropTypes.string),
   closeOnSelect: PropTypes.bool,
+  showStudioTargets: PropTypes.bool,
 };

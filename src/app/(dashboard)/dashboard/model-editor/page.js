@@ -408,6 +408,7 @@ function StudioFormModal({
           modelAliases={modelAliases}
           selectedModel={targetModel}
           title="Pick Model"
+          showStudioTargets
         />
       )}
     </>
