@@ -1,3 +1,14 @@
+# v0.5.92-Custom (2026-09-16)
+
+## Fixes
+- **Fix LAN/Docker default login password**: trusted-peer auth now falls back correctly for local and container deployments.
+- **Fix usage errors page always showing 0**: error tracking counts are now persisted and read back properly.
+
+## Custom Features & Enhancements
+- **Add backend GitHub update detection with commits behind**: the version API now compares the local checkout against the upstream branch and reports how many commits behind, the latest commit message, and a tailored install command.
+- **Add Welcome Modal with star request and update info**: a post-login modal invites users to star the GitHub repo and, when an update is available, shows the commit count, message, and a copyable install command. Dismissible per-session or permanently.
+- **Hide Skills menu from Sidebar**: the Skills navigation item is removed from the System section.
+
 # v0.5.91-Custom (2026-09-16)
 
 ## Custom Features & Enhancements

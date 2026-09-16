@@ -14,7 +14,7 @@ import { handleBypassRequest } from "../utils/bypassHandler.js";
 import { trackPendingRequest, appendRequestLog, saveRequestDetail } from "@/lib/usageDb.js";
 import { getExecutor } from "../executors/index.js";
 import { supportsGrokCliReasoningEffort } from "../config/grokCli.js";
-import { buildRequestDetail, extractRequestConfig } from "./chatCore/requestDetail.js";
+import { buildRequestDetail, extractRequestConfig, saveFailedUsage } from "./chatCore/requestDetail.js";
 import { handleForcedSSEToJson } from "./chatCore/sseToJsonHandler.js";
 import { handleNonStreamingResponse } from "./chatCore/nonStreamingHandler.js";
 import {
@@ -424,6 +424,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
       pxpipe: pxpipeSummary,
       status: "error"
     })).catch(() => { });
+    saveFailedUsage({ provider, model, requestedModel, connectionId, apiKey, endpoint: clientRawRequest?.endpoint, statusCode: error.name === "AbortError" ? 499 : 502 });
 
     if (error.name === "AbortError") {
       streamController.handleError(error);
@@ -498,6 +499,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
       pxpipe: pxpipeSummary,
       status: "error"
     })).catch(() => { });
+    saveFailedUsage({ provider, model, requestedModel, connectionId, apiKey, endpoint: clientRawRequest?.endpoint, statusCode });
 
     const errMsg = formatProviderError(new Error(message), provider, model, statusCode);
     if (log?.errorLine) {

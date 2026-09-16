@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useNotificationStore } from "@/store/notificationStore";
 import Sidebar from "../Sidebar";
 import Header from "../Header";
+import WelcomeModal from "../WelcomeModal";
 
 function getToastStyle(type) {
   if (type === "success") {
@@ -68,6 +69,8 @@ export default function DashboardLayout({ children }) {
           );
         })}
       </div>
+      <WelcomeModal />
+
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div

@@ -41,7 +41,6 @@ const debugItems = [
 
 const systemItems = [
   { href: "/dashboard/proxy-pools", label: "Proxy Pools", icon: "lan" },
-  { href: "/dashboard/skills", label: "Skills", icon: "extension" },
 ];
 
 function NavLink({ href, icon, label, active, onClick, sub = false }) {
@@ -85,7 +84,7 @@ export default function Sidebar({ onClose }) {
   const [enableTranslator, setEnableTranslator] = useState(false);
   const { copied, copy } = useCopyToClipboard(2000);
 
-  const INSTALL_CMD = UPDATER_CONFIG.installCmdLatest;
+  const INSTALL_CMD = updateInfo?.installCmd || UPDATER_CONFIG.installCmdLatest;
 
   useEffect(() => {
     fetch("/api/settings")
@@ -167,7 +166,7 @@ export default function Sidebar({ onClose }) {
           {updateInfo && (
             <div className="flex flex-col gap-1.5 rounded p-1 -m-1">
               <span className="text-xs font-semibold text-green-600 dark:text-amber-500">
-                ↑ New version available: v{updateInfo.latestVersion}
+                ↑ {updateInfo.behindBy ? `Update available: ${updateInfo.behindBy} commit${updateInfo.behindBy > 1 ? 's' : ''} behind` : `New version: ${updateInfo.latestVersion}`}
               </span>
               <div className="flex items-center gap-2">
                 <button
