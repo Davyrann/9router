@@ -151,6 +151,10 @@ function AddCompatibleModal({ variant, isOpen, onClose, onCreated }) {
   return (
     <Modal isOpen={isOpen} title={config.title} onClose={onClose}>
       <div className="flex flex-col gap-4">
+        <ProviderLogoField
+          logo={formData.logo}
+          onChange={(next) => setFormData({ ...formData, logo: next })}
+        />
         <Input
           label="Name"
           value={formData.name}
@@ -179,10 +183,6 @@ function AddCompatibleModal({ variant, isOpen, onClose, onCreated }) {
           onChange={(e) => setFormData({ ...formData, baseUrl: e.target.value })}
           placeholder={config.defaultBaseUrl}
           hint={config.baseUrlHint}
-        />
-        <ProviderLogoField
-          logo={formData.logo}
-          onChange={(next) => setFormData({ ...formData, logo: next })}
         />
         <Input
           label="API Key (for Check)"

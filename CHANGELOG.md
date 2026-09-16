@@ -1,3 +1,10 @@
+# v0.5.93-Custom (2026-09-16)
+
+## Custom Features & Enhancements
+- **Top-positioned logo in provider creation/edit dialogs**: the custom provider Logo upload field is moved to the very top before the Name field across custom compatible and embedding forms.
+- **Edit custom provider logo**: the edit modal for compatible nodes now includes the logo picker and saves logo updates directly.
+- **Provider logo display on Usage**: custom compatible nodes without custom logos now cleanly fallback to their parent provider image (e.g. OpenAI / Anthropic icons) instead of displaying abbreviation text badges like "OP".
+
 # v0.5.92-Custom (2026-09-16)
 
 ## Fixes

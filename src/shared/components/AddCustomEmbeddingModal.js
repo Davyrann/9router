@@ -114,6 +114,10 @@ export default function AddCustomEmbeddingModal({ isOpen, onClose, onCreated, on
   return (
     <Modal isOpen={isOpen} title={isEdit ? "Edit Custom Embedding" : "Add Custom Embedding"} onClose={onClose}>
       <div className="flex flex-col gap-4">
+        <ProviderLogoField
+          logo={formData.logo}
+          onChange={(next) => setFormData({ ...formData, logo: next })}
+        />
         <Input
           label="Name"
           value={formData.name}
@@ -134,10 +138,6 @@ export default function AddCustomEmbeddingModal({ isOpen, onClose, onCreated, on
           onChange={(e) => setFormData({ ...formData, baseUrl: e.target.value })}
           placeholder="https://api.voyageai.com/v1"
           hint="Most embedding APIs are OpenAI-compatible: Voyage, Cohere, Jina, Mistral, Together..."
-        />
-        <ProviderLogoField
-          logo={formData.logo}
-          onChange={(next) => setFormData({ ...formData, logo: next })}
         />
         <Input
           label="API Key (for Check)"

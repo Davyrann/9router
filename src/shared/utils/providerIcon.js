@@ -8,6 +8,12 @@ const ICON_ALIASES = {
   "ollama-search": "ollama",
 };
 
+const TYPE_PREFIX_ALIASES = {
+  "openai-compatible-": "openai",
+  "anthropic-compatible-": "anthropic",
+  "custom-embedding-": "selfhosted-embedding",
+};
+
 // Runtime only — first 404 remembers id for the whole session
 const failedIds = new Set();
 
@@ -21,7 +27,13 @@ export function resolveProviderIconId(providerId) {
   const id = normalizeId(providerId);
   if (!id) return "";
   if (failedIds.has(id)) return "";
-  const aliased = ICON_ALIASES[id] || id;
+  let aliased = ICON_ALIASES[id] || id;
+  for (const [prefix, target] of Object.entries(TYPE_PREFIX_ALIASES)) {
+    if (aliased.startsWith(prefix)) {
+      aliased = target;
+      break;
+    }
+  }
   if (failedIds.has(aliased)) return "";
   return aliased;
 }
