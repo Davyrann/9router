@@ -63,6 +63,7 @@ export async function createProviderNode(data) {
     apiType: data.apiType,
     baseUrl: data.baseUrl,
     brand: data.brand,
+    logo: data.logo, // optional custom logo (data URL)
     createdAt: now,
     updatedAt: now,
   };

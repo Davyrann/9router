@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import { Badge, Button, Input, Modal, Select } from "@/shared/components";
+import ProviderLogoField from "@/shared/components/ProviderLogoField";
 
 const VARIANT_CONFIG = {
   openai: {
@@ -52,6 +53,7 @@ function AddCompatibleModal({ variant, isOpen, onClose, onCreated }) {
     prefix: "",
     ...(config.hasApiType ? { apiType: "chat" } : {}),
     baseUrl: config.defaultBaseUrl,
+    logo: "",
   });
 
   const [formData, setFormData] = useState(initialFormData);
@@ -86,6 +88,7 @@ function AddCompatibleModal({ variant, isOpen, onClose, onCreated }) {
           baseUrl: formData.baseUrl,
           type: config.type,
           brand: variant || undefined,
+          logo: formData.logo,
         }),
       });
       const data = await res.json();
@@ -176,6 +179,10 @@ function AddCompatibleModal({ variant, isOpen, onClose, onCreated }) {
           onChange={(e) => setFormData({ ...formData, baseUrl: e.target.value })}
           placeholder={config.defaultBaseUrl}
           hint={config.baseUrlHint}
+        />
+        <ProviderLogoField
+          logo={formData.logo}
+          onChange={(next) => setFormData({ ...formData, logo: next })}
         />
         <Input
           label="API Key (for Check)"

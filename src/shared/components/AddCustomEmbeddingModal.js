@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import { Modal, Input, Button, Badge } from "@/shared/components";
+import ProviderLogoField from "@/shared/components/ProviderLogoField";
 
 const DEFAULT_BASE_URL = "https://api.openai.com/v1";
 
@@ -13,6 +14,7 @@ export default function AddCustomEmbeddingModal({ isOpen, onClose, onCreated, on
     name: "",
     prefix: "",
     baseUrl: DEFAULT_BASE_URL,
+    logo: "",
   });
   const [submitting, setSubmitting] = useState(false);
   const [checkKey, setCheckKey] = useState("");
@@ -30,9 +32,10 @@ export default function AddCustomEmbeddingModal({ isOpen, onClose, onCreated, on
         name: node.name || "",
         prefix: node.prefix || "",
         baseUrl: node.baseUrl || DEFAULT_BASE_URL,
+        logo: node.logo || "",
       });
     } else {
-      setFormData({ name: "", prefix: "", baseUrl: DEFAULT_BASE_URL });
+      setFormData({ name: "", prefix: "", baseUrl: DEFAULT_BASE_URL, logo: "" });
     }
   }, [isOpen, isEdit, node]);
 
@@ -46,6 +49,7 @@ export default function AddCustomEmbeddingModal({ isOpen, onClose, onCreated, on
         name: formData.name,
         prefix: formData.prefix,
         baseUrl: formData.baseUrl,
+        logo: formData.logo,
       };
       if (!isEdit) payload.type = "custom-embedding";
 
@@ -130,6 +134,10 @@ export default function AddCustomEmbeddingModal({ isOpen, onClose, onCreated, on
           onChange={(e) => setFormData({ ...formData, baseUrl: e.target.value })}
           placeholder="https://api.voyageai.com/v1"
           hint="Most embedding APIs are OpenAI-compatible: Voyage, Cohere, Jina, Mistral, Together..."
+        />
+        <ProviderLogoField
+          logo={formData.logo}
+          onChange={(next) => setFormData({ ...formData, logo: next })}
         />
         <Input
           label="API Key (for Check)"

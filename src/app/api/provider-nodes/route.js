@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createProviderNode, getProviderNodes, updateProviderNode, getProviderNodeById, getProviderConnections, updateProviderConnection } from "@/models";
 import { OPENAI_COMPATIBLE_PREFIX, ANTHROPIC_COMPATIBLE_PREFIX, CUSTOM_EMBEDDING_PREFIX } from "@/shared/constants/providers";
 import { generateId } from "@/shared/utils";
+import { normalizeLogo } from "@/shared/utils/providerLogo";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +33,7 @@ export async function GET() {
 export async function POST(request) {
  try {
  const body = await request.json();
- const { name, prefix, apiType, baseUrl, type, brand } = body;
+ const { name, prefix, apiType, baseUrl, type, brand, logo } = body;
 
  if (!name?.trim()) {
  return NextResponse.json({ error: "Name is required" }, { status: 400 });
@@ -40,6 +41,11 @@ export async function POST(request) {
 
  if (!prefix?.trim()) {
  return NextResponse.json({ error: "Prefix is required" }, { status: 400 });
+ }
+
+ const normalizedLogo = normalizeLogo(logo);
+ if (normalizedLogo === undefined) {
+   return NextResponse.json({ error: "Logo must be a small PNG, JPEG, WebP or GIF data URL" }, { status: 400 });
  }
 
  // Determine type
@@ -58,6 +64,7 @@ export async function POST(request) {
  baseUrl: (baseUrl || OPENAI_COMPATIBLE_DEFAULTS.baseUrl).trim(),
  name: name.trim(),
  brand,
+ logo: normalizedLogo,
  });
  return NextResponse.json({ node }, { status: 201 });
  }
@@ -76,6 +83,7 @@ export async function POST(request) {
  baseUrl: sanitizedBaseUrl,
  name: name.trim(),
  brand,
+ logo: normalizedLogo,
  });
  return NextResponse.json({ node }, { status: 201 });
  }
@@ -95,6 +103,7 @@ export async function POST(request) {
  baseUrl: sanitizedBaseUrl,
  name: name.trim(),
  brand,
+ logo: normalizedLogo,
  });
  return NextResponse.json({ node }, { status: 201 });
  }
@@ -125,6 +134,14 @@ export async function PATCH(request) {
  // Sanitize baseUrl
  if (updateData.baseUrl !== undefined) {
  updateData.baseUrl = updateData.baseUrl.trim().replace(/\/+$/, "");
+ }
+ // Custom logo: "" clears it, an unusable value is refused
+ if (updateData.logo !== undefined) {
+   const logoValue = normalizeLogo(updateData.logo);
+   if (logoValue === undefined) {
+     return NextResponse.json({ error: "Logo must be a small PNG, JPEG, WebP or GIF data URL" }, { status: 400 });
+   }
+   updateData.logo = logoValue;
  }
  const updated = await updateProviderNode(id, updateData);
  // Also update prefix on all connections that reference this node

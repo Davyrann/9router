@@ -11,6 +11,7 @@ import {
 } from "@/shared/components";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { getProviderIconSrc } from "@/shared/utils/providerIcon";
+import { getCustomLogo } from "@/shared/utils/providerLogo";
 import { OAUTH_PROVIDERS, APIKEY_PROVIDERS } from "@/shared/constants/config";
 import {
   FREE_PROVIDERS,
@@ -274,6 +275,7 @@ export default function ProvidersPage() {
       color: (node.brand === "moonshot" || /moonshot|kimi/i.test(node.name || "")) ? "#6366F1" : "#10A37F",
       textIcon: "OC",
       apiType: node.apiType,
+      logo: node.logo,
     }))
     .filter(
       (p) => matchSearch(p.name) && matchStatus(getProviderStats(p.id, "apikey")),
@@ -286,6 +288,7 @@ export default function ProvidersPage() {
       name: node.name || "Anthropic Compatible",
       color: "#D97757",
       textIcon: "AC",
+      logo: node.logo,
     }))
     .filter(
       (p) => matchSearch(p.name) && matchStatus(getProviderStats(p.id, "apikey")),
@@ -851,6 +854,8 @@ function ApiKeyProviderCard({
   };
 
   const getIconPath = () => {
+    const customLogo = getCustomLogo(provider);
+    if (customLogo) return customLogo;
     if (isCompatible && (provider.brand === "moonshot" || /moonshot|kimi/i.test(provider.name || "")))
       return "/providers/moonshot-ai.png";
     if (isCompatible && provider.apiType)

@@ -1,3 +1,9 @@
+# v0.5.90-Custom (2026-09-16)
+
+## Custom Features & Enhancements
+- **Custom providers can carry their own logo**: the Add and Edit dialogs of every custom node type (OpenAI compatible, Anthropic compatible, MoonshotAI compatible, custom embedding) gained an optional **Logo** field. Pick any PNG, JPEG, WebP or GIF up to 2 MB and the browser crops it to a square, scales it down and stores a few kilobytes on the node; leave it empty (or press Remove) and the familiar default brand icon stays exactly where it was. The chosen logo shows on the provider card, the provider detail header, the media provider list and header, and on Usage in the provider map beside the traffic animation. Because it lives inside the node record, it also travels with Download/Import Backup and the automatic Telegram or GitHub backup.
+- **Logo values are checked on the way in**: the API accepts a logo only as a compact image data URL (no SVG, no remote URL, no oversized payload) and answers with a plain message otherwise, while the picker refuses unreadable files before anything is saved. An update that omits the field leaves the stored logo alone; sending an empty one clears it.
+
 # v0.5.89-Custom (2026-09-16)
 
 ## Fixes

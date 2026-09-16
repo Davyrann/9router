@@ -232,8 +232,10 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
       .then(([d, nodesData]) => {
         // Build node name lookup for custom providers
         const nodeNameMap = {};
+        const nodeLogoMap = {};
         for (const node of (nodesData?.nodes || [])) {
           nodeNameMap[node.id] = node.name;
+          nodeLogoMap[node.id] = node.logo;
         }
         const seen = new Set();
         const unique = (d?.connections || []).filter((c) => {
@@ -245,6 +247,7 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
         }).map((c) => ({
           ...c,
           nodeName: nodeNameMap[c.provider] || null,
+          nodeLogo: nodeLogoMap[c.provider] || null,
         }));
         const noAuthProviders = Object.values(FREE_PROVIDERS)
           .filter((p) => p.noAuth && !seen.has(p.id) && isLLMProvider(p.id))
