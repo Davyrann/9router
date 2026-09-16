@@ -14,9 +14,9 @@ const ENCRYPT_SALT = "9router-backup-token-salt";
 
 function deriveKey() {
   try {
-  return crypto.createHash("sha256").update(machineIdSync() + ENCRYPT_SALT).digest();
+    return crypto.createHash("sha256").update(machineIdSync() + ENCRYPT_SALT).digest();
   } catch {
-  return crypto.createHash("sha256").update(ENCRYPT_SALT).digest();
+    return crypto.createHash("sha256").update(ENCRYPT_SALT).digest();
   }
 }
 
@@ -35,12 +35,12 @@ export function decryptSecret(stored) {
   const [ivHex, tagHex, dataHex] = stored.split(":");
   if (!ivHex || !tagHex || !dataHex) return stored; // pre-encryption plaintext value
   try {
-  const key = deriveKey();
-  const decipher = crypto.createDecipheriv(ENCRYPT_ALGO, key, Buffer.from(ivHex, "hex"));
-  decipher.setAuthTag(Buffer.from(tagHex, "hex"));
-  return decipher.update(Buffer.from(dataHex, "hex")) + decipher.final("utf8");
+    const key = deriveKey();
+    const decipher = crypto.createDecipheriv(ENCRYPT_ALGO, key, Buffer.from(ivHex, "hex"));
+    decipher.setAuthTag(Buffer.from(tagHex, "hex"));
+    return decipher.update(Buffer.from(dataHex, "hex")) + decipher.final("utf8");
   } catch {
-  return ""; // wrong machine / tampered value
+    return ""; // wrong machine / tampered value
   }
 }
 
@@ -57,9 +57,9 @@ const DEFAULT_CONFIG = {
 export async function getAutoBackupConfig() {
   const stored = { ...DEFAULT_CONFIG, ...(await kv.get("config", {})) };
   return {
-  ...stored,
-  tgBotToken: decryptSecret(stored.tgBotToken),
-  ghToken: decryptSecret(stored.ghToken),
+    ...stored,
+    tgBotToken: decryptSecret(stored.tgBotToken),
+    ghToken: decryptSecret(stored.ghToken),
   };
 }
 
@@ -69,11 +69,11 @@ export async function setAutoBackupConfig(patch) {
   const current = { ...(await kv.get("config", {})) };
   const next = { ...current };
   for (const [key, value] of Object.entries(patch)) {
-  if (key === "tgBotToken" || key === "ghToken") {
-  if (typeof value === "string" && value) next[key] = encryptSecret(value.trim());
-  continue;
-  }
-  next[key] = value;
+    if (key === "tgBotToken" || key === "ghToken") {
+      if (typeof value === "string" && value) next[key] = encryptSecret(value.trim());
+      continue;
+    }
+    next[key] = value;
   }
   await kv.set("config", next);
   return getAutoBackupConfig();

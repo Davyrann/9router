@@ -18,6 +18,53 @@ function getLocaleFromCookie() {
   return normalizeLocale(value);
 }
 
+function formatCountdown(ms) {
+  const total = Math.floor(Math.max(0, Number.isFinite(ms) ? ms : 0) / 1000);
+  const days = Math.floor(total / 86400);
+  const hours = Math.floor((total % 86400) / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = total % 60;
+  const pad = (n) => String(n).padStart(2, "0");
+  const clock = `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+  return days > 0 ? `${days}d ${clock}` : clock;
+}
+
+// Live countdown to the next automatic backup. The ticking state stays inside
+// this component so a passing second never re-renders the whole page, and the
+// parent is asked for a fresh schedule once the shown deadline passes.
+function BackupCountdown({ target, onExpire, showDate = false }) {
+  const [remaining, setRemaining] = useState(() => (target ? target - Date.now() : 0));
+  const onExpireRef = useRef(onExpire);
+  const firedRef = useRef(false);
+
+  useEffect(() => {
+    onExpireRef.current = onExpire;
+  }, [onExpire]);
+
+  useEffect(() => {
+    if (!target) return undefined;
+    firedRef.current = false;
+    setRemaining(target - Date.now());
+    const id = setInterval(() => {
+      const left = target - Date.now();
+      setRemaining(left);
+      if (left <= 0 && !firedRef.current) {
+        firedRef.current = true;
+        onExpireRef.current?.();
+      }
+    }, 1000);
+    return () => clearInterval(id);
+  }, [target]);
+
+  if (!target) return null;
+  return (
+    <p className="text-xs text-text-muted">
+      {`Next backup in ${formatCountdown(remaining)}`}
+      {showDate && ` \u2022 at ${new Date(target).toLocaleString()}`}
+    </p>
+  );
+}
+
 export default function ProfilePage() {
   const [locale, setLocale] = useState(() => getLocaleFromCookie());
   const [langOpen, setLangOpen] = useState(false);
@@ -39,6 +86,7 @@ export default function ProfilePage() {
   const [tgLoading, setTgLoading] = useState(false);
   const [tgStatus, setTgStatus] = useState({ type: "", message: "" });
   const [tgLastBackup, setTgLastBackup] = useState(null);
+  const [tgNextRunAt, setTgNextRunAt] = useState(null);
   const tgSavedRef = useRef({ enabled: false, channel: "telegram", intervalHours: 24 });
   const [oidcForm, setOidcForm] = useState({
     authMode: "password",
@@ -670,11 +718,12 @@ export default function ProfilePage() {
   try {
   const res = await fetch("/api/settings/auto-backup");
   if (!res.ok) return;
-  const { config, status } = await res.json();
+  const { config, status, nextRunAt } = await res.json();
   tgSavedRef.current = config;
   setTgHasTgToken(config.hasTgToken);
   setTgHasGhToken(config.hasGhToken);
   setTgLastBackup(status || null);
+  setTgNextRunAt(nextRunAt ?? null);
   const interval = [24, 168, 720].includes(config.intervalHours) ? String(config.intervalHours) : "custom";
   setTgForm((prev) => ({
   ...prev,
@@ -684,8 +733,6 @@ export default function ProfilePage() {
   customHours: interval === "custom" ? String(config.intervalHours) : "",
   tgChatId: config.tgChatId || "",
   ghRepo: config.ghRepo || "",
-  tgBotToken: "",
-  ghToken: "",
   }));
   } catch (err) {
   console.error("Failed to load auto-backup config:", err);
@@ -873,7 +920,10 @@ export default function ProfilePage() {
             </div>
             <div className="flex flex-col gap-2">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 w-full sm:w-auto">
-                <p className="font-medium text-sm sm:text-base">Automatic Backup</p>
+                <div className="flex flex-col gap-0.5">
+                  <p className="font-medium text-sm sm:text-base">Automatic Backup</p>
+                  <BackupCountdown target={tgForm.enabled ? tgNextRunAt : null} onExpire={loadAutoBackup} />
+                </div>
                 <Button
                   variant="secondary"
                   icon="cloud_sync"
@@ -1812,11 +1862,16 @@ export default function ProfilePage() {
         >
         Send Test Backup
         </Button>
-        {tgLastBackup && (
-        <p className="text-xs text-text-muted">
-        {`Last backup: ${new Date(tgLastBackup.lastSentAt || Date.now()).toLocaleString()} \u2022 ${tgLastBackup.lastStatus === "ok" ? "sent via " + tgLastBackup.lastChannel : "failed"}`}
-        </p>
-        )}
+        <div className="flex flex-col gap-1">
+          {tgForm.enabled && (
+            <BackupCountdown target={tgNextRunAt} onExpire={loadAutoBackup} showDate />
+          )}
+          {tgLastBackup && (
+          <p className="text-xs text-text-muted">
+          {`Last backup: ${new Date(tgLastBackup.lastSentAt || Date.now()).toLocaleString()} \u2022 ${tgLastBackup.lastStatus === "ok" ? "sent via " + tgLastBackup.lastChannel : "failed"}`}
+          </p>
+          )}
+        </div>
         </div>
         {tgStatus.message && (
         <p className={`text-sm ${tgStatus.type === "error" ? "text-red-500" : "text-green-600 dark:text-green-400"}`}>
@@ -1844,7 +1899,7 @@ export default function ProfilePage() {
         }
       >
         <p className="text-text-muted mb-3 text-sm">
-          Enter your current password to {dbAuth.mode === "export" ? "export" : dbAuth.mode === "import" ? "import" : "send the database backup to Telegram"}.
+          Enter your current password to {dbAuth.mode === "export" ? "export" : dbAuth.mode === "import" ? "import" : "send the database backup now"}.
         </p>
         <Input
           type="password"

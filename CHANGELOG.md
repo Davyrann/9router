@@ -1,3 +1,14 @@
+# v0.5.89-Custom (2026-09-16)
+
+## Fixes
+- **Automatic backups now really go out**: the scheduler tick used to hold the same in-flight lock that the send function checks, so every scheduled run rejected itself with "A backup is already being sent" and only retried 30 minutes later, forever. The tick now just decides when a run is due and hands the send over; a regression case drives a due tick against a stubbed Telegram API and asserts one upload actually leaves the process (it fails on the old code, passes on the new one).
+
+## Custom Features & Enhancements
+- **A live countdown tells you when the next backup lands**: under the Automatic Backup button, and again inside the dialog with the exact date, a timer now ticks every second ("Next backup in 23:59:05") against the real schedule instead of a guess. The API answers with the next run taken from the running scheduler, falling back to the stored last-send stamp plus interval, and the page re-reads it the moment the countdown reaches zero. Typed bot or GitHub tokens survive that refresh.
+
+## Improvements
+- **Automatic-backup code nesting fixed**: the service, the config repo and the settings route now use the same two-space-per-level indentation as the rest of `src`, and the startup wiring sits flush with the schedulers next to it. The confirm-password dialog no longer claims the file goes to Telegram when the GitHub channel is selected.
+
 # v0.5.88-Custom (2026-09-14)
 
 ## Improvements

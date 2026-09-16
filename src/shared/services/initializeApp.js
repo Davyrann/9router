@@ -115,9 +115,9 @@ async function runHeavyStartup() {
   }
 
   if (await getAutoBackupConfig().then((c) => c.enabled).catch(() => false)) {
-   import("@/shared/services/telegramBackup")
-   .then(({ configureTelegramBackup }) => configureTelegramBackup())
-   .catch((e) => console.log("[TGBackup] scheduler start failed:", e.message));
+    import("@/shared/services/telegramBackup")
+      .then(({ configureTelegramBackup }) => configureTelegramBackup())
+      .catch((e) => console.log("[AutoBackup] scheduler start failed:", e.message));
   }
 
   // Proactive OAuth token refresh (e.g. grok-cli ~6h TTL). Module is idempotent
