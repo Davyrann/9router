@@ -44,4 +44,5 @@ export const CAPACITY_META = {
   vision: { icon: "visibility", label: "Vision", desc: "Supports image input", color: "text-blue-500" },
   // search: temporarily hidden (feature not wired yet)
   reasoning: { icon: "neurology", label: "Reasoning", desc: "Supports reasoning / thinking", color: "text-amber-500" },
+  thinkDeeper: { icon: "psychology", label: "Think Deeper", desc: "Think Deeper Plugin: multi-step deep reasoning", color: "text-purple-400" },
 };

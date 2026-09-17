@@ -1,3 +1,11 @@
+# v0.5.94-Custom (2026-09-17)
+
+## Custom Features & Enhancements
+- **Custom Plugins menu under FEATURE+**: added `/dashboard/plugins` featuring two modular plugins:
+  - **Image Vision**: extracts text and visual content from images for models that don't natively support vision, making non-vision LLMs able to read image inputs from CLI tools and agents. Enables the Vision (👁️) badge for selected models.
+  - **Think Deeper**: forces deep step-by-step chain-of-thought reasoning before outputting final answers. Enables the Reasoning (🧠) and Think Deeper (💡/psychology) capability badges for selected models.
+- **Model selector integration**: users explicitly choose which models to attach plugins to via `ModelSelectModal`.
+
 # v0.5.93-Custom (2026-09-16)
 
 ## Custom Features & Enhancements

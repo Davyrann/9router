@@ -40,6 +40,7 @@ import { stripUnsupportedModalities } from "../translator/concerns/modality.js";
 import { prefetchRemoteImages } from "../translator/concerns/prefetch.js";
 import { defaultClaudeToolType, shouldDefaultClaudeToolType } from "../translator/concerns/toolCall.js";
 import { resolveSessionId } from "../utils/sessionManager.js";
+import { applyCustomPlugins } from "@/lib/plugins/customPluginsRuntime.js";
 
 /**
  * Core chat handler - shared between SSE and Worker
@@ -182,9 +183,19 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   // Expose raw client headers to translators/executors for session-id resolution
   if (credentials) credentials.rawHeaders = clientRawRequest?.headers || {};
 
+  // Execute active custom plugins (Image Vision text extractor & Think Deeper prompt injector)
+  let pluginResult = { isVisionActive: false, isThinkDeeperActive: false };
+  try {
+    pluginResult = await applyCustomPlugins(body, provider, model, sourceFormat);
+  } catch (err) {
+    log?.warn?.("PLUGIN", `Custom plugin error: ${err.message}`);
+  }
+
   // Auto-strip media blocks the model can't read (vision/audio/pdf) before translation.
   if (!passthrough) {
     const caps = getCapabilitiesForModel(provider, model);
+    if (pluginResult.isVisionActive) caps.vision = true;
+    if (pluginResult.isThinkDeeperActive) caps.reasoning = true;
     if (stripUnsupportedModalities(body, sourceFormat, caps)) {
       log?.debug?.("MODALITY", `stripped unsupported media for ${provider}/${model}`);
     }
