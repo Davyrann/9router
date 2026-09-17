@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSettings, updateSettings } from "@/lib/localDb";
+import { clearPluginCache } from "@/lib/plugins/customPluginsRuntime";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +26,6 @@ export async function PUT(request) {
       return NextResponse.json({ error: "Invalid customPlugins payload" }, { status: 400 });
     }
 
-    const currentSettings = await getSettings();
     const merged = {
       imageVision: {
         enabled: Boolean(customPlugins.imageVision?.enabled),
@@ -38,6 +38,7 @@ export async function PUT(request) {
     };
 
     await updateSettings({ customPlugins: merged });
+    clearPluginCache();
     return NextResponse.json({ success: true, customPlugins: merged });
   } catch (error) {
     console.error("Error updating custom plugins:", error);

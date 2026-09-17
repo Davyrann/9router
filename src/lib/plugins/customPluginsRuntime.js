@@ -28,6 +28,11 @@ async function getPluginConfig() {
   return cachedPlugins;
 }
 
+export function clearPluginCache() {
+  cachedPlugins = null;
+  lastFetch = 0;
+}
+
 function matchesModel(modelList, modelKey) {
   if (!Array.isArray(modelList) || !modelKey) return false;
   const key = String(modelKey).toLowerCase();
