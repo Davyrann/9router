@@ -34,9 +34,9 @@ const PLUGINS = [
   {
     key: "unrestrictedMode",
     title: "Uncensored Output",
-    icon: "bolt",
-    iconColor: "text-emerald-500",
-    iconBg: "bg-emerald-500/10 border-emerald-500/20",
+    icon: "key_off",
+    iconColor: "text-red-500",
+    iconBg: "bg-red-500/10 border-red-500/20",
     description:
       "Bypass standard AI refusals and guardrails. Injects an unrestricted direct technical directive, compelling the model to provide raw code, analysis, and uncensored answers (Note: may not work on some provider models).",
   },
