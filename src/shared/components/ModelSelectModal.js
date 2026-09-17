@@ -444,8 +444,29 @@ export default function ModelSelectModal({
     if (!showStudioTargets) {
       const studioTargets = buildStudioTargetIndex(studioModels);
       Object.entries(groups).forEach(([providerId, group]) => {
+        const isCustom = isOpenAICompatibleProvider(providerId) || isAnthropicCompatibleProvider(providerId);
         group.models = group.models.filter((m) => !studioTargets.isStudioTarget([providerId, group.alias], m.id));
-        if (group.models.length === 0) delete groups[providerId];
+        if (group.models.length === 0) {
+          if (isCustom) {
+            // Keep custom provider visible by including its mapped studio models or a fallback entry
+            const relatedStudio = studioModels
+              .filter((sm) => sm.provider === providerId || sm.provider === group.alias)
+              .map((sm) => ({
+                id: sm.callName,
+                name: sm.displayName || sm.callName,
+                value: sm.callName,
+                isCustom: true,
+              }));
+            group.models = relatedStudio.length > 0 ? relatedStudio : [{
+              id: `__placeholder__${providerId}`,
+              name: `${group.alias || "node"}/model-id`,
+              value: `${group.alias || "node"}/model-id`,
+              isPlaceholder: true,
+            }];
+          } else {
+            delete groups[providerId];
+          }
+        }
       });
     }
     return groups;

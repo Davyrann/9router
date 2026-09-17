@@ -184,9 +184,9 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   if (credentials) credentials.rawHeaders = clientRawRequest?.headers || {};
 
   // Execute active custom plugins (Image Vision text extractor & Think Deeper prompt injector)
-  let pluginResult = { isVisionActive: false, isThinkDeeperActive: false };
+  let pluginResult = { isVisionActive: false, isThinkDeeperActive: false, isUnrestrictedActive: false };
   try {
-    pluginResult = await applyCustomPlugins(body, provider, model, sourceFormat);
+    pluginResult = await applyCustomPlugins(body, provider, model, sourceFormat, requestedModel);
   } catch (err) {
     log?.warn?.("PLUGIN", `Custom plugin error: ${err.message}`);
   }
