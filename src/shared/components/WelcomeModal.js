@@ -49,30 +49,33 @@ export default function WelcomeModal() {
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
+      closeOnOverlay={false}
       title="Welcome to 9Router!"
       size="md"
       footer={
-        <>
-          <Button variant="ghost" onClick={handleDontShowAgain}>
-            Don't show again
-          </Button>
+        <div className="w-full flex justify-end">
           <Button variant="secondary" onClick={handleClose}>
             Close
           </Button>
-        </>
+        </div>
       }
     >
-      <div className="space-y-4 text-text-main text-sm">
-        <p>
-          Thank you for using 9Router! If you find this project helpful, please support us by starring our repository on GitHub.
-        </p>
-
-        <div>
+      <div className="space-y-6 text-text-main text-sm">
+        <div className="flex flex-col items-center justify-center text-center p-6 bg-surface-2 rounded-xl border border-border-subtle gap-4">
+          <div className="flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary">
+            <span className="material-symbols-outlined text-[32px]">hub</span>
+          </div>
+          <p className="text-base font-medium">
+            Thank you for using 9Router!
+          </p>
+          <p className="text-text-muted text-xs px-4">
+            If you find this project helpful, please support us by starring our repository on GitHub.
+          </p>
           <a
             href={GITHUB_CONFIG.repoUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-block"
+            className="inline-block mt-2"
           >
             <Button variant="primary" icon="star">
               Star on GitHub
@@ -81,20 +84,21 @@ export default function WelcomeModal() {
         </div>
 
         {updateInfo && (
-          <div className="mt-4 p-4 rounded-xl bg-surface-2 border border-border-subtle space-y-2">
-            <h3 className="font-semibold text-amber-500 flex items-center gap-1.5">
-              <span>🚀</span> Update Available!
+          <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-3">
+            <h3 className="font-semibold text-amber-500 flex items-center gap-2">
+              <span className="material-symbols-outlined text-[18px]">rocket_launch</span>
+              Update Available!
             </h3>
             <p className="text-text-muted text-xs">
-              {updateInfo.behindBy} commit(s) behind master.
+              Your version is {updateInfo.behindBy} commit{updateInfo.behindBy > 1 ? "s" : ""} behind master.
             </p>
             {updateInfo.commitMessage && (
-              <p className="text-xs text-text-main font-mono bg-bg/50 p-2 rounded border border-border-subtle">
+              <p className="text-xs text-text-main font-mono bg-bg/50 px-3 py-2 rounded-lg border border-border-subtle truncate">
                 {updateInfo.commitMessage}
               </p>
             )}
             <div className="flex items-center gap-2 pt-1">
-              <code className="flex-1 text-xs font-mono bg-bg px-2.5 py-1.5 rounded border border-border-subtle overflow-x-auto select-all">
+              <code className="flex-1 text-xs font-mono bg-bg px-3 py-2 rounded-lg border border-border-subtle overflow-x-auto select-all">
                 {installCmd}
               </code>
               <Button
