@@ -31,11 +31,21 @@ const PLUGINS = [
     description:
       "Enhance reasoning with multi-step chain-of-thought analysis. Forces the model to break problems into steps before answering, producing more thorough and accurate responses.",
   },
+  {
+    key: "unrestrictedMode",
+    title: "Direct Override",
+    icon: "lock_open",
+    iconColor: "text-red-500",
+    iconBg: "bg-red-500/10 border-red-500/20",
+    description:
+      "Bypass standard AI refusals and guardrails. Injects an unrestricted direct technical directive, compelling the model to provide raw code, analysis, and unrestricted answers.",
+  },
 ];
 
 const DEFAULT_PLUGINS_STATE = {
   imageVision: { enabled: false, models: [] },
   thinkDeeper: { enabled: false, models: [] },
+  unrestrictedMode: { enabled: false, models: [] },
 };
 
 function formatModelName(modelVal) {
@@ -74,6 +84,12 @@ export default function PluginsPage() {
                 enabled: Boolean(data.customPlugins.thinkDeeper?.enabled),
                 models: Array.isArray(data.customPlugins.thinkDeeper?.models)
                   ? data.customPlugins.thinkDeeper.models
+                  : [],
+              },
+              unrestrictedMode: {
+                enabled: Boolean(data.customPlugins.unrestrictedMode?.enabled),
+                models: Array.isArray(data.customPlugins.unrestrictedMode?.models)
+                  ? data.customPlugins.unrestrictedMode.models
                   : [],
               },
             });
@@ -190,7 +206,7 @@ export default function PluginsPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {PLUGINS.map((plugin) => {
           const config = customPlugins[plugin.key] || {
             enabled: false,

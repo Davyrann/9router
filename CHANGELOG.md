@@ -1,3 +1,8 @@
+# v0.5.95-Custom (2026-09-17)
+
+## Custom Features & Enhancements
+- **Direct Override (Unrestricted) Plugin**: added a third custom plugin featuring an open padlock icon (`lock_open`). When attached to selected models, it injects an anti-refusal system directive and technical framing, minimizing standard canned AI refusals for pentesting, code security, and raw technical queries. Enables the `lock_open` badge for selected models.
+
 # v0.5.94-Custom (2026-09-17)
 
 ## Custom Features & Enhancements
