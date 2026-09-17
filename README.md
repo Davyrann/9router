@@ -6,7 +6,7 @@
 
 English only. The UI is locked to the dark theme. This README describes **this** repository; upstream documentation lives at [9router.com](https://9router.com).
 
-`Upstream base: v0.5.75 (merged 2026-09-13) · Fork releases: v0.5.70-Custom → v0.5.84-Custom`
+`Upstream base: v0.5.75 (merged 2026-09-13) · Fork releases: v0.5.70-Custom → v0.5.95-Custom`
 
 </div>
 
@@ -32,13 +32,23 @@ Every change is listed in [CHANGELOG.md](./CHANGELOG.md), and the dashboard rend
 
 Before this fork's fixes, per-key limits were only enforced on the chat endpoint, and a disabled or over-quota key could still reach remote `/v1/*`. That is no longer the case.
 
-### Custom Models & Editor (`FEATURE+`)
-Define a model of your own: give it a name, a context window, an optional system prompt, and a target model it actually runs on. The name is callable everywhere — CLI tools, combos, the API-key allow-list — exactly like a built-in model.
+### Custom Plugins (`FEATURE+`)
+Extend and modify model capabilities on a per-model basis:
+- **Image Vision**: converts image inputs into extracted text descriptions for models without native vision capability, enabling visual content processing in CLI tools and agents. Adds the Vision (👁️) badge.
+- **Think Deeper**: injects step-by-step chain-of-thought reasoning directives before generating answers. Adds the Reasoning (🧠) and Think Deeper (💡) badges.
+- **Uncensored Output**: injects an anti-refusal system directive, compelling the model to fulfill raw technical queries, security analysis, and uncensored answers directly. Adds the open lock (🔓) badge.
 
-A custom name is presented as the model it is: the gateway rewrites the `model` field of **every outbound payload** (JSON body, each streamed chunk, Claude `message_start`, Responses events, cache hits), so `claude-sonnet-5` answers `claude-sonnet-5` and never leaks the target behind it. Usage is billed under the name you called as well, while the real model is still recorded next to it (`resolvedModel` in usage meta, request details, and the console `▶` line) so debugging stays possible.
+### Custom Models & Editor (`FEATURE+`)
+Define a model of your own: give it a name, a context window, an optional system prompt, and a target model it actually runs on. The name is callable everywhere: CLI tools, combos, the API-key allow-list, exactly like a built-in model.
+
+A custom name is presented as the model it is: the gateway rewrites the `model` field of **every outbound payload** (JSON body, each streamed chunk, Claude `message_start`, Responses events, cache hits), so `claude-sonnet-5` answers `claude-sonnet-5` and never leaks the target behind it. Furthermore, when a model is mapped in studio, the underlying target model is completely hidden from model listings and pickers. Custom providers can also carry custom cropped logos.
 
 ### Compare Models (`FEATURE+`)
 Send one prompt to several models at once and compare cost, latency, time-to-first-token and output. Contenders stream live, can be stopped mid-flight, a model that returns nothing is reported as empty rather than winning, and provider failures surface one readable line with the raw payload behind it.
+
+### Automatic Backup & GitHub Updates
+- **Automatic Scheduled Backup**: configure automated database backups delivered periodically to a Telegram bot or pushed to a GitHub repository, complete with a live countdown timer.
+- **Live Version & Commit Tracking**: dashboard automatically compares the local checkout against upstream master and alerts when new commits are available.
 
 ### Other differences worth knowing
 - **MoonshotAI (Kimi)** is offered as a first-class "add provider" option next to the OpenAI- and Anthropic-compatible ones.
