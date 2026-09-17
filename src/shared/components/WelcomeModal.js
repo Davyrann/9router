@@ -52,13 +52,7 @@ export default function WelcomeModal() {
       closeOnOverlay={false}
       title="Welcome to 9Router!"
       size="md"
-      footer={
-        <div className="w-full flex justify-end">
-          <Button variant="secondary" onClick={handleClose}>
-            Close
-          </Button>
-        </div>
-      }
+      footer={null}
     >
       <div className="space-y-6 text-text-main text-sm">
         <div className="flex flex-col items-center justify-center text-center p-6 bg-surface-2 rounded-xl border border-border-subtle gap-4">
