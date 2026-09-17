@@ -1,3 +1,11 @@
+# v0.5.96-Custom (2026-09-17)
+
+## Custom Features & Enhancements
+- **Uncensored Output Plugin Updates**: renamed the third plugin to *Uncensored Output* and updated its icon to an emerald/red key off (`key_off`) badge. Added fallback model matching across requested, routed, and full model identifiers so plugin directives reliably inject into System prompts.
+- **Header "Visit On GitHub" Button**: enhanced the GitHub repository link button in the top right header to display a clear "Visit On GitHub" text label next to the GitHub logo.
+- **Sidebar & UI Polish**: renamed "Custom Models & Editor" to "Custom Models", updated the "Custom Plugins" icon to `widgets`, renamed "Settings" to "9Router Settings", and cleaned up top traffic-light decorative dots.
+- **Custom Provider & Studio Target Picker Fix**: custom providers now stay visible in model selectors even when their underlying base models are mapped to studio custom model names. Upgraded logo data URL storage capacity and added JPEG compression fallback so custom provider logos never vanish.
+
 # v0.5.95-Custom (2026-09-17)
 
 ## Custom Features & Enhancements
