@@ -33,12 +33,12 @@ const PLUGINS = [
   },
   {
     key: "unrestrictedMode",
-    title: "Direct Override",
+    title: "Uncensored Output",
     icon: "lock_open",
     iconColor: "text-red-500",
     iconBg: "bg-red-500/10 border-red-500/20",
     description:
-      "Bypass standard AI refusals and guardrails. Injects an unrestricted direct technical directive, compelling the model to provide raw code, analysis, and unrestricted answers.",
+      "Bypass standard AI refusals and guardrails. Injects an unrestricted direct technical directive, compelling the model to provide raw code, analysis, and uncensored answers.",
   },
 ];
 
