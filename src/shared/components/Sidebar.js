@@ -295,7 +295,7 @@ export default function Sidebar({ onClose }) {
             <NavLink
               href='/dashboard/profile'
               icon='settings'
-              label='Settings'
+              label='9Router Settings'
               active={isActive('/dashboard/profile')}
               onClick={onClose}
             />
