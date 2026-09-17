@@ -1,3 +1,9 @@
+# v0.5.97-Custom (2026-09-17)
+
+## Fixes
+- **Fix OpenCode Free Tier 403 FreeTierError**: resolved `"OpenCode's free tier can only be used from within OpenCode"` by tailoring request headers with `User-Agent: opencode/1.18.30`, `anthropic-version: 2023-06-01`, and conforming 30-character OpenCode session and request identifiers (`ses_*`, `msg_*`).
+- **Add Union Alpha & Union Alpha Free support**: added `union-alpha` and `union-alpha-free` to OpenCode's registry with targetFormat `claude` (routed directly to `/zen/v1/messages`), configured vision and reasoning capabilities, and added it to suggested models.
+
 # v0.5.96-Custom (2026-09-17)
 
 ## Custom Features & Enhancements
