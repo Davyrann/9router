@@ -1,3 +1,8 @@
+# v0.5.98-Custom (2026-09-17)
+
+## Fixes
+- **Keep original base models visible alongside custom models**: creating a custom studio model no longer hides or overwrites the underlying base model. Both the original target model and the newly created custom model stay fully visible in model pickers, provider details, and `/v1/models`.
+
 # v0.5.97-Custom (2026-09-17)
 
 ## Fixes

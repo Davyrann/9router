@@ -22,12 +22,9 @@ export function buildStudioTargetIndex(studioModels) {
   }
 
   return {
-    /** True when that model of these provider keys is hidden behind a studio name. */
+    /** Base models are kept visible alongside custom models. */
     isStudioTarget(providerKeys, modelId) {
-      const mKey = String(modelId || "").trim().toLowerCase();
-      if (!mKey) return false;
-      const keys = Array.isArray(providerKeys) ? providerKeys : [providerKeys];
-      return keys.some((key) => byProvider.get(String(key || "").trim().toLowerCase())?.has(mKey) === true);
+      return false;
     },
     size: byProvider.size,
   };
