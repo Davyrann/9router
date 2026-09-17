@@ -920,10 +920,11 @@ export default function ProfilePage() {
             </div>
             <div className="flex flex-col gap-2">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 w-full sm:w-auto">
-                <div className="flex flex-col gap-0.5">
-                  <p className="font-medium text-sm sm:text-base">Automatic Backup</p>
-                  <BackupCountdown target={tgForm.enabled ? tgNextRunAt : null} onExpire={loadAutoBackup} />
-                </div>
+                {tgForm.enabled && (
+                  <div className="flex flex-col gap-0.5">
+                    <BackupCountdown target={tgNextRunAt} onExpire={loadAutoBackup} />
+                  </div>
+                )}
                 <Button
                   variant="secondary"
                   icon="cloud_sync"

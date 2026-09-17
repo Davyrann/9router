@@ -100,19 +100,14 @@ export default function PluginsPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ customPlugins: updatedPlugins }),
         });
-
         if (res.ok) {
-          addNotification({
-            type: "success",
-            message: "Plugin settings saved",
-          });
           window.dispatchEvent(new Event("customModelChanged"));
         }
       } catch (err) {
         console.error("Failed to save plugins:", err);
       }
     },
-    [addNotification]
+    []
   );
 
   const handleToggle = useCallback(
