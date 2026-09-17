@@ -1869,7 +1869,7 @@ export default function ProfilePage() {
           )}
           {tgLastBackup && (
           <p className="text-xs text-text-muted">
-          {`Last backup: ${new Date(tgLastBackup.lastSentAt || Date.now()).toLocaleString()} - ${tgLastBackup.lastStatus === "ok" ? "sent via " + tgLastBackup.lastChannel : "failed"}`}
+          {`Last backup: ${new Date(tgLastBackup.lastSentAt || Date.now()).toLocaleString()} (${tgLastBackup.lastStatus === "ok" ? tgLastBackup.lastChannel : "failed"})`}
           </p>
           )}
         </div>
