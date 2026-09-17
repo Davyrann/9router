@@ -36,7 +36,7 @@ Before this fork's fixes, per-key limits were only enforced on the chat endpoint
 Extend and modify model capabilities on a per-model basis:
 - **Image Vision**: converts image inputs into extracted text descriptions for models without native vision capability, enabling visual content processing in CLI tools and agents. Adds the Vision (👁️) badge.
 - **Think Deeper**: injects step-by-step chain-of-thought reasoning directives before generating answers. Adds the Reasoning (🧠) and Think Deeper (💡) badges.
-- **Uncensored Output**: injects an anti-refusal system directive, compelling the model to fulfill raw technical queries, security analysis, and uncensored answers directly. Adds the open lock (🔓) badge.
+- **Uncensored Output**: injects an anti-refusal system directive, compelling the model to fulfill raw technical queries, security analysis, and uncensored answers directly. Adds the bolt (⚡) badge.
 
 ### Custom Models & Editor (`FEATURE+`)
 Define a model of your own: give it a name, a context window, an optional system prompt, and a target model it actually runs on. The name is callable everywhere: CLI tools, combos, the API-key allow-list, exactly like a built-in model.

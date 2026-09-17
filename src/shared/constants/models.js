@@ -45,5 +45,5 @@ export const CAPACITY_META = {
   // search: temporarily hidden (feature not wired yet)
   reasoning: { icon: "neurology", label: "Reasoning", desc: "Supports reasoning / thinking", color: "text-amber-500" },
   thinkDeeper: { icon: "psychology", label: "Think Deeper", desc: "Think Deeper Plugin: multi-step deep reasoning", color: "text-purple-400" },
-  unrestrictedMode: { icon: "lock_open", label: "Uncensored", desc: "Uncensored Output: bypasses standard AI refusals", color: "text-red-400" },
+  unrestrictedMode: { icon: "bolt", label: "Uncensored", desc: "Uncensored Output: bypasses standard AI refusals", color: "text-emerald-400" },
 };
