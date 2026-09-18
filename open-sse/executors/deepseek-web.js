@@ -210,29 +210,27 @@ function processLine(line) {
   try { return JSON.parse(payload); } catch { return null; }
 }
 
-function extractContent(data, thinkingModel) {
+function extractContent(data, thinkingModel, state = {}) {
   let text = "";
   let thinking = "";
-  let currentPath = "";
   let isFinished = false;
 
   const p = data?.p;
   const v = data?.v;
-  const o = data?.o;
 
   if (v && typeof v === "object" && v.response) {
-    if (v.response.thinking_enabled === true) currentPath = "thinking";
-    else if (v.response.thinking_enabled === false) currentPath = "content";
+    if (v.response.thinking_enabled === true) state.currentPath = "thinking";
+    else if (v.response.thinking_enabled === false) state.currentPath = "content";
     if (Array.isArray(v.response.fragments)) {
       for (const frag of v.response.fragments) {
         const type = String(frag?.type || "").toUpperCase();
-        if (type === "THINK") currentPath = "thinking";
-        else if (type === "ANSWER" || type === "RESPONSE") currentPath = "content";
+        if (type === "THINK") state.currentPath = "thinking";
+        else if (type === "ANSWER" || type === "RESPONSE") state.currentPath = "content";
         const c = frag?.content || "";
         if (!c) continue;
         const cleaned = cleanToken(c);
         if (!cleaned) continue;
-        if (currentPath === "thinking") thinking += cleaned;
+        if (state.currentPath === "thinking") thinking += cleaned;
         else text += cleaned;
       }
     }
@@ -242,13 +240,13 @@ function extractContent(data, thinkingModel) {
     const frags = Array.isArray(v) ? v : (v && typeof v === "object" ? [v] : []);
     for (const frag of frags) {
       const type = String(frag?.type || "").toUpperCase();
-      if (type === "THINK") currentPath = "thinking";
-      else if (type === "ANSWER" || type === "RESPONSE") currentPath = "content";
+      if (type === "THINK") state.currentPath = "thinking";
+      else if (type === "ANSWER" || type === "RESPONSE") state.currentPath = "content";
       const c = frag?.content || "";
       if (!c) continue;
       const cleaned = cleanToken(c);
       if (!cleaned) continue;
-      if (currentPath === "thinking") thinking += cleaned;
+      if (state.currentPath === "thinking") thinking += cleaned;
       else text += cleaned;
     }
   }
@@ -260,8 +258,8 @@ function extractContent(data, thinkingModel) {
   if (typeof v === "string") {
     const cleaned = cleanToken(v);
     if (cleaned) {
-      if (!currentPath && thinkingModel) currentPath = "thinking";
-      if (currentPath === "thinking") thinking += cleaned;
+      if (!state.currentPath && thinkingModel) state.currentPath = "thinking";
+      if (state.currentPath === "thinking") thinking += cleaned;
       else text += cleaned;
     }
   }
@@ -384,6 +382,7 @@ export class DeepSeekWebExecutor extends BaseExecutor {
         let streamBuffer = "";
         let emittedRole = false;
         let finished = false;
+        const parserState = { currentPath: "" };
 
         const openaiStream = new ReadableStream({
           async start(controller) {
@@ -423,7 +422,7 @@ export class DeepSeekWebExecutor extends BaseExecutor {
                   if (!data) continue;
                   if (data === "[DONE]") { finishStream(); return; }
 
-                  const { text, thinking, isFinished } = extractContent(data, thinkingModel);
+                  const { text, thinking, isFinished } = extractContent(data, thinkingModel, parserState);
                   if (thinking) {
                     ensureRole();
                     controller.enqueue(encoder.encode(sseChunk({
@@ -466,11 +465,12 @@ export class DeepSeekWebExecutor extends BaseExecutor {
       const rawText = await resp.text();
       let fullText = "";
       let fullThinking = "";
+      const parserState = { currentPath: "" };
       const lines = rawText.split("\n");
       for (const line of lines) {
         const data = processLine(line);
         if (!data) continue;
-        const { text, thinking } = extractContent(data, thinkingModel);
+        const { text, thinking } = extractContent(data, thinkingModel, parserState);
         fullText += text;
         fullThinking += thinking;
       }
