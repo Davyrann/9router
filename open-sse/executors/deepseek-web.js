@@ -1,7 +1,5 @@
 import { BaseExecutor } from "./base.js";
 import { PROVIDERS } from "../config/providers.js";
-import { SSE_DONE, SSE_HEADERS_NO_BUFFER } from "../utils/sseConstants.js";
-import { sseChunk } from "../utils/sse.js";
 import { findDeepSeekPowNonce } from "../lib/deepseek-pow-hash.js";
 
 const DEEPSEEK_WEB_BASE = "https://chat.deepseek.com";
@@ -14,7 +12,8 @@ const FAKE_HEADERS = {
   "Accept-Language": "en-US,en;q=0.9",
   Origin: DEEPSEEK_WEB_BASE,
   Referer: `${DEEPSEEK_WEB_BASE}/`,
-  "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+  "User-Agent":
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
   "X-Client-Bundle-Id": "com.deepseek.chat",
   "X-Client-Locale": "en-US",
   "X-Client-Platform": "web",
@@ -22,31 +21,464 @@ const FAKE_HEADERS = {
 };
 
 const tokenCache = new Map();
-const CACHE_MAX = 100;
+const sessionCache = new Map();
+const CACHE_MAX_SIZE = 100;
 
 function evictOldest(cache) {
-  if (cache.size >= CACHE_MAX) {
+  if (cache.size >= CACHE_MAX_SIZE) {
     const first = cache.keys().next().value;
     if (first) cache.delete(first);
   }
 }
 
-function extractUserToken(raw) {
+export function extractUserToken(raw) {
   if (!raw) return null;
   let str = String(raw).trim();
-  if (str.startsWith("{")) {
-    try {
-      const parsed = JSON.parse(str);
-      if (parsed && typeof parsed.value === "string") return parsed.value;
-    } catch {}
-  }
+  try {
+    const parsed = JSON.parse(str);
+    if (typeof parsed?.value === "string") return parsed.value.trim();
+  } catch {}
   if (str.includes("userToken=")) {
     const m = str.match(/userToken=([^;]+)/);
-    if (m) return m[1].trim();
+    if (m) str = m[1].trim();
   }
   if (str.startsWith("Bearer ")) str = str.slice(7).trim();
   str = str.replace(/^["']|["']$/g, "").trim();
   return str || null;
+}
+
+function errorResponse(status, message, dsCode) {
+  return new Response(
+    JSON.stringify({
+      error: { message, type: "upstream_error", code: dsCode ?? `HTTP_${status}` },
+    }),
+    { status, headers: { "Content-Type": "application/json" } }
+  );
+}
+
+function isThinkingModel(model) {
+  const m = String(model || "").toLowerCase();
+  return m.includes("think") || m.includes("r1") || m.includes("reason");
+}
+
+function isSearchModel(model) {
+  const m = String(model || "").toLowerCase();
+  return m.includes("search") || m.includes("fold");
+}
+
+function cleanDeepSeekToken(text) {
+  return String(text || "").replace(/FINISHED/g, "").replace(/^(SEARCH|WEB_SEARCH|SEARCHING)\s*/i, "");
+}
+
+function formatStreamContent(raw, model) {
+  let text = cleanDeepSeekToken(raw);
+  if (!isSearchModel(model)) return text;
+  if (String(model || "").toLowerCase().includes("search-silent")) {
+    return text.replace(/\[citation:(\d+)\]/g, "");
+  }
+  return text.replace(/\[citation:(\d+)\]/g, "[$1]");
+}
+
+function appendSearchCitations(searchResults, model) {
+  if (!searchResults || searchResults.length === 0 || String(model || "").toLowerCase().includes("search-silent")) {
+    return "";
+  }
+  return searchResults
+    .filter((r) => r.cite_index)
+    .sort((a, b) => (a.cite_index || 0) - (b.cite_index || 0))
+    .map((r) => `[${r.cite_index}]: [${r.title}](${r.url})`)
+    .join("\n");
+}
+
+function createFinishOnceGuard(finish) {
+  let streamFinished = false;
+  return {
+    finishOnce: () => {
+      if (streamFinished) return;
+      streamFinished = true;
+      try {
+        finish();
+      } catch {}
+    },
+    hasFinished: () => streamFinished,
+  };
+}
+
+function createFinishedDrainScheduler(finishStream, drainMs = 750) {
+  let finishedDrainTimer = null;
+  const clearFinishedDrain = () => {
+    if (finishedDrainTimer) {
+      clearTimeout(finishedDrainTimer);
+      finishedDrainTimer = null;
+    }
+  };
+  const scheduleFinishAfterDrain = () => {
+    clearFinishedDrain();
+    finishedDrainTimer = setTimeout(() => {
+      finishedDrainTimer = null;
+      finishStream();
+    }, drainMs);
+  };
+  return {
+    scheduleFinishAfterDrain,
+    clearFinishedDrain,
+    isDrainPending: () => finishedDrainTimer !== null,
+  };
+}
+
+function resolveModelOptions(model, bodyObj) {
+  const m = (model || "").toLowerCase();
+  const modelType = m.includes("pro") || m.includes("expert") ? "expert" : "default";
+  const thinkingEnabled =
+    m.includes("r1") ||
+    m.includes("think") ||
+    m.includes("reason") ||
+    bodyObj?.thinking_enabled === true ||
+    bodyObj?.thinking === true ||
+    !!bodyObj?.reasoning_effort;
+  const searchEnabled =
+    m.includes("search") ||
+    bodyObj?.search_enabled === true ||
+    bodyObj?.search === true ||
+    bodyObj?.web_search === true;
+  return { modelType, thinkingEnabled, searchEnabled };
+}
+
+function generateFakeCookie() {
+  const ts = Date.now();
+  const hex = (n) => Array.from({ length: n }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+  const uid = () =>
+    "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
+    });
+  return `intercom-HWWAFSESTIME=${ts}; HWWAFSESID=${hex(18)}; Hm_lvt_${uid()}=${Math.floor(ts / 1000)}; _frid=${uid()}`;
+}
+
+async function solvePow(challenge, signal) {
+  const { algorithm, challenge: challengeStr, salt, difficulty, expire_at, signature, target_path } = challenge;
+  if (algorithm !== "DeepSeekHashV1") throw new Error(`Unsupported PoW algorithm: ${algorithm}`);
+  const prefix = `${salt}_${expire_at}_`;
+  const answer = findDeepSeekPowNonce(prefix, challengeStr.toLowerCase(), difficulty);
+  if (answer < 0) throw new Error("PoW solver failed");
+  return Buffer.from(
+    JSON.stringify({
+      algorithm,
+      challenge: challengeStr,
+      salt,
+      answer,
+      signature,
+      target_path,
+    })
+  ).toString("base64");
+}
+
+function transformSSE(deepseekStream, model) {
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+  const streamModel = model || "deepseek-web";
+  const id = `chatcmpl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const created = Math.floor(Date.now() / 1000);
+  let emittedRole = false;
+  let currentPath = "";
+  const thinkingModel = isThinkingModel(streamModel);
+  const searchResults = [];
+
+  return new ReadableStream(
+    {
+      async start(controller) {
+        const reader = deepseekStream.getReader();
+        let buffer = "";
+
+        const emit = (obj) => {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`));
+        };
+
+        const chunk = (delta, finish) => {
+          emit({
+            id,
+            object: "chat.completion.chunk",
+            created,
+            model: streamModel,
+            choices: [{ index: 0, delta, finish_reason: finish ?? null }],
+          });
+        };
+
+        const ensureRole = () => {
+          if (!emittedRole) {
+            emittedRole = true;
+            chunk({ role: "assistant", content: "" });
+          }
+        };
+
+        const { finishOnce: finishStream, hasFinished } = createFinishOnceGuard(() => {
+          const citations = appendSearchCitations(searchResults, streamModel);
+          if (citations) {
+            ensureRole();
+            chunk({ content: `\n\n${citations}` });
+          }
+          ensureRole();
+          chunk({}, "stop");
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+          controller.close();
+        });
+
+        const { scheduleFinishAfterDrain, clearFinishedDrain, isDrainPending } =
+          createFinishedDrainScheduler(finishStream);
+
+        const sendByPath = (raw) => {
+          const text = formatStreamContent(raw, streamModel);
+          if (!text) return;
+          ensureRole();
+          let path = currentPath;
+          if (!path && thinkingModel) path = "thinking";
+          else if (!path && isSearchModel(streamModel)) path = "content";
+          if (path === "thinking") {
+            chunk({ reasoning_content: text });
+          } else {
+            chunk({ content: text });
+          }
+        };
+
+        const applyFragmentType = (frag) => {
+          const type = String(frag?.type || "").toUpperCase();
+          if (type === "THINK") currentPath = "thinking";
+          else if (type === "ANSWER" || type === "RESPONSE") currentPath = "content";
+        };
+
+        const handleFragment = (frag, setPathFromType = false) => {
+          if (setPathFromType) applyFragmentType(frag);
+          if (typeof frag?.content !== "string" || frag.content.length === 0) return;
+          if (!setPathFromType) {
+            const type = String(frag?.type || "").toUpperCase();
+            if (type === "THINK") currentPath = "thinking";
+            else if (type === "ANSWER" || type === "RESPONSE") currentPath = "content";
+          }
+          sendByPath(frag.content);
+        };
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+
+            for (const line of lines) {
+              if (!line.startsWith("data: ") && !line.startsWith("data:")) continue;
+              const payload = line.replace(/^data:\s*/, "").trim();
+
+              if (payload === "[DONE]") {
+                finishStream();
+                return;
+              }
+
+              let data;
+              try {
+                data = JSON.parse(payload);
+              } catch {
+                continue;
+              }
+
+              const p = data?.p;
+              const o = data?.o;
+              const v = data?.v;
+
+              if (v && typeof v === "object" && v.response) {
+                if (v.response.thinking_enabled === true) currentPath = "thinking";
+                else if (v.response.thinking_enabled === false) currentPath = "content";
+                const fragments = v.response.fragments;
+                if (Array.isArray(fragments)) {
+                  for (const frag of fragments) handleFragment(frag, false);
+                }
+              }
+
+              if (p === "response/fragments") {
+                if (Array.isArray(v)) {
+                  for (const frag of v) handleFragment(frag, true);
+                } else if (v && typeof v === "object") {
+                  handleFragment(v, true);
+                }
+              }
+
+              if (p === "response" && Array.isArray(v)) {
+                for (const entry of v) {
+                  if (entry?.p === "response" && entry?.v?.thinking_enabled === true) {
+                    currentPath = "thinking";
+                  }
+                }
+              }
+
+              if (p === "response/search_status") continue;
+
+              if (p === "response/search_results" && Array.isArray(v)) {
+                if (o !== "BATCH") {
+                  searchResults.length = 0;
+                  searchResults.push(...v);
+                } else {
+                  for (const op of v) {
+                    const match = String(op?.p || "").match(/^(\d+)\/cite_index$/);
+                    if (match) {
+                      const index = parseInt(match[1], 10);
+                      if (searchResults[index]) searchResults[index].cite_index = op.v;
+                    }
+                  }
+                }
+                continue;
+              }
+
+              if (typeof v === "string") {
+                sendByPath(v);
+              } else if (Array.isArray(v) && p === "response") {
+                for (const entry of v) {
+                  if (Array.isArray(entry?.v)) {
+                    const joined = entry.v.map((item) => item?.content || "").join("");
+                    if (joined) sendByPath(joined);
+                  }
+                }
+              }
+
+              if (p === "response/status" && v === "FINISHED") {
+                scheduleFinishAfterDrain();
+                continue;
+              }
+
+              if (isDrainPending()) {
+                scheduleFinishAfterDrain();
+              }
+            }
+          }
+        } catch (err) {
+          clearFinishedDrain();
+          if (!hasFinished()) {
+            controller.error(err);
+          }
+          return;
+        }
+
+        finishStream();
+      },
+      cancel() {},
+    },
+    { highWaterMark: 16384 }
+  );
+}
+
+async function collectSSEContent(deepseekStream, model) {
+  const decoder = new TextDecoder();
+  const reader = deepseekStream.getReader();
+  let buffer = "";
+  let content = "";
+  let reasoningContent = "";
+  let currentPath = "";
+  const streamModel = model || "deepseek-web";
+  const thinkingModel = isThinkingModel(streamModel);
+  const searchResults = [];
+
+  const appendByPath = (raw) => {
+    const text = formatStreamContent(raw, streamModel);
+    if (!text) return;
+    let path = currentPath;
+    if (!path && thinkingModel) path = "thinking";
+    else if (!path && isSearchModel(streamModel)) path = "content";
+    if (path === "thinking") reasoningContent += text;
+    else content += text;
+  };
+
+  const applyFragmentType = (frag) => {
+    const type = String(frag?.type || "").toUpperCase();
+    if (type === "THINK") currentPath = "thinking";
+    else if (type === "ANSWER" || type === "RESPONSE") currentPath = "content";
+  };
+
+  const handleFragment = (frag, setPathFromType = false) => {
+    if (setPathFromType) applyFragmentType(frag);
+    if (typeof frag?.content !== "string" || frag.content.length === 0) return;
+    if (!setPathFromType) {
+      const type = String(frag?.type || "").toUpperCase();
+      if (type === "THINK") currentPath = "thinking";
+      else if (type === "ANSWER" || type === "RESPONSE") currentPath = "content";
+    }
+    appendByPath(frag.content);
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      if (!line.startsWith("data: ") && !line.startsWith("data:")) continue;
+      const payload = line.replace(/^data:\s*/, "").trim();
+      try {
+        const data = JSON.parse(payload);
+        const p = data?.p;
+        const v = data?.v;
+
+        if (v && typeof v === "object" && v.response) {
+          if (v.response.thinking_enabled === true) currentPath = "thinking";
+          else if (v.response.thinking_enabled === false) currentPath = "content";
+          if (Array.isArray(v.response.fragments)) {
+            for (const frag of v.response.fragments) handleFragment(frag, false);
+          }
+        }
+
+        if (p === "response/fragments") {
+          if (Array.isArray(v)) {
+            for (const frag of v) handleFragment(frag, true);
+          } else if (v && typeof v === "object") {
+            handleFragment(v, true);
+          }
+        }
+
+        if (p === "response" && Array.isArray(v)) {
+          for (const entry of v) {
+            if (entry?.p === "response" && entry?.v?.thinking_enabled === true) {
+              currentPath = "thinking";
+            }
+          }
+        }
+
+        if (p === "response/search_status") continue;
+
+        if (p === "response/search_results" && Array.isArray(v)) {
+          if (data?.o !== "BATCH") {
+            searchResults.length = 0;
+            searchResults.push(...v);
+          } else {
+            for (const op of v) {
+              const match = String(op?.p || "").match(/^(\d+)\/cite_index$/);
+              if (match) {
+                const index = parseInt(match[1], 10);
+                if (searchResults[index]) searchResults[index].cite_index = op.v;
+              }
+            }
+          }
+          continue;
+        }
+
+        if (typeof v === "string") {
+          appendByPath(v);
+        } else if (Array.isArray(v) && p === "response") {
+          for (const entry of v) {
+            if (Array.isArray(entry?.v)) {
+              const joined = entry.v.map((item) => item?.content || "").join("");
+              if (joined) appendByPath(joined);
+            }
+          }
+        }
+      } catch {}
+    }
+  }
+
+  const citations = appendSearchCitations(searchResults, streamModel);
+  if (citations) content += `\n\n${citations}`;
+
+  return { content, reasoningContent };
 }
 
 function extractMessageText(content) {
@@ -56,69 +488,63 @@ function extractMessageText(content) {
   return String(content || "");
 }
 
-function messagesToPrompt(messages) {
+const DEFAULT_AUTO_HISTORY_WINDOW = 20;
+
+export function messagesToPrompt(messages, historyWindow = 0) {
   if (!messages || messages.length === 0) return "";
   const systemParts = [];
   const conversation = [];
   let lastUserContent = "";
+
   for (const m of messages) {
     const text = extractMessageText(m.content).trim();
-    if (m.role === "system") {
+    if (m.role === "system" || m.role === "developer") {
       if (text) systemParts.push(text);
     } else if (m.role === "user" || m.role === "assistant") {
       if (text) conversation.push({ role: m.role, text });
       if (m.role === "user") lastUserContent = text;
     } else if (m.role === "tool") {
       if (text) conversation.push({ role: "tool", text: `(${m.name || "tool"}) ${text}` });
-    } else if (m.role === "developer") {
-      if (text) systemParts.push(text);
     }
   }
+
   const parts = [];
   if (systemParts.length > 0) parts.push(systemParts.join("\n\n"));
-  const window = conversation.length > 1 ? 20 : 0;
-  if (window > 0 && conversation.length > 1) {
-    const recent = conversation.slice(-window);
-    const transcript = recent.map((turn) =>
-      turn.role === "assistant" ? `Assistant: ${turn.text}`
-      : turn.role === "tool" ? `Tool result ${turn.text}`
-      : `User: ${turn.text}`
-    ).join("\n\n");
+
+  const effectiveWindow =
+    historyWindow > 0 ? historyWindow : conversation.length > 1 ? DEFAULT_AUTO_HISTORY_WINDOW : 0;
+
+  if (effectiveWindow > 0 && conversation.length > 1) {
+    const recent = conversation.slice(-effectiveWindow);
+    const transcript = recent
+      .map((turn) =>
+        turn.role === "assistant"
+          ? `Assistant: ${turn.text}`
+          : turn.role === "tool"
+            ? `Tool result ${turn.text}`
+            : `User: ${turn.text}`
+      )
+      .join("\n\n");
     parts.push(transcript);
   } else if (lastUserContent) {
     parts.push(lastUserContent);
   }
+
   return parts.join("\n\n").replace(/!\[.*?\]\(.*?\)/g, "");
-}
-
-function resolveModelOptions(model, bodyObj) {
-  const m = (model || "").toLowerCase();
-  const modelType = m.includes("pro") || m.includes("expert") ? "expert" : "default";
-  const thinkingEnabled =
-    m.includes("r1") || m.includes("think") || m.includes("reason") ||
-    bodyObj?.thinking_enabled === true || bodyObj?.thinking === true || !!bodyObj?.reasoning_effort;
-  const searchEnabled =
-    m.includes("search") || bodyObj?.search_enabled === true || bodyObj?.search === true;
-  return { modelType, thinkingEnabled, searchEnabled };
-}
-
-function generateFakeCookie() {
-  const ts = Date.now();
-  const hex = (n) => Array.from({ length: n }, () => Math.floor(Math.random() * 16).toString(16)).join("");
-  const uid = () => "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-    const r = Math.random() * 16 | 0;
-    return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
-  });
-  return `intercom-HWWAFSESTIME=${ts}; HWWAFSESID=${hex(18)}; Hm_lvt_${uid()}=${Math.floor(ts / 1000)}; _frid=${uid()}`;
 }
 
 async function acquireAccessToken(userToken, signal, log) {
   const cached = tokenCache.get(userToken);
-  if (cached && cached.expiresAt > Math.floor(Date.now() / 1000)) return cached.accessToken;
+  if (cached && cached.expiresAt > Math.floor(Date.now() / 1000)) {
+    return cached.accessToken;
+  }
 
   log?.info?.("DEEPSEEK-WEB", "Acquiring access token from /users/current...");
   const resp = await fetch(`${DEEPSEEK_API_BASE}/v0/users/current`, {
-    headers: { Authorization: `Bearer ${userToken}`, ...FAKE_HEADERS },
+    headers: {
+      Authorization: `Bearer ${userToken}`,
+      ...FAKE_HEADERS,
+    },
     signal: signal ?? undefined,
   });
 
@@ -129,28 +555,52 @@ async function acquireAccessToken(userToken, signal, log) {
 
   const json = await resp.json();
   if (json?.code && json.code !== 0) {
+    const errMsg = json.msg || json?.data?.biz_msg || `error code ${json.code}`;
     tokenCache.delete(userToken);
-    throw new Error(`DeepSeek rejected token: ${json.msg || json?.data?.biz_msg || `code ${json.code}`}`);
+    throw new Error(`DeepSeek rejected token: ${errMsg}`);
   }
   const bizData = json?.data?.biz_data || json?.biz_data;
   if (!bizData?.token) {
-    throw new Error(`Failed to acquire access token: ${json?.msg || json?.data?.biz_msg || "unknown"}`);
+    const errMsg = json?.msg || json?.data?.biz_msg || "Unknown error";
+    throw new Error(`Failed to acquire token: ${errMsg}`);
   }
 
   const accessToken = bizData.token;
   evictOldest(tokenCache);
-  tokenCache.set(userToken, { accessToken, expiresAt: Math.floor(Date.now() / 1000) + 3600 });
+  tokenCache.set(userToken, {
+    accessToken,
+    expiresAt: Math.floor(Date.now() / 1000) + 3600,
+  });
+
   log?.info?.("DEEPSEEK-WEB", `Access token acquired (${accessToken.length} chars)`);
   return accessToken;
+}
+
+function parseDeepSeekErrorPayload(payload) {
+  if (!payload || typeof payload !== "object") return null;
+  const code = typeof payload.code === "number" ? payload.code : undefined;
+  const msg = payload.msg;
+  const bizMsg = payload.data?.biz_msg;
+  const messageRaw = typeof msg === "string" ? msg : typeof bizMsg === "string" ? bizMsg : "";
+  if (code !== undefined && code !== 0) {
+    return { code, message: messageRaw || `DeepSeek error ${code}` };
+  }
+  return null;
 }
 
 async function createSession(accessToken, signal) {
   const resp = await fetch(`${DEEPSEEK_API_BASE}/v0/chat_session/create`, {
     method: "POST",
-    headers: { ...FAKE_HEADERS, "Content-Type": "application/json", Authorization: `Bearer ${accessToken}`, Cookie: generateFakeCookie() },
+    headers: {
+      ...FAKE_HEADERS,
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+      Cookie: generateFakeCookie(),
+    },
     body: JSON.stringify({}),
     signal: signal ?? undefined,
   });
+
   if (!resp.ok) throw new Error(`chat_session/create HTTP ${resp.status}`);
   const json = await resp.json();
   const bizData = json?.data?.biz_data || json?.biz_data;
@@ -159,20 +609,47 @@ async function createSession(accessToken, signal) {
   return id;
 }
 
-async function deleteSession(accessToken, sessionId) {
+async function deleteSessionOnDeepSeek(accessToken, sessionId) {
   try {
     await fetch(`${DEEPSEEK_API_BASE}/v0/chat_session/delete`, {
       method: "POST",
-      headers: { ...FAKE_HEADERS, "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+      headers: {
+        ...FAKE_HEADERS,
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
       body: JSON.stringify({ chat_session_id: sessionId }),
     });
   } catch {}
 }
 
+function wrapStreamWithCleanup(responseStream, cleanup) {
+  const reader = responseStream.getReader();
+  return new ReadableStream({
+    async pull(controller) {
+      const { done, value } = await reader.read();
+      if (done) {
+        controller.close();
+        cleanup().catch(() => {});
+        return;
+      }
+      controller.enqueue(value);
+    },
+    cancel() {
+      reader.cancel();
+      cleanup().catch(() => {});
+    },
+  });
+}
+
 async function getPowChallenge(accessToken, signal) {
   const resp = await fetch(`${DEEPSEEK_API_BASE}/v0/chat/create_pow_challenge`, {
     method: "POST",
-    headers: { ...FAKE_HEADERS, "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+    headers: {
+      ...FAKE_HEADERS,
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
     body: JSON.stringify({ target_path: "/api/v0/chat/completion" }),
     signal: signal ?? undefined,
   });
@@ -183,102 +660,6 @@ async function getPowChallenge(accessToken, signal) {
   return bizData.challenge;
 }
 
-async function solvePow(challenge, signal) {
-  const { algorithm, challenge: challengeStr, salt, difficulty, expire_at, signature, target_path } = challenge;
-  if (algorithm !== "DeepSeekHashV1") throw new Error(`Unsupported PoW algorithm: ${algorithm}`);
-  const prefix = `${salt}_${expire_at}_`;
-  const answer = findDeepSeekPowNonce(prefix, challengeStr.toLowerCase(), difficulty);
-  if (answer < 0) throw new Error("PoW solver failed");
-  return Buffer.from(JSON.stringify({ algorithm, challenge: challengeStr, salt, answer, signature, target_path })).toString("base64");
-}
-
-function isThinkingModel(model) {
-  const m = (model || "").toLowerCase();
-  return m.includes("think") || m.includes("r1") || m.includes("reason");
-}
-
-function cleanToken(text) {
-  return text.replace(/FINISHED/g, "").replace(/^(SEARCH|WEB_SEARCH|SEARCHING)\s*/i, "");
-}
-
-function processLine(line) {
-  if (!line) return null;
-  let payload = line.trim();
-  if (!payload.startsWith("data:") && !payload.startsWith("data: ")) return null;
-  payload = payload.replace(/^data:\s*/, "").trim();
-  if (!payload || payload === "[DONE]") return null;
-  try { return JSON.parse(payload); } catch { return null; }
-}
-
-function extractContent(data, thinkingModel, state = {}) {
-  let text = "";
-  let thinking = "";
-  let isFinished = false;
-
-  const p = data?.p;
-  const v = data?.v;
-
-  if (v && typeof v === "object" && v.response) {
-    if (v.response.thinking_enabled === true) state.currentPath = "thinking";
-    else if (v.response.thinking_enabled === false) state.currentPath = "content";
-    if (Array.isArray(v.response.fragments)) {
-      for (const frag of v.response.fragments) {
-        const type = String(frag?.type || "").toUpperCase();
-        if (type === "THINK") state.currentPath = "thinking";
-        else if (type === "ANSWER" || type === "RESPONSE") state.currentPath = "content";
-        const c = frag?.content || "";
-        if (!c) continue;
-        const cleaned = cleanToken(c);
-        if (!cleaned) continue;
-        if (state.currentPath === "thinking") thinking += cleaned;
-        else text += cleaned;
-      }
-    }
-  }
-
-  if (p === "response/fragments") {
-    const frags = Array.isArray(v) ? v : (v && typeof v === "object" ? [v] : []);
-    for (const frag of frags) {
-      const type = String(frag?.type || "").toUpperCase();
-      if (type === "THINK") state.currentPath = "thinking";
-      else if (type === "ANSWER" || type === "RESPONSE") state.currentPath = "content";
-      const c = frag?.content || "";
-      if (!c) continue;
-      const cleaned = cleanToken(c);
-      if (!cleaned) continue;
-      if (state.currentPath === "thinking") thinking += cleaned;
-      else text += cleaned;
-    }
-  }
-
-  if (p === "response/status" && v === "FINISHED") {
-    isFinished = true;
-  }
-
-  if (typeof v === "string") {
-    const cleaned = cleanToken(v);
-    if (cleaned) {
-      if (!state.currentPath && thinkingModel) state.currentPath = "thinking";
-      if (state.currentPath === "thinking") thinking += cleaned;
-      else text += cleaned;
-    }
-  }
-
-  if (Array.isArray(v) && p === "response") {
-    for (const entry of v) {
-      if (Array.isArray(entry?.v)) {
-        const joined = entry.v.map((item) => item?.content || "").join("");
-        if (joined) {
-          const cleaned = cleanToken(joined);
-          if (cleaned) text += cleaned;
-        }
-      }
-    }
-  }
-
-  return { text, thinking, isFinished };
-}
-
 export class DeepSeekWebExecutor extends BaseExecutor {
   constructor() {
     super("deepseek-web", { baseUrl: DEEPSEEK_WEB_BASE });
@@ -286,214 +667,209 @@ export class DeepSeekWebExecutor extends BaseExecutor {
 
   async execute({ model, body, stream, credentials, signal, log }) {
     const bodyObj = body || {};
-    const userToken = extractUserToken(credentials?.apiKey || credentials?.token);
-    if (!userToken) {
-      const errResp = new Response(JSON.stringify({
-        error: { message: "Invalid credentials: paste your userToken from DeepSeek localStorage", type: "invalid_request_error" }
-      }), { status: 400, headers: { "Content-Type": "application/json" } });
-      return { response: errResp, url: COMPLETION_URL, headers: {}, transformedBody: body };
-    }
-
     const messages = Array.isArray(bodyObj.messages) ? bodyObj.messages : [];
-    const prompt = messagesToPrompt(messages);
-    if (!prompt.trim()) {
-      const errResp = new Response(JSON.stringify({
-        error: { message: "Prompt is empty", type: "invalid_request_error" }
-      }), { status: 400, headers: { "Content-Type": "application/json" } });
-      return { response: errResp, url: COMPLETION_URL, headers: {}, transformedBody: body };
+    const rawCreds = credentials || {};
+    const userToken = extractUserToken(rawCreds.apiKey || rawCreds.token);
+
+    if (!userToken) {
+      return {
+        response: errorResponse(
+          400,
+          "Invalid credentials: paste your userToken from DeepSeek localStorage (DevTools -> Application -> Local Storage -> chat.deepseek.com -> userToken)"
+        ),
+        url: COMPLETION_URL,
+        headers: {},
+        transformedBody: body,
+      };
     }
 
     const { modelType, thinkingEnabled, searchEnabled } = resolveModelOptions(model, bodyObj);
-    const thinkingModel = isThinkingModel(model);
+    const psd = rawCreds.providerSpecificData || {};
+    const persistSession = psd.persistSession === true;
+    const historyWindow = typeof psd.historyWindow === "number" && psd.historyWindow > 0 ? psd.historyWindow : 0;
 
     try {
       const accessToken = await acquireAccessToken(userToken, signal, log);
-      const sessionId = await createSession(accessToken, signal);
-      const powChallenge = await getPowChallenge(accessToken, signal);
-      const powAnswer = await solvePow(powChallenge, signal);
+      const prompt = messagesToPrompt(messages, historyWindow);
+      const refFileIds = Array.isArray(bodyObj.ref_file_ids) ? bodyObj.ref_file_ids : [];
 
-      const reqHeaders = {
-        ...FAKE_HEADERS,
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-        "X-Ds-Pow-Response": powAnswer,
-        "X-Client-Timezone-Offset": String(new Date().getTimezoneOffset() * -60),
-        Cookie: generateFakeCookie(),
+      const performCompletion = async (sid) => {
+        const powChallenge = await getPowChallenge(accessToken, signal);
+        const powAnswer = await solvePow(powChallenge, signal);
+        const reqHeaders = {
+          ...FAKE_HEADERS,
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+          "X-Ds-Pow-Response": powAnswer,
+          "X-Client-Timezone-Offset": String(new Date().getTimezoneOffset() * -60),
+          Cookie: generateFakeCookie(),
+        };
+        const requestPayload = {
+          chat_session_id: sid,
+          parent_message_id: null,
+          model_type: modelType,
+          prompt,
+          ref_file_ids: refFileIds,
+          thinking_enabled: thinkingEnabled,
+          search_enabled: searchEnabled,
+          preempt: false,
+        };
+        const resp = await fetch(COMPLETION_URL, {
+          method: "POST",
+          headers: reqHeaders,
+          body: JSON.stringify(requestPayload),
+          signal: signal ?? undefined,
+        });
+        return { resp, reqHeaders, requestPayload };
       };
 
-      const requestPayload = {
-        chat_session_id: sessionId,
-        parent_message_id: null,
-        model_type: modelType,
-        prompt,
-        ref_file_ids: [],
-        thinking_enabled: thinkingEnabled,
-        search_enabled: searchEnabled,
-        preempt: false,
+      const acquireSession = async () => {
+        if (persistSession) {
+          const cached = sessionCache.get(userToken);
+          if (cached) return { sessionId: cached.sessionId, reused: true };
+          const created = await createSession(accessToken, signal);
+          evictOldest(sessionCache);
+          sessionCache.set(userToken, { sessionId: created, createdAt: Date.now() });
+          return { sessionId: created, reused: false };
+        }
+        return { sessionId: await createSession(accessToken, signal), reused: false };
       };
 
-      log?.info?.("DEEPSEEK-WEB", `POST ${COMPLETION_URL} (model=${model}, thinking=${thinkingEnabled})`);
-      const resp = await fetch(COMPLETION_URL, {
-        method: "POST",
-        headers: reqHeaders,
-        body: JSON.stringify(requestPayload),
-        signal: signal ?? undefined,
-      });
+      let { sessionId, reused: reusedSession } = await acquireSession();
+      log?.info?.("DEEPSEEK-WEB", `POST ${COMPLETION_URL}`);
+      let { resp, reqHeaders, requestPayload } = await performCompletion(sessionId);
+
+      if (!resp.ok && persistSession && reusedSession) {
+        log?.warn?.("DEEPSEEK-WEB", "Reused session failed, retrying with fresh session");
+        sessionCache.delete(userToken);
+        sessionId = await createSession(accessToken, signal);
+        evictOldest(sessionCache);
+        sessionCache.set(userToken, { sessionId, createdAt: Date.now() });
+        reusedSession = false;
+        ({ resp, reqHeaders, requestPayload } = await performCompletion(sessionId));
+      }
 
       if (!resp.ok) {
-        let errMsg = `DeepSeek API error (${resp.status})`;
-        if (resp.status === 401 || resp.status === 403) {
+        const status = resp.status;
+        let errMsg = `DeepSeek API error (${status})`;
+        if (status === 401 || status === 403) {
           tokenCache.delete(userToken);
           errMsg = "DeepSeek token expired. Get a fresh userToken from localStorage.";
-        } else if (resp.status === 429) {
+        } else if (status === 429) {
           errMsg = "DeepSeek rate limited. Wait and retry.";
         }
         try {
           const errBody = await resp.json();
-          if (errBody?.code && errBody.code !== 0) errMsg = `DeepSeek error ${errBody.code}: ${errBody.msg}`;
+          if (errBody?.code && errBody.code !== 0) {
+            errMsg = `DeepSeek error ${errBody.code}: ${errBody.msg}`;
+          }
         } catch {}
-        await deleteSession(accessToken, sessionId);
-        const errResp = new Response(JSON.stringify({ error: { message: errMsg, type: "upstream_error" } }), { status: resp.status, headers: { "Content-Type": "application/json" } });
-        return { response: errResp, url: COMPLETION_URL, headers: reqHeaders, transformedBody: requestPayload };
+
+        if (persistSession) sessionCache.delete(userToken);
+        deleteSessionOnDeepSeek(accessToken, sessionId).catch(() => {});
+        return {
+          response: errorResponse(status, errMsg),
+          url: COMPLETION_URL,
+          headers: reqHeaders,
+          transformedBody: requestPayload,
+        };
       }
 
       const ct = resp.headers.get("content-type") || "";
       if (ct.includes("application/json")) {
         try {
           const json = await resp.json();
-          if (json?.code && json.code !== 0) {
-            await deleteSession(accessToken, sessionId);
-            const errMsg = `DeepSeek error ${json.code}: ${json.msg}`;
-            const status = json.code === 40003 ? 401 : json.code === 40002 ? 429 : 502;
-            if (json.code === 40003) tokenCache.delete(userToken);
-            const errResp = new Response(JSON.stringify({ error: { message: errMsg, type: "upstream_error" } }), { status, headers: { "Content-Type": "application/json" } });
-            return { response: errResp, url: COMPLETION_URL, headers: reqHeaders, transformedBody: requestPayload };
+          const parsed = parseDeepSeekErrorPayload(json);
+          if (parsed) {
+            const errMsg = `DeepSeek error ${parsed.code}: ${parsed.message}`;
+            const status = parsed.code === 40003 ? 401 : parsed.code === 40002 ? 429 : 502;
+            if (parsed.code === 40003) tokenCache.delete(userToken);
+            if (persistSession) sessionCache.delete(userToken);
+            deleteSessionOnDeepSeek(accessToken, sessionId).catch(() => {});
+            return {
+              response: errorResponse(status, errMsg, parsed.code),
+              url: COMPLETION_URL,
+              headers: reqHeaders,
+              transformedBody: requestPayload,
+            };
           }
+          if (!persistSession) deleteSessionOnDeepSeek(accessToken, sessionId).catch(() => {});
+          return {
+            response: new Response(JSON.stringify(json), {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            }),
+            url: COMPLETION_URL,
+            headers: reqHeaders,
+            transformedBody: requestPayload,
+          };
         } catch {}
       }
 
-      const created = Math.floor(Date.now() / 1000);
-      const responseId = `chatcmpl-dsw-${Math.random().toString(36).slice(2, 8)}`;
-      const clientModel = (model || "deepseek-web").trim();
+      const cleanupFn = persistSession
+        ? async () => {}
+        : () => deleteSessionOnDeepSeek(accessToken, sessionId);
+
+      const clientModel = typeof model === "string" && model.trim() ? model.trim() : "deepseek-web";
 
       if (stream !== false) {
-        const encoder = new TextEncoder();
-        const decoder = new TextDecoder();
-        let streamBuffer = "";
-        let emittedRole = false;
-        let finished = false;
-        const parserState = { currentPath: "" };
-
-        const openaiStream = new ReadableStream({
-          async start(controller) {
-            const reader = resp.body.getReader();
-            const ensureRole = () => {
-              if (!emittedRole) {
-                emittedRole = true;
-                controller.enqueue(encoder.encode(sseChunk({
-                  id: responseId, object: "chat.completion.chunk", created, model: clientModel,
-                  choices: [{ index: 0, delta: { role: "assistant", content: "" }, finish_reason: null }],
-                })));
-              }
-            };
-            const finishStream = () => {
-              if (finished) return;
-              finished = true;
-              ensureRole();
-              controller.enqueue(encoder.encode(sseChunk({
-                id: responseId, object: "chat.completion.chunk", created, model: clientModel,
-                choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
-              })));
-              controller.enqueue(encoder.encode(SSE_DONE));
-              controller.close();
-              deleteSession(accessToken, sessionId).catch(() => {});
-            };
-
-            try {
-              while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                streamBuffer += decoder.decode(value, { stream: true });
-                const lines = streamBuffer.split("\n");
-                streamBuffer = lines.pop() || "";
-
-                for (const line of lines) {
-                  const data = processLine(line);
-                  if (!data) continue;
-                  if (data === "[DONE]") { finishStream(); return; }
-
-                  const { text, thinking, isFinished } = extractContent(data, thinkingModel, parserState);
-                  if (thinking) {
-                    ensureRole();
-                    controller.enqueue(encoder.encode(sseChunk({
-                      id: responseId, object: "chat.completion.chunk", created, model: clientModel,
-                      choices: [{ index: 0, delta: { reasoning_content: thinking }, finish_reason: null }],
-                    })));
-                  }
-                  if (text) {
-                    ensureRole();
-                    controller.enqueue(encoder.encode(sseChunk({
-                      id: responseId, object: "chat.completion.chunk", created, model: clientModel,
-                      choices: [{ index: 0, delta: { content: text }, finish_reason: null }],
-                    })));
-                  }
-                  if (isFinished) {
-                    setTimeout(finishStream, 750);
-                  }
-                }
-              }
-              finishStream();
-            } catch (err) {
-              if (!finished) {
-                try { controller.error(err); } catch {}
-                deleteSession(accessToken, sessionId).catch(() => {});
-              }
-            }
-          },
-          cancel() {
-            deleteSession(accessToken, sessionId).catch(() => {});
-          },
-        });
-
+        const openaiStream = transformSSE(resp.body, clientModel);
+        const wrappedStream = wrapStreamWithCleanup(openaiStream, cleanupFn);
         return {
-          response: new Response(openaiStream, { status: 200, headers: SSE_HEADERS_NO_BUFFER }),
-          url: COMPLETION_URL, headers: reqHeaders, transformedBody: requestPayload,
+          response: new Response(wrappedStream, {
+            status: 200,
+            headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
+          }),
+          url: COMPLETION_URL,
+          headers: reqHeaders,
+          transformedBody: requestPayload,
         };
       }
 
-      // Non-streaming
-      const rawText = await resp.text();
-      let fullText = "";
-      let fullThinking = "";
-      const parserState = { currentPath: "" };
-      const lines = rawText.split("\n");
-      for (const line of lines) {
-        const data = processLine(line);
-        if (!data) continue;
-        const { text, thinking } = extractContent(data, thinkingModel, parserState);
-        fullText += text;
-        fullThinking += thinking;
-      }
-      await deleteSession(accessToken, sessionId);
-
-      const responseMsg = { role: "assistant", content: fullText || "" };
-      if (fullThinking) responseMsg.reasoning_content = fullThinking;
-      const jsonResp = new Response(JSON.stringify({
-        id: responseId, object: "chat.completion", created, model: clientModel,
-        choices: [{ index: 0, message: responseMsg, finish_reason: "stop" }],
+      const { content, reasoningContent } = await collectSSEContent(resp.body, clientModel);
+      await cleanupFn();
+      const message = { role: "assistant", content };
+      if (reasoningContent) message.reasoning_content = reasoningContent;
+      const openaiResponse = {
+        id: `chatcmpl-${Date.now()}`,
+        object: "chat.completion",
+        created: Math.floor(Date.now() / 1000),
+        model: model || modelType,
+        choices: [
+          {
+            index: 0,
+            message,
+            finish_reason: "stop",
+          },
+        ],
         usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
-      }), { status: 200, headers: { "Content-Type": "application/json" } });
-      return { response: jsonResp, url: COMPLETION_URL, headers: reqHeaders, transformedBody: requestPayload };
-
+      };
+      return {
+        response: new Response(JSON.stringify(openaiResponse), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+        url: COMPLETION_URL,
+        headers: reqHeaders,
+        transformedBody: requestPayload,
+      };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       log?.error?.("DEEPSEEK-WEB", `Execute failed: ${msg}`);
       if (err instanceof Error && err.name === "AbortError") {
-        const errResp = new Response(JSON.stringify({ error: { message: "Request cancelled", type: "api_error" } }), { status: 499, headers: { "Content-Type": "application/json" } });
-        return { response: errResp, url: COMPLETION_URL, headers: {}, transformedBody: body };
+        return {
+          response: errorResponse(499, "Request cancelled"),
+          url: COMPLETION_URL,
+          headers: {},
+          transformedBody: body,
+        };
       }
-      const errResp = new Response(JSON.stringify({ error: { message: `DeepSeek error: ${msg}`, type: "upstream_error" } }), { status: 502, headers: { "Content-Type": "application/json" } });
-      return { response: errResp, url: COMPLETION_URL, headers: {}, transformedBody: body };
+      return {
+        response: errorResponse(502, `DeepSeek error: ${msg}`),
+        url: COMPLETION_URL,
+        headers: {},
+        transformedBody: body,
+      };
     }
   }
 }
