@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Card, Button, Toggle, Input, Select } from "@/shared/components";
+import { Card, Button, Toggle, Input, Select, DownloadBackupModal } from "@/shared/components";
 import Modal, { ConfirmModal } from "@/shared/components/Modal";
 import LanguageSwitcher from "@/shared/components/LanguageSwitcher";
 import { cn } from "@/shared/utils/cn";
@@ -42,6 +42,7 @@ export default function ProfilePage() {
   const [dbLoading, setDbLoading] = useState(false);
   const [dbStatus, setDbStatus] = useState({ type: "", message: "" });
   const [dbAuth, setDbAuth] = useState({ open: false, mode: "", password: "" });
+  const [showDownloadBackupModal, setShowDownloadBackupModal] = useState(false);
   const pendingImportRef = useRef(null);
   const [oidcForm, setOidcForm] = useState({
     authMode: "password",
@@ -664,12 +665,15 @@ export default function ProfilePage() {
   };
 
 
-  const handleExportDatabase = async (password) => {
+  const handleExportDatabase = async (password, selectedSections = []) => {
     setDbLoading(true);
     setDbStatus({ type: "", message: "" });
     try {
-      const res = await fetch("/api/settings/database", {
-        headers: { "x-9r-password": password },
+      const sectionsQuery = selectedSections && selectedSections.length > 0
+        ? `?sections=${selectedSections.join(",")}`
+        : "";
+      const res = await fetch(`/api/settings/database${sectionsQuery}`, {
+        headers: { "x-9r-password": password || "" },
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -690,6 +694,7 @@ export default function ProfilePage() {
       URL.revokeObjectURL(url);
 
       setDbStatus({ type: "success", message: "Database backup downloaded" });
+      setShowDownloadBackupModal(false);
     } catch (err) {
       setDbStatus({ type: "error", message: err.message || "Failed to export database" });
     } finally {
@@ -784,7 +789,7 @@ export default function ProfilePage() {
                   <Button
                     variant="secondary"
                     icon="download"
-                    onClick={() => setDbAuth({ open: true, mode: "export", password: "" })}
+                    onClick={() => setShowDownloadBackupModal(true)}
                     loading={dbLoading}
                     className="w-full sm:w-auto"
                   >
@@ -1606,6 +1611,12 @@ export default function ProfilePage() {
         loading={isShuttingDown}
       />
 
+      <DownloadBackupModal
+        isOpen={showDownloadBackupModal}
+        onClose={() => setShowDownloadBackupModal(false)}
+        onDownload={(password, sections) => handleExportDatabase(password, sections)}
+        loading={dbLoading}
+      />
 
       <Modal
         isOpen={dbAuth.open}
