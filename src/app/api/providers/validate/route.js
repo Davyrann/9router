@@ -584,23 +584,49 @@ export async function POST(request) {
 
         case "deepseek-web": {
           let token = apiKey.trim();
+          if (token.startsWith("{")) {
+            try {
+              const parsed = JSON.parse(token);
+              if (parsed && typeof parsed.value === "string") token = parsed.value.trim();
+            } catch {}
+          }
+          if (token.includes("userToken=")) {
+            const m = token.match(/userToken=([^;]+)/);
+            if (m) token = m[1].trim();
+          }
           if (token.startsWith("Bearer ")) token = token.slice(7).trim();
+          token = token.replace(/^["']|["']$/g, "").trim();
+
+          if (!token) {
+            isValid = false;
+            error = "Invalid token format";
+            break;
+          }
+
           const res = await fetch("https://chat.deepseek.com/api/v0/users/current", {
             method: "GET",
             headers: {
               Authorization: `Bearer ${token}`,
               "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+              Origin: "https://chat.deepseek.com",
+              Referer: "https://chat.deepseek.com/",
               "x-app-version": "20241129.0",
               "x-client-platform": "web",
             },
             signal: AbortSignal.timeout(8000),
           }).catch(() => null);
 
-          if (!res || res.status === 401 || res.status === 403) {
+          if (!res || !res.ok) {
             isValid = false;
             error = "Invalid token - copy userToken from chat.deepseek.com DevTools -> Application -> Local Storage/Cookies";
           } else {
-            isValid = true;
+            const data = await res.json().catch(() => null);
+            if (!data || data.code !== 0 || (data.data && data.data.biz_code !== undefined && data.data.biz_code !== 0)) {
+              isValid = false;
+              error = data?.msg || data?.data?.biz_msg || "Invalid token - rejected by chat.deepseek.com";
+            } else {
+              isValid = true;
+            }
           }
           break;
         }

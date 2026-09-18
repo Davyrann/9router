@@ -6,9 +6,27 @@ import { sseChunk } from "../utils/sse.js";
 const DEEPSEEK_WEB_BASE = PROVIDERS["deepseek-web"]?.baseUrl || "https://chat.deepseek.com/api/v0";
 const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
+function extractUserToken(raw) {
+  if (!raw) return "";
+  let str = String(raw).trim();
+  if (str.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(str);
+      if (parsed && typeof parsed.value === "string") {
+        str = parsed.value.trim();
+      }
+    } catch {}
+  }
+  if (str.includes("userToken=")) {
+    const m = str.match(/userToken=([^;]+)/);
+    if (m) str = m[1].trim();
+  }
+  if (str.startsWith("Bearer ")) str = str.slice(7).trim();
+  return str.replace(/^["']|["']$/g, "").trim();
+}
+
 function formatAuthToken(rawKey) {
-  let token = String(rawKey || "").trim();
-  if (token.startsWith("Bearer ")) token = token.slice(7).trim();
+  const token = extractUserToken(rawKey);
   return token ? `Bearer ${token}` : "";
 }
 
@@ -76,6 +94,8 @@ export class DeepSeekWebExecutor extends BaseExecutor {
           "Content-Type": "application/json",
           "Authorization": authToken,
           "User-Agent": USER_AGENT,
+          "Origin": "https://chat.deepseek.com",
+          "Referer": "https://chat.deepseek.com/",
           "x-app-version": "20241129.0",
           "x-client-platform": "web",
         },
@@ -105,6 +125,8 @@ export class DeepSeekWebExecutor extends BaseExecutor {
       "Content-Type": "application/json",
       "Authorization": authToken,
       "User-Agent": USER_AGENT,
+      "Origin": "https://chat.deepseek.com",
+      "Referer": "https://chat.deepseek.com/",
       "x-app-version": "20241129.0",
       "x-client-platform": "web",
       "Accept": "text/event-stream, */*",
@@ -143,10 +165,14 @@ export class DeepSeekWebExecutor extends BaseExecutor {
     const responseId = `chatcmpl-dsw-${Math.random().toString(36).slice(2, 10)}`;
 
     if (stream) {
+      let streamBuffer = "";
+      const decoder = new TextDecoder();
+
       const transformStream = new TransformStream({
-        async transform(chunk, controller) {
-          const text = new TextDecoder().decode(chunk);
-          const lines = text.split("\n");
+        transform(chunk, controller) {
+          streamBuffer += decoder.decode(chunk, { stream: true });
+          const lines = streamBuffer.split("\n");
+          streamBuffer = lines.pop() || "";
 
           for (const line of lines) {
             const trimmed = line.trim();
@@ -156,12 +182,17 @@ export class DeepSeekWebExecutor extends BaseExecutor {
 
             try {
               const json = JSON.parse(dataStr);
-              const choices = json?.data?.biz_data?.choices || json?.choices || [];
+              if (json.code !== undefined && json.code !== 0) {
+                log?.error?.("DEEPSEEK-WEB", `Stream error: ${json.msg || json.code}`);
+                continue;
+              }
+              const bizData = json?.data?.biz_data || json?.biz_data || json?.data || json;
+              const choices = bizData?.choices || json?.choices || [];
               for (const choice of choices) {
                 const delta = choice?.delta;
                 if (!delta) continue;
                 const contentType = delta.type || "text";
-                const contentText = delta.content || "";
+                const contentText = delta.content || delta.text || "";
 
                 if (!contentText) continue;
 
@@ -200,6 +231,38 @@ export class DeepSeekWebExecutor extends BaseExecutor {
           }
         },
         flush(controller) {
+          if (streamBuffer.trim().startsWith("data:")) {
+            const dataStr = streamBuffer.trim().slice(5).trim();
+            if (dataStr && dataStr !== "[DONE]") {
+              try {
+                const json = JSON.parse(dataStr);
+                const bizData = json?.data?.biz_data || json?.biz_data || json?.data || json;
+                const choices = bizData?.choices || json?.choices || [];
+                for (const choice of choices) {
+                  const delta = choice?.delta;
+                  if (!delta) continue;
+                  const contentType = delta.type || "text";
+                  const contentText = delta.content || delta.text || "";
+                  if (contentText) {
+                    const ssePayload = contentType === "thinking" ? {
+                      id: responseId,
+                      object: "chat.completion.chunk",
+                      created,
+                      model,
+                      choices: [{ index: 0, delta: { reasoning_content: contentText }, finish_reason: null }]
+                    } : {
+                      id: responseId,
+                      object: "chat.completion.chunk",
+                      created,
+                      model,
+                      choices: [{ index: 0, delta: { content: contentText }, finish_reason: null }]
+                    };
+                    controller.enqueue(new TextEncoder().encode(sseChunk(ssePayload)));
+                  }
+                }
+              } catch {}
+            }
+          }
           const finalChunk = {
             id: responseId,
             object: "chat.completion.chunk",
