@@ -351,6 +351,14 @@ export default function ProvidersPage() {
       if (ca !== cb) return ca - cb;
       return (a.name || "").localeCompare(b.name || "");
     });
+  const webCookieEntries = Object.entries(WEB_COOKIE_PROVIDERS)
+    .filter(
+      ([key, info]) =>
+        !info.hidden &&
+        matchSearch(info.name) &&
+        matchStatus(getProviderStats(key, ["cookie", "apikey"])),
+    );
+
   // API Key: connected providers first, then alphabetical by name
   const apikeyEntries = Object.entries(APIKEY_PROVIDERS)
     .filter(
@@ -386,6 +394,7 @@ export default function ProvidersPage() {
     oauthEntries.length > 0 ||
     freeEntries.length > 0 ||
     freeTierEntries.length > 0 ||
+    webCookieEntries.length > 0 ||
     apikeyEntries.length > 0 ||
     compatibleProviders.length > 0 ||
     anthropicCompatibleProviders.length > 0;
@@ -587,6 +596,29 @@ export default function ProvidersPage() {
       </div>
       )}
 
+      {/* Web Cookie Providers — use browser subscription cookie instead of API key */}
+      {webCookieEntries.length > 0 && (
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2 leading-tight">
+            Web Cookie Providers{" "}
+          </h2>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
+          {webCookieEntries.map(([key, info]) => (
+            <ApiKeyProviderCard
+              key={key}
+              providerId={key}
+              provider={info}
+              stats={getProviderStats(key, ["cookie", "apikey"])}
+              authType="cookie"
+              onToggle={(active) => handleToggleProvider(key, ["cookie", "apikey"], active)}
+            />
+          ))}
+        </div>
+      </div>
+      )}
+
       {/* API Key Providers — fixed list */}
       {apikeyEntries.length > 0 && (
       <div className="flex flex-col gap-4">
@@ -636,27 +668,6 @@ export default function ProvidersPage() {
         )}
       </div>
       )}
-
-      {/* Web Cookie Providers — use browser subscription cookie instead of API key */}
-      {/* <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold flex items-center gap-2">
-            Web Cookie Providers{" "}
-          </h2>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {Object.entries(WEB_COOKIE_PROVIDERS).map(([key, info]) => (
-            <ApiKeyProviderCard
-              key={key}
-              providerId={key}
-              provider={info}
-              stats={getProviderStats(key, "apikey")}
-              authType="apikey"
-              onToggle={(active) => handleToggleProvider(key, "apikey", active)}
-            />
-          ))}
-        </div>
-      </div> */}
 
       <AddCompatibleModal
         variant="openai"

@@ -6,7 +6,7 @@
 
 English only. The UI is locked to the dark theme. This README describes **this** repository; upstream documentation lives at [9router.com](https://9router.com).
 
-`Upstream base: v0.5.75 (merged 2026-09-13) · Fork releases: v0.5.70-Custom → v0.5.95-Custom`
+`Upstream base: v0.5.75 (merged 2026-09-13) · Fork releases: v0.5.70-Custom → v0.5.99-Custom`
 
 </div>
 

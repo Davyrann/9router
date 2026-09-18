@@ -582,6 +582,29 @@ export async function POST(request) {
           break;
         }
 
+        case "deepseek-web": {
+          let token = apiKey.trim();
+          if (token.startsWith("Bearer ")) token = token.slice(7).trim();
+          const res = await fetch("https://chat.deepseek.com/api/v0/users/current", {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+              "x-app-version": "20241129.0",
+              "x-client-platform": "web",
+            },
+            signal: AbortSignal.timeout(8000),
+          }).catch(() => null);
+
+          if (!res || res.status === 401 || res.status === 403) {
+            isValid = false;
+            error = "Invalid token - copy userToken from chat.deepseek.com DevTools -> Application -> Local Storage/Cookies";
+          } else {
+            isValid = true;
+          }
+          break;
+        }
+
         case "qoder": {
           // PAT (pt-...) needs the job-token exchange before it can sign
           // anything — the generic OpenAI-compat probe below can't validate it.

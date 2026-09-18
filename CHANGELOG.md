@@ -1,3 +1,8 @@
+# v0.5.99-Custom (2026-09-18)
+
+## Custom Features & Enhancements
+- **DeepSeek Web (Cookie) Provider**: added `deepseek-web` under the Web Cookie Providers category (positioned between Free Tier and API Key providers). Supports web session token auth (`userToken` from `chat.deepseek.com`), streaming responses, and reasoning content (`<think>`) for models: `deepseek-chat`, `deepseek-reasoner`, `deepseek-v4.1-flash`, `deepseek-v4.1-pro`, `deepseek-v4.1-reasoner`, `deepseek-v3`, and `deepseek-r1`.
+
 # v0.5.98-Custom (2026-09-17)
 
 ## Fixes

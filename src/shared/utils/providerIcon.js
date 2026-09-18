@@ -6,6 +6,7 @@ const ICON_ALIASES = {
   "gitlab-duo": "gitlab",
   "vercel-ai-gateway": "vercel",
   "ollama-search": "ollama",
+  "deepseek-web": "deepseek",
 };
 
 const TYPE_PREFIX_ALIASES = {
