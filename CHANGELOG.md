@@ -1,3 +1,8 @@
+# v0.5.101-Custom (2026-09-19)
+
+## Custom Features & Enhancements
+- **Remove 9Remote & 9English menus**: dropped the 9Remote promo entry, the 9English external link, and their unused modal components from the sidebar to keep navigation focused on router tools.
+
 # v0.5.100-Custom (2026-09-19)
 
 ## Fixes
