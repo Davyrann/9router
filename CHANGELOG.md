@@ -1,3 +1,8 @@
+# v0.5.106-Custom (2026-09-19)
+
+## Custom Features & Enhancements
+- **New plugin: Speed Mode**: a fourth Custom Plugin that makes selected models answer instantly instead of reasoning. It injects a direct-answer system instruction and forces a thinking "none" intent, which the unified thinking pipeline converts into each provider's native disable format (OpenAI `reasoning_effort`, Claude `thinking: disabled`, Gemini budget 0, Qwen `enable_thinking: false`, and so on). Claude-native requests set the disable flag in the Anthropic shape so native passthrough never sends an unknown field. Selected models get a cyan bolt badge in the model lists and the plugin picker, managed exactly like the existing plugins on the Custom Plugins page.
+
 # v0.5.105-Custom (2026-09-19)
 
 ## Fixes
