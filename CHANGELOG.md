@@ -1,3 +1,8 @@
+# v0.5.105-Custom (2026-09-19)
+
+## Fixes
+- **GitHub link label visible on mobile**: the header "Visit On GitHub" text was hidden behind a responsive `hidden sm:inline` class and showed only the logo on small screens; the label now always renders next to the icon.
+
 # v0.5.104-Custom (2026-09-19)
 
 ## Custom Features & Enhancements
