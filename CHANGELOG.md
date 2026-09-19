@@ -1,3 +1,8 @@
+# v0.5.104-Custom (2026-09-19)
+
+## Custom Features & Enhancements
+- **Simplify backup section picker**: removed the "Select All" and "Lightweight Only" quick actions from the Download Backup dialog; sections are now picked with the individual checkboxes only.
+
 # v0.5.103-Custom (2026-09-19)
 
 ## Fixes
