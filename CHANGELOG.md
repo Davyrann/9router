@@ -1,3 +1,9 @@
+# v0.5.100-Custom (2026-09-19)
+
+## Fixes
+- **Modal header polish**: the "Welcome to 9Router!" title no longer hugs the left edge of the dialog and now sits vertically centered on the same line as the close button. Applied to all dialogs, including the Download Backup header.
+- **Smaller "Heavy" badge**: the Heavy tag in the Download Backup section list now renders in the compact badge size instead of falling back to the large default.
+
 # v0.5.99-Custom (2026-09-18)
 
 ## Custom Features & Enhancements

@@ -177,7 +177,7 @@ export default function DownloadBackupModal({ isOpen, onClose, onDownload, loadi
 
                   <div className="flex items-center gap-2 shrink-0">
                     {sec.isHeavy && (
-                      <Badge variant="warning" size="xs">
+                      <Badge variant="warning" size="sm">
                         Heavy
                       </Badge>
                     )}
