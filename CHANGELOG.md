@@ -1,3 +1,11 @@
+# v0.5.102-Custom (2026-09-19)
+
+## Custom Features & Enhancements
+- **DeepSeek Web tool calling support**: the cookie-based DeepSeek Web provider now supports OpenAI tool calling. Because the web backend is a text-only RAG endpoint, the executor encodes the requested tools as a protocol inside the prompt, converts previous assistant tool_calls and tool result messages into readable transcript turns, and parses the model's reply back into standard OpenAI `tool_calls` deltas with `finish_reason: "tool_calls"` for both streaming and non-streaming requests. Requests without tools follow the original flow unchanged.
+
+## Fixes
+- **Usage visible after backup import**: the Usage Overview Today and 24h views now merge the daily aggregates that shipped inside the backup (for days before today) with live request history, so restored usage is no longer hidden behind an empty default period. Verified with a real export-import roundtrip: restored rows show up in today, 24h and 7d views, while live-only data is never double counted.
+
 # v0.5.101-Custom (2026-09-19)
 
 ## Custom Features & Enhancements
