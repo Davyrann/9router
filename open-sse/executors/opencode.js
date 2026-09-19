@@ -24,14 +24,33 @@ export const OPENCODE_SESSION_RE = /^ses_[0-9a-f]{12}[0-9A-Za-z]{14}$/;
 export const OPENCODE_REQUEST_RE = /^msg_[0-9a-f]{12}[0-9A-Za-z]{14}$/;
 const BASE62_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
-// OpenCode free tier requires both 'bash' and 'read' in tools payload.
-// Injected as cloaked decoy tools so external CLI tools (e.g. Claude Code's Bash/Read)
-// take precedence while satisfying upstream verification.
+// OpenCode free tier fingerprints the official agentic client on the tools
+// payload. Verified live against opencode.ai/zen: /chat/completions requires
+// the {bash, glob, grep, read} quartet and /responses requires bash + read
+// plus tool_choice auto; any request missing them returns 403 FreeTierError.
+// Injected as cloaked decoy tools so external CLI tools take precedence while
+// satisfying upstream verification.
 const OPENCODE_DECOY_CHAT_TOOLS = [
   {
     type: "function",
     function: {
       name: "bash",
+      description: "This tool is currently unavailable and must not be used.",
+      parameters: { type: "object", properties: {} },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "glob",
+      description: "This tool is currently unavailable and must not be used.",
+      parameters: { type: "object", properties: {} },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "grep",
       description: "This tool is currently unavailable and must not be used.",
       parameters: { type: "object", properties: {} },
     },
@@ -499,9 +518,12 @@ export class OpenCodeExecutor extends BaseExecutor {
       body.store = false;
       normalizeResponsesTools(body);
       sanitizeResponsesItems(body);
-      if (!Array.isArray(body.tools) || body.tools.length === 0) {
-        cloakOpencodeTools(body, true);
-      }
+      // Free tier gates on both 'bash' and 'read' being present in the tools
+      // payload (verified live: any Responses request without both returns 403
+      // FreeTierError "can only be used from within OpenCode", with both +
+      // tool_choice auto it returns 200). Cloak on every request, not just
+      // empty ones, so external clients sending 1..N tools still pass.
+      cloakOpencodeTools(body, true);
     } else if (body && typeof body === "object") {
       cloakOpencodeTools(body, false);
     }
