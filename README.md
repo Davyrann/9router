@@ -118,4 +118,4 @@ If this fork helped you, a star is appreciated.
 
 </div>
 
-<img src="https://capsule-render.vercel.app/api?type=waving&section=footer&height=140&color=0:c2590a,100:f97815&animation=fadeIn" width="100%" alt="" />
+<img src="https://capsule-render.vercel.app/api?type=venom&height=140&color=0:c2590a,50:f97815,100:ffb347&animation=fadeIn" width="100%" alt="" />
