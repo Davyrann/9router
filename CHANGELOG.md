@@ -1,3 +1,8 @@
+# v0.5.109-Custom (2026-09-20)
+
+## Fixes
+- **Plugin badges on Custom Models and Combos**: the Custom Plugins badges (Image Vision, Think Deeper, Speed Mode, Uncensored Output) only ever resolved against plain provider models, so a plugin applied to a Custom Model, a custom-provider import, or a combo showed its badge nowhere. The models endpoint now emits capability entries for Custom Models (inherited from their target plus the plugin badges matched against the studio name or the model it calls) and for combos (boolean capabilities OR-ed across members, context/output floors taken from the smallest member). The model picker and capability hook resolve those entries by callable name, and the picker now renders the same badges on Custom Model and combo chips that it already showed on regular models.
+
 # v0.5.108-Custom (2026-09-20)
 
 ## Fixes
