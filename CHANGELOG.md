@@ -1,3 +1,8 @@
+# v0.5.110-Custom (2026-09-20)
+
+## Custom Features & Enhancements
+- **API Key Usage page**: a new dashboard page under Usage that shows one card per generated key. Each card carries a quota progress bar (used versus limit, amber past 80 percent, red when exhausted), the next reset time computed from the key's interval and anchor, request, token and cost totals aggregated from the usage history, the error rate, rate-limit settings, expiry state, and an expandable per-model breakdown of the key's most used models. An auto-refresh toggle re-polls every ten seconds, and usage left behind by deleted keys is grouped into a single "Deleted keys" card so history is never lost.
+
 # v0.5.109-Custom (2026-09-20)
 
 ## Fixes
