@@ -1,14 +1,16 @@
 <div align="center">
 
+<img src="images/logo.svg" alt="9Router logo" width="72" />
+
 # 9Router
 
-### Serenhope Fork
+### Fork Seren
 
 <img src="images/fusion-combo-ui.png" alt="9Router" width="100%" />
 
-A fork of [Decolua/9router](https://github.com/Decolua/9router), edited for my own use.
+A fork of [Decolua/9router](https://github.com/Decolua/9router) with extra features for everyone who wants them.
 
-One gateway, one API key, any model: an OpenAI-compatible endpoint that routes to Claude, GPT, Gemini, Kimi, Qwen, GLM, DeepSeek, Grok and many more, with OAuth or your own accounts. This is still that router. I just changed the parts I use daily and fixed what annoyed me.
+One gateway, one API key, any model: an OpenAI-compatible endpoint that routes to Claude, GPT, Gemini, Kimi, Qwen, GLM, DeepSeek, Grok and many more, with OAuth or your own accounts. This is still that router, with the parts I use daily changed and the rough edges fixed, free for anyone to use.
 
 ![License](https://img.shields.io/badge/license-MIT-green) ![Upstream](https://img.shields.io/badge/upstream-Decolua%2F9router-blue) ![Release](https://img.shields.io/badge/releases-v0.5.x--Custom-orange)
 
