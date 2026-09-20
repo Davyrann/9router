@@ -46,8 +46,9 @@ A custom name is presented as the model it is: the gateway rewrites the `model` 
 ### Compare Models (`FEATURE+`)
 Send one prompt to several models at once and compare cost, latency, time-to-first-token and output. Contenders stream live, can be stopped mid-flight, a model that returns nothing is reported as empty rather than winning, and provider failures surface one readable line with the raw payload behind it.
 
-### Live Version & GitHub Updates
-The dashboard automatically compares the running local checkout against upstream master and alerts when new commits or versions are available.
+### Automatic Backup & GitHub Updates
+- **Automatic Scheduled Backup**: configure automated database backups delivered periodically to a Telegram bot or pushed to a GitHub repository, complete with a live countdown timer.
+- **Live Version & Commit Tracking**: dashboard automatically compares the local checkout against upstream master and alerts when new commits are available.
 
 ### Other differences worth knowing
 - **MoonshotAI (Kimi)** is offered as a first-class "add provider" option next to the OpenAI- and Anthropic-compatible ones.

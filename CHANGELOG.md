@@ -1,3 +1,8 @@
+# v0.5.107-Custom (2026-09-20)
+
+## Custom Features & Enhancements
+- **Automatic Backup restored**: brought back the scheduled backup feature with its full settings dialog on the 9Router Settings page. Configure a Telegram bot (bot token plus numeric owner chat id) or a GitHub token and repository, pick an interval (24 hours, 7 days, 30 days, or custom), then save. The scheduler sends the backup file automatically on the chosen interval, a live countdown shows when the next backup fires, and Send Test Backup runs a one-off backup through the password dialog. The export/import plumbing was re-integrated on top of the current selective backup system: Automatic Backup now exports all sections, and old partial or full backups remain fully import-compatible.
+
 # v0.5.106-Custom (2026-09-19)
 
 ## Custom Features & Enhancements
