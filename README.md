@@ -8,7 +8,7 @@
 
 A fork of [Decolua/9router](https://github.com/Decolua/9router), edited for my own use.
 
-One gateway, one API key, any model: an OpenAI-compatible endpoint that routes to Claude, Gemini, Kimi, Qwen, GLM and more, with OAuth or your own accounts. This is still that router. I just changed the parts I use daily and fixed what annoyed me.
+One gateway, one API key, any model: an OpenAI-compatible endpoint that routes to Claude, GPT, Gemini, Kimi, Qwen, GLM, DeepSeek, Grok and many more, with OAuth or your own accounts. This is still that router. I just changed the parts I use daily and fixed what annoyed me.
 
 ![License](https://img.shields.io/badge/license-MIT-green) ![Upstream](https://img.shields.io/badge/upstream-Decolua%2F9router-blue) ![Release](https://img.shields.io/badge/releases-v0.5.x--Custom-orange)
 
@@ -24,13 +24,37 @@ One gateway, one API key, any model: an OpenAI-compatible endpoint that routes t
 
 </div>
 
-## About this fork
+## What it routes
 
-Upstream 9Router does the heavy lifting: it translates one OpenAI-style request into dozens of provider formats and streams the answer back. All of that works here too.
+The gateway accepts a request in OpenAI, Claude or Gemini shape, translates it to whatever the target provider speaks, and streams the answer back. Providers are grouped by how you sign in:
 
-On top of it, this fork ships its own releases (marked `-Custom`, see [CHANGELOG.md](./CHANGELOG.md)), adds a handful of dashboard features, and removes what I never used. Everything I changed is written down in the changelog, grouped under *Contributed by Serenhope*, so it is easy to tell my edits from upstream's work.
+| Sign-in | Providers |
+| --- | --- |
+| OAuth | Claude, OpenAI Codex, Gemini CLI, Antigravity, Kiro, Kimi (Moonshot), Grok CLI, xAI, Cursor, GitHub Copilot, GitLab, Windsurf, Trae, Zed, iFlow, Qoder, Cline, KiloCode, CodeBuddy, Xiaomi MIMO |
+| API key | OpenAI, Anthropic, DeepSeek, GLM (Z.ai / Zhipu), MiniMax, Mistral, Perplexity, Groq, Together, Fireworks, Cerebras, SambaNova, SiliconFlow, Nebius, Hugging Face, Venice, Voyage and dozens more |
+| Free tier | OpenRouter, OpenCode, Kiro, Gemini, Cloudflare AI, NVIDIA, Morph, Poolside, Kimchi, LLM7, api-airforce |
+| Web cookie | DeepSeek Web |
+| Local | Ollama, LM Studio style self-hosted nodes, self-hosted TTS/STT/embeddings |
 
-If you want the original instead, head to the [upstream repository](https://github.com/Decolua/9router) and [9router.com](https://9router.com).
+It is not only chat. The same gateway also serves text to image, image to text, video generation, text to speech, speech to text, embeddings, web search and web fetch, each with its own `/v1`-style endpoint.
+
+## What this fork adds
+
+Everything below lives alongside upstream's features and is documented in the [changelog](./CHANGELOG.md).
+
+**Per-key control.** Every generated key can carry its own token limit, auto-reset interval, expiry, model allow-list (with wildcards) and on/off switch. Limits are enforced on every endpoint, not just chat.
+
+**Custom Models.** Define a model with your own name that answers as itself; the target behind it never leaks into responses or listings. Custom providers can carry their own logo.
+
+**Custom Plugins.** Four per-model plugins: Image Vision (text extraction for models without vision), Think Deeper (forced deep reasoning), Speed Mode (skips thinking for faster answers) and Uncensored Output (direct technical answers). Selected models show a badge.
+
+**Compare Models.** Send one prompt to up to four models and compare speed, cost and output side by side, streaming live.
+
+**Token Saver.** Compresses request context before it goes upstream, so long agent sessions spend fewer tokens.
+
+**Automatic Backup.** The database can back itself up on a schedule (24 hours, 7 days, 30 days or custom) to a Telegram bot or a GitHub repository, with a live countdown. Manual Download Backup lets you pick which sections to include and shows each section's size.
+
+**Update checks.** The dashboard compares your checkout against this repository and tells you when new commits are available, with a one-click auto updater on CLI installs.
 
 ## Getting started
 
@@ -63,12 +87,22 @@ Once it is running:
 | OpenAI-compatible | `http://localhost:20127/v1` |
 | Claude-compatible | `http://localhost:20127/v1/messages` |
 | Gemini-native | `http://localhost:20127/v1beta/models/{model}:generateContent` |
+| Health probe | `GET /api/health` |
 
 Point any CLI tool or agent at the base URL, generate a key under **Endpoint & Key**, and you are done.
 
+## Model names you can call
+
+| Form | Example |
+| --- | --- |
+| Provider model | `kiro/claude-sonnet-4.5`, `kimi/kimi-k2.6`, `deepseek/deepseek-v4.1-pro` |
+| Custom node | `mynode/gpt-oss-120b` |
+| Combo | `my-combo` (fallback, round-robin, fusion and more) |
+| Custom model | any name you define in Custom Models |
+
 ## Configuration
 
-The app reads a few environment variables with sensible defaults; see [.env.example](./.env.example). State lives in `~/.9router` (SQLite database, backups, secrets). Download Backup / Import Backup in the settings page moves everything at once.
+The app reads a few environment variables with sensible defaults; see [.env.example](./.env.example). State lives in `~/.9router` (SQLite database, backups, secrets).
 
 ## Credits
 
