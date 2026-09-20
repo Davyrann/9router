@@ -362,6 +362,8 @@ export async function importDb(payload) {
       }
     }
 
+    // autoBackup rides in its own KV scope. Only touch it when the backup actually
+    // carries the section: an old or partial backup must not reset the schedule.
     if (payload.autoBackup !== undefined) {
       db.run(`DELETE FROM kv WHERE scope = 'autoBackup'`);
       for (const [key, value] of Object.entries(payload.autoBackup || {})) {
