@@ -1,12 +1,8 @@
 <div align="center">
 
-<img src="images/logo.svg" alt="9Router logo" width="72" />
+<img src="https://capsule-render.vercel.app/api?type=waving&height=220&color=0:f97815,100:c2590a&text=9Router&fontSize=68&fontColor=ffffff&fontAlignY=34&desc=Fork%20Seren&descSize=24&descAlignY=58&animation=fadeIn" width="100%" alt="9Router, Fork Seren" />
 
-# 9Router
-
-### Fork Seren
-
-<img src="images/fusion-combo-ui.png" alt="9Router" width="100%" />
+<img src="https://readme-typing-svg.demolab.com?font=Inter&weight=600&size=20&duration=3500&pause=1200&color=F97815&center=true&vCenter=true&width=640&height=50&lines=One+gateway%2C+any+model;OpenAI%E2%80%91compatible+endpoint;Speaks+Claude+and+Gemini+too;Extra+features%2C+free+for+everyone" alt="One gateway, any model" />
 
 A fork of [Decolua/9router](https://github.com/Decolua/9router) with extra features for everyone who wants them.
 
