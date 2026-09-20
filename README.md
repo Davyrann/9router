@@ -117,3 +117,5 @@ If this fork helped you, a star is appreciated.
 [![Stars](https://img.shields.io/github/stars/serenhope/9router?style=social)](https://github.com/serenhope/9router/stargazers)
 
 </div>
+
+<img src="https://capsule-render.vercel.app/api?type=waving&section=footer&height=140&color=0:c2590a,100:f97815&animation=fadeIn" width="100%" alt="" />
