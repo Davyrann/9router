@@ -1,3 +1,9 @@
+# v0.5.112-Custom (2026-09-23)
+
+## Sync with upstream v0.5.86
+- **Merged upstream through v0.5.86 (2026-09-23)**: Xiaomi MiMo server-assisted desktop login with five account clusters and v2.6 models, Claude Opus 5.5 support, and proxy pool header forwarding fix.
+- **Kept fork behaviour**: Union Alpha routing over Messages API, one-click auto backup scheduler, Speed Mode plugin, per-key usage page, plugin badges on Custom Models and combos, 9Router Settings label, and the fork README. The OpenCode free-tier fix is carried by upstream's `opencodeFingerprint` helper, with `union-alpha-free` kept alongside it.
+
 # v0.5.111-Custom (2026-09-22)
 
 ## Sync with upstream v0.5.85
@@ -329,6 +335,17 @@
 - **UI & Theme Sync**: the app is locked to dark mode with theme and language switchers removed, and custom select dropdowns now follow the app theme.
 
 # v0.5.100 (2026-09-18)
+# v0.5.86 (2026-09-23)
+
+## Features
+- **Xiaomi MiMo**: server-assisted desktop login for headless/Docker deployments, five account clusters (cn/sgp/ams/ru/in), and v2.6 pro/flash/pro-ultraspeed models with dual-route (account service vs. cloud API)
+- **Claude**: add Claude Opus 5.5 support
+- **i18n**: translate React text rewrites via characterData mutation observer
+
+## Fixes
+- **Proxy Pools**: keep request headers intact through Vercel/Cloudflare/Deno relays (spreading a `Headers` instance yielded `{}`, dropping auth and content-type)
+- **Xiaomi MiMo login**: keep the session in the httpOnly cookie only, require dashboard auth on the proxy branch, and stop forwarding authorization headers upstream
+
 # v0.5.85 (2026-09-22)
 
 ## Features
