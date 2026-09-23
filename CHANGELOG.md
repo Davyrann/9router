@@ -1,3 +1,10 @@
+# v0.5.113-Custom (2026-09-23)
+
+## Custom Features & Enhancements
+- **Gemini Web (Cookie) provider**: added `gemini-web` under Web Cookie Providers, next to the existing DeepSeek entry. Paste `__Secure-1PSID` (plus `__Secure-1PSIDTS`) from gemini.google.com cookies; the cookie is verified against the live session page before saving. Requests run over plain HTTP to the internal StreamGenerate endpoint, no browser needed, with multi-turn history folded into one prompt.
+- **Kimi Web (Cookie) provider**: added `kimi-web` under Web Cookie Providers. Paste `access_token` from www.kimi.ai localStorage; validation probes the account endpoint before saving. Requests speak the Connect-RPC chat protocol with automatic refresh_token exchange on 401, reasoning deltas surfaced as `reasoning_content`, and models Kimi K3 plus Kimi K2.6.
+- **Web RAG backends stay honest about tools**: both new cookie providers reject OpenAI function tools with a clear 400 instead of answering empty, since the web backends are text-only endpoints with no native tool channel.
+
 # v0.5.112-Custom (2026-09-23)
 
 ## Sync with upstream v0.5.86
