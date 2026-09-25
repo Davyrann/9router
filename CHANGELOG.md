@@ -1,3 +1,10 @@
+# v0.5.114-Custom (2026-09-25)
+
+## Fixes & Enhancements
+- **Usage calculation accuracy for Today and 24h periods**: fixed an issue where selecting Today or 24h incorrectly overlaid up to 60 days of historical daily aggregates onto the current stats, causing token counts to jump from 1M to over 1B. Historical daily data before the cutoff date is no longer added into Today and 24h metrics.
+- **Model Leaderboard period filter**: fixed Leaderboard route ignoring Today and All Time filters and defaulting to 7 days.
+- **Real-time Usage sync**: SSE `/api/usage/stream` now accepts the active period parameter and streams complete stats updates when requests finish. The frontend Usage overview cards, charts, and breakdown tables now automatically update in real-time without requiring a page reload.
+
 # v0.5.113-Custom (2026-09-23)
 
 ## Custom Features & Enhancements
