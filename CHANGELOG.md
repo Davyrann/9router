@@ -1,3 +1,10 @@
+# v0.5.121-Custom (2026-09-26)
+
+## Changes
+- **The large provider batch is withdrawn**: the set that added 304+ providers on top of this fork is gone again. Around 240 registry entries, 48 executors and the supporting services and utilities that only existed for them were removed, and the two that stayed in the tree are now unreferenced. The providers this fork had before that batch are untouched, so OpenCode Zen, CodeBuddy Intl, Qoder CN, Devin CLI, Grok CLI, DeepSeek Web, Gemini Web and Kimi Web all still work exactly as before.
+- **Alias resolution stays**: the indirection that maps a registry id, an alias and every secondary alias onto one provider key is kept, because the model lookup helpers read through it and the entries that remain use it.
+- **The capture buttons stay**: the API key form, the cookie capture button and the Felo capture button are untouched, so adding a key for any remaining provider behaves as it did.
+
 # v0.5.120-Custom (2026-09-26)
 
 ## Fixes & Enhancements
@@ -48,6 +55,8 @@
 - **Frontend Modals & UI**: Updated Add API Key modal to automatically suggest specific cookie capturing instructions for new Web-cookie providers. Added `FeloCaptureButton` and `CookieCaptureButton` helper components. 
 - **Preserved 9Router-specific Providers**: Kept exclusive 9Router providers and aliases intact (like OpenCode Zen, CodeBuddy Intl, Qoder CN, Devin CLI, Grok CLI, DeepSeek Web Tool Bridge).
 
+=======
+>>>>>>> parent of a782471f (feat: add 304+ providers (API-key, OAuth, web-cookie, free-tier, and free community providers))
 # v0.5.114-Custom (2026-09-25)
 
 ## Fixes & Enhancements
