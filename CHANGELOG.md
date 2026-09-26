@@ -1,3 +1,11 @@
+# v0.5.115-Custom (2026-09-26)
+
+## Custom Features & Enhancements
+- **304+ Providers Integration**: Merged the massive provider library from ExtremeRouter. Added over 200+ API-key providers, 25 OAuth providers, and 39 Web-cookie providers (including Qwen Web, Claude Web, ChatGPT Web, Grok Web, Notion AI, HyperAgent, Conol, DouBao, Adapta, and more) into 9Router.
+- **Provider Capabilities & Prices**: Fully synchronized model metadata, token limits, capabilities, tool-calling flags, and token cost pricing with ExtremeRouter's definitions.
+- **Frontend Modals & UI**: Updated Add API Key modal to automatically suggest specific cookie capturing instructions for new Web-cookie providers. Added `FeloCaptureButton` and `CookieCaptureButton` helper components. 
+- **Preserved 9Router-specific Providers**: Kept exclusive 9Router providers and aliases intact (like OpenCode Zen, CodeBuddy Intl, Qoder CN, Devin CLI, Grok CLI, DeepSeek Web Tool Bridge).
+
 # v0.5.114-Custom (2026-09-25)
 
 ## Fixes & Enhancements
