@@ -1,3 +1,10 @@
+# v0.5.123-Custom (2026-09-27)
+
+## Fixes & Enhancements
+- **Tool calling restored for whitelisted providers**: Fixed short-circuit in claude translator that bypassed the `!!tool?.function` fallback for providers with a tool-type whitelist.
+- **Combo tools capability reporting fixed**: Changed `aggregateComboCapabilities` to use `some` instead of `every` for the `tools` capability so a single member without tools no longer disables tools for the entire combo.
+- **API-key user model filtering fixed**: Added missing `fetch("/api/auth/status")` in EndpointPageClient so `creatorAllowedModels` and `creatorPermissions` resolve correctly instead of falling back to defaults.
+
 # v0.5.122-Custom (2026-09-27)
 
 ## Changes
