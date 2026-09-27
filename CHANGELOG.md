@@ -1,3 +1,13 @@
+# v0.5.122-Custom (2026-09-27)
+
+## Changes
+- **Custom Domain endpoint removed**: the Custom Domain option on the API Endpoint card is gone along with its enable, edit and disable dialogs, the `customDomainEnabled` and `customDomainUrl` settings, and the branch in the base-URL picker that produced its `/v1` URL. Local, Cloudflare Tunnel and Tailscale remain, and a stored custom domain left over in an old settings blob is ignored rather than read.
+- **Cheapest combo strategy removed**: the "Cheapest" strategy that ordered combo members by a free/cheap heuristic is gone from the rotation logic and from the combos page help text. Round Robin, Fallback and Fusion remain.
+
+## Fixes & Enhancements
+- **Sub-key model scope enforced server-side**: a sub-key created with a wildcard allowed-models field used to bypass the parent key's model scope entirely, so a key restricted to a single model could create a child with access to every model. The create and edit key endpoints now clamp a wildcard or empty request to the creator's own allowed-models list, while explicit lists are still filtered by the same exact, prefix-star and suffix-star matching the LLM gate uses.
+- **Tool calling restored for all models**: the Claude translator's tool filter dropped any tool whose `type` was not `function` or in the provider whitelist, which discarded tools carrying a function payload under a newer API's `type` (e.g. Responses "custom"). The filter now keeps any tool that has a function payload, so tool definitions reach the provider and `capabilities.tools` reports true again. Combo capability auto-switch now also treats `tools` as a hard capability and floats tool-capable models to the front when a request carries tools.
+
 # v0.5.121-Custom (2026-09-26)
 
 ## Changes
@@ -41,7 +51,7 @@
 
 ## Custom Features & Enhancements
 - **Per API key permissions**: the Create and Edit API key forms now carry a Permissions box with four separate rights: create, edit and delete API keys, create, edit and delete models, create, edit and delete providers, and view usage. Each key stores its own set, and the sidebar, the pages and the endpoints all follow it. A password sign-in is still a full administrator.
-- **Sign in with an API key**: the login page has an API Key Login tab next to Password Login. The key is verified like any LLM request, so a disabled, expired, quota-exceeded or IP-blocked key is refused with its own message. The session that results shows only the menus the key is allowed to open, and the Endpoint page hides the tunnel, Tailscale, custom domain and require-API-key controls so no button can fail.
+- **Sign in with an API key**: the login page has an API Key Login tab next to Password Login. The key is verified like any LLM request, so a disabled, expired, quota-exceeded or IP-blocked key is refused with its own message. The session that results shows only the menus the key is allowed to open, and the Endpoint page hides the tunnel, Tailscale and require-API-key controls so no button can fail.
 - **Usage scoped to the signed in key**: stats, chart, leaderboard, error list, history, the CSV export and the live stream all filter on the key that authenticated, so a key user reads its own numbers and never another key's. The per-key usage page shows the same single card.
 - **Nested keys stay inside the parent's scope**: a key that only has view usage cannot hand out model, provider or key rights to a new key, the permissions it does not hold are hidden and disabled in the form, its token limit caps the limit of every key it creates, and its allowed-model list is the only list the model picker offers, with the same exact, prefix-star and suffix-star matching the server applies to LLM requests.
 - **Enforced on the server, not only in the menu**: a key-signed session is refused with 403 on any endpoint its permissions do not cover, including settings, tunnel, OAuth, cloud, translator, CLI tools and MCP routes, and on any dashboard page outside its rights. Reading the model catalog stays open to a provider manager because the providers page needs it to render a connection, while every model write stays on the model right. A key with no right at all lands on a short notice with a sign out button instead of a redirect loop.
@@ -49,7 +59,6 @@
 # v0.5.115-Custom (2026-09-26)
 
 ## Custom Features & Enhancements
-- **Custom Domain Endpoint Support**: Added Custom Domain option on the API Endpoint card alongside Local, Cloudflare Tunnel, and Tailscale. Users can configure their own reverse proxy or custom domain URL (e.g. `https://api.my-domain.com`), easily copy the `/v1` endpoint, edit the domain, and enable/disable it with persistent settings stored in the database.
 - **304+ Providers Integration**: Merged the massive provider library from ExtremeRouter. Added over 200+ API-key providers, 25 OAuth providers, and 39 Web-cookie providers (including Qwen Web, Claude Web, ChatGPT Web, Grok Web, Notion AI, HyperAgent, Conol, DouBao, Adapta, and more) into 9Router.
 - **Provider Capabilities & Prices**: Fully synchronized model metadata, token limits, capabilities, tool-calling flags, and token cost pricing with ExtremeRouter's definitions.
 - **Frontend Modals & UI**: Updated Add API Key modal to automatically suggest specific cookie capturing instructions for new Web-cookie providers. Added `FeloCaptureButton` and `CookieCaptureButton` helper components. 
