@@ -1,3 +1,14 @@
+# v0.5.129-Custom (2026-09-27)
+
+## Fixes
+- **API key usage showed providers the key cannot use**: signing in to the dashboard with an API key showed every provider that had ever run on the instance. The Usage page reads two sources, and the SSE stream at `/api/usage/stream` called `getUsageStats` without the allowed-models argument, so it fell back to "every model" and overwrote the correctly scoped first response. That stream is the one that populated the By Provider chart, which is why unrelated providers such as MiMo Code Free and OpenCode appeared next to the key's own custom model.
+- **Leaderboard and Errors tabs ignored allowed models**: both filtered by API key but not by the key's model allowlist, so a scoped session saw models it would be refused at request time. The Errors tab now also excludes those models from its total and error counts, so the numbers agree with the rows.
+- **Live request list was never scoped**: `getActiveRequests()` returned the global view to every caller, including API-key sessions, exposing other keys' in-flight and recent requests. It now takes the session scope, and a scoped caller gets an empty in-flight list because pending traffic carries no key attribution.
+- **Request Details and the provider filter had no session check**: `/api/usage/request-details` and `/api/usage/providers` never consulted the dashboard session, so the provider dropdown could be used to enumerate providers outside the key's scope. Both are now narrowed to the key's allowed models. The model filter is applied in SQL rather than after the query, so pagination counts stay correct.
+
+## Notes
+- The `requestDetails` table has no `apiKey` column, so the Details tab and Live Request Inspector are scoped by allowed model but not yet by API key. Scoping them per key needs a schema change; existing rows cannot be attributed retroactively.
+
 # v0.5.128-Custom (2026-09-27)
 
 ## Custom Features & Enhancements

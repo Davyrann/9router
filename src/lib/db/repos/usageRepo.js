@@ -200,27 +200,38 @@ export function trackPendingRequest(model, provider, connectionId, started, erro
   scheduleStatsEvent("pending");
 }
 
-export async function getActiveRequests() {
+// Scoped variant for API-key dashboard sessions. Without a filter this returns the
+// global view; with one, live rows another key triggered are never exposed and the
+// history is narrowed to the key plus its allowed models. Pending traffic carries no
+// key attribution, so a scoped caller gets an empty active list rather than a leak.
+export async function getActiveRequests(filterApiKey = null, allowedModels = "*") {
   const activeRequests = [];
   const connectionMap = await getConnectionMapCached();
 
-  for (const [connectionId, models] of Object.entries(pendingRequests.byAccount)) {
-    for (const [modelKey, count] of Object.entries(models)) {
-      if (count > 0) {
-        const accountName = connectionMap[connectionId] || `Account ${connectionId.slice(0, 8)}...`;
-        const match = modelKey.match(/^(.*) \((.*)\)$/);
-        activeRequests.push({
-          model: match ? match[1] : modelKey,
-          provider: match ? match[2] : "unknown",
-          account: accountName, count,
-        });
+  if (!filterApiKey) {
+    for (const [connectionId, models] of Object.entries(pendingRequests.byAccount)) {
+      for (const [modelKey, count] of Object.entries(models)) {
+        if (count > 0) {
+          const accountName = connectionMap[connectionId] || `Account ${connectionId.slice(0, 8)}...`;
+          const match = modelKey.match(/^(.*) \((.*)\)$/);
+          activeRequests.push({
+            model: match ? match[1] : modelKey,
+            provider: match ? match[2] : "unknown",
+            account: accountName, count,
+          });
+        }
       }
     }
   }
 
+  const patterns = parseAllowedModels(allowedModels);
+  const modelAllowed = (model) => matchesModelPatterns(patterns, model);
+
   await ensureRingInitialized();
   const seen = new Set();
   const recentRequests = [...recentRing.items]
+    .filter((e) => !filterApiKey || e.apiKey === filterApiKey)
+    .filter((e) => modelAllowed(e.model))
     .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
     .map((e) => {
       const t = e.tokens || {};
@@ -228,6 +239,7 @@ export async function getActiveRequests() {
         timestamp: e.timestamp, model: e.model, provider: e.provider || "",
         promptTokens: t.prompt_tokens || t.input_tokens || 0,
         completionTokens: t.completion_tokens || t.output_tokens || 0,
+        cachedTokens: t.cached_tokens || t.cache_read_input_tokens || 0,
         status: e.status || "ok",
       };
     })
@@ -241,7 +253,9 @@ export async function getActiveRequests() {
     })
     .slice(0, 20);
 
-  const errorProvider = (Date.now() - lastErrorProvider.ts < 10000) ? lastErrorProvider.provider : "";
+  const errorProvider = (!filterApiKey && Date.now() - lastErrorProvider.ts < 10000)
+    ? lastErrorProvider.provider
+    : "";
   return { activeRequests, recentRequests, errorProvider };
 }
 
