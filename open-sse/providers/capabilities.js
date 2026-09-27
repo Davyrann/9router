@@ -470,7 +470,7 @@ export function aggregateComboCapabilities(comboModels, comboLookup = null, _dep
     imageOutput: allCaps.some((c) => c.imageOutput),
     audioOutput: allCaps.some((c) => c.audioOutput),
     search:      allCaps.some((c) => c.search),
-    tools:       allCaps.every((c) => c.tools),
+    tools:       allCaps.some((c) => c.tools),
     reasoning:          first.reasoning,
     thinkingFormat:     first.thinkingFormat,
     thinkingCanDisable: first.thinkingCanDisable,
