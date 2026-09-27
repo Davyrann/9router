@@ -798,6 +798,7 @@ export async function getChartData(period = "7d", filterApiKey = null) {
   const db = await getAdapter();
   const now = Date.now();
 
+  // For "today" and "24h", use hourly buckets from usageHistory (already has filterApiKey support)
   if (period === "today") {
     const bucketCount = 24;
     const bucketMs = 3600000;
@@ -849,44 +850,67 @@ export async function getChartData(period = "7d", filterApiKey = null) {
     return buckets;
   }
 
+  // For "all", "7d", "30d", "60d" - use daily buckets
+  // If filterApiKey is provided, query usageHistory directly to avoid leaking data from other API keys
+  // usageDaily contains aggregated data for ALL API keys in its byApiKey field
   const labelFn = (d) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
+  let startTime;
+  let bucketCount;
   if (period === "all") {
-    const dayRows = loadDaysInRange(db, null);
-    if (!dayRows.length) return [];
-    const dayMap = {};
-    for (const r of dayRows) dayMap[r.dateKey] = parseJson(r.data, {});
-
-    const earliest = new Date(dayRows[0].dateKey + "T00:00:00");
+    // For "all", find earliest date from usageHistory
+    const earliestRow = db.get(`SELECT MIN(timestamp) as minTs FROM usageHistory${filterApiKey ? ' WHERE apiKey = ?' : ''}`, filterApiKey ? [filterApiKey] : []);
+    if (!earliestRow?.minTs) return [];
+    const earliest = new Date(earliestRow.minTs);
+    earliest.setHours(0, 0, 0, 0);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const diffDays = Math.max(1, Math.round((today - earliest) / 86400000) + 1);
+    bucketCount = Math.max(1, Math.round((today - earliest) / 86400000) + 1);
+    startTime = earliest.getTime();
+  } else {
+    bucketCount = period === "7d" ? 7 : period === "30d" ? 30 : 60;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    startTime = today.getTime() - (bucketCount - 1) * 86400000;
+  }
 
-    return Array.from({ length: diffDays }, (_, i) => {
-      const d = new Date(earliest);
-      d.setDate(d.getDate() + i);
+  // Query usageHistory directly when filterApiKey is provided, otherwise use usageDaily for performance
+  if (filterApiKey) {
+    const sql = `SELECT timestamp, promptTokens, completionTokens, cost FROM usageHistory WHERE timestamp >= ? AND apiKey = ?`;
+    const params = [new Date(startTime).toISOString(), filterApiKey];
+    const rows = db.all(sql, params);
+
+    const dayMap = {};
+    for (const r of rows) {
+      const d = new Date(r.timestamp);
+      d.setHours(0, 0, 0, 0);
+      const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      if (!dayMap[dateKey]) dayMap[dateKey] = { tokens: 0, cost: 0, requests: 0 };
+      dayMap[dateKey].tokens += (r.promptTokens || 0) + (r.completionTokens || 0);
+      dayMap[dateKey].cost += r.cost || 0;
+      dayMap[dateKey].requests += 1;
+    }
+
+    return Array.from({ length: bucketCount }, (_, i) => {
+      const d = new Date(startTime + i * 86400000);
       const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
       const dayData = dayMap[dateKey];
       return {
         label: labelFn(d),
-        tokens: dayData ? (dayData.promptTokens || 0) + (dayData.completionTokens || 0) : 0,
-        cost: dayData ? (dayData.cost || 0) : 0,
-        requests: dayData ? (dayData.requests || 0) : 0,
+        tokens: dayData ? dayData.tokens : 0,
+        cost: dayData ? dayData.cost : 0,
+        requests: dayData ? dayData.requests : 0,
       };
     });
   }
 
-  const bucketCount = period === "7d" ? 7 : period === "30d" ? 30 : 60;
-  const today = new Date();
-
-  // Build map of dateKey → day data
-  const dayRows = loadDaysInRange(db, bucketCount);
+  // No filterApiKey - use usageDaily for better performance (admin/global view)
+  const dayRows = loadDaysInRange(db, period === "all" ? null : bucketCount);
   const dayMap = {};
   for (const r of dayRows) dayMap[r.dateKey] = parseJson(r.data, {});
 
   return Array.from({ length: bucketCount }, (_, i) => {
-    const d = new Date(today);
-    d.setDate(d.getDate() - (bucketCount - 1 - i));
+    const d = new Date(startTime + i * 86400000);
     const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     const dayData = dayMap[dateKey];
     return {

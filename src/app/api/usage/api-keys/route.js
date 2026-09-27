@@ -88,6 +88,28 @@ export async function GET() {
       });
     }
 
+    // Calculate per-key usage within the current reset window (tokens since lastResetAt)
+    const tokensInWindowByRaw = db.all(
+      `SELECT apiKey,
+              COALESCE(SUM(promptTokens + completionTokens), 0) AS usedTokensInWindow
+         FROM usageHistory ${keyCond}${keyCond ? " AND" : " WHERE"} timestamp >= ?
+        GROUP BY apiKey`,
+      [...keyParams, new Date(now - intervalMs(keys[0]?.resetInterval || "never")).toISOString()]
+    );
+    // Build a map for all keys (not just one), so we need a per-key query
+    const tokensInWindowMap = {};
+    for (const k of keys) {
+      const resetMs = intervalMs(k.resetInterval);
+      const sinceTs = resetMs ? new Date(now - resetMs).toISOString() : "0000-01-01T00:00:00.000Z";
+      const row = db.get(
+        `SELECT COALESCE(SUM(promptTokens + completionTokens), 0) AS usedTokensInWindow
+           FROM usageHistory
+          WHERE apiKey = ? AND timestamp >= ?`,
+        [k.key, sinceTs]
+      );
+      tokensInWindowMap[k.key] = row?.usedTokensInWindow || 0;
+    }
+
     const statusByRaw = db.all(
       `SELECT apiKey, status, COUNT(*) AS count FROM usageHistory ${keyCond} GROUP BY apiKey, status`,
       keyParams
