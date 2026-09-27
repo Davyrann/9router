@@ -75,6 +75,11 @@ function RecentRequests({ requests = [] }) {
                       <span className="text-primary">{fmt(r.promptTokens)}↑</span>
                       {" "}
                       <span className="text-success">{fmt(r.completionTokens)}↓</span>
+                      {r.cachedTokens > 0 && (
+                        <div>
+                          <Badge variant="info" size="sm" icon="cached" className="mt-0.5" title={`${fmt(r.cachedTokens)} prompt tokens served from cache`}>CACHE {fmt(r.cachedTokens)}</Badge>
+                        </div>
+                      )}
                     </td>
                     <td className="py-1.5 text-right text-text-muted whitespace-nowrap"><TimeAgo timestamp={r.timestamp} /></td>
                   </tr>

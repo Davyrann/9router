@@ -1,3 +1,14 @@
+# v0.5.126-Custom (2026-09-27)
+
+## Custom Features & Enhancements
+- **Live Request Inspector**: new tab in the Usage menu that streams live request metadata (model, provider, tokens, latency, status) over SSE. Shows the newest 50 requests with a rolling snapshot that self-heals on reconnect, plus a pause/resume toggle and a detail drawer. Conversation payloads are never sent to the client, matching the redaction policy of the existing request-details endpoint.
+- **Prompt Cache Indicator**: the Recent Requests rows now show a `CACHE` badge when a request served prompt tokens from cache, and the Cached Tokens overview card shows a cache hit rate percentage when caching is active.
+- **Quota Tracker redesign**: quota rows are now card-style with rounded borders, a larger progress bar, and the remaining percentage moved to the top-right of each row. Spacing, typography and hover states are aligned with the rest of the dashboard.
+- **API Key Usage menu removed**: the sidebar entry is gone. Users who sign in with an API key already see their own scoped usage on the Usage page, so the separate menu was redundant. The page route and `/api/usage/api-keys` endpoint are unchanged.
+
+## Fixes
+- **Live Request Inspector auth**: the SSE endpoint called `getSessionContext()` but discarded the result, so the auth check was a no-op. It now returns 401 when there is no session.
+
 # v0.5.125-Custom (2026-09-27)
 
 ## Upstream Sync
