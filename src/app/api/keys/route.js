@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getApiKeys, createApiKey } from "@/lib/localDb";
 import { getConsistentMachineId } from "@/shared/utils/machineId";
-import { getSessionContext, clampPermissions } from "@/lib/auth/dashboardPermissions";
+import { getSessionContext, DEFAULT_PERMISSIONS } from "@/lib/auth/dashboardPermissions";
 import { parseAllowedModels, matchesAllowedModels } from "@/lib/db/repos/apiKeysRepo";
 
 export const dynamic = "force-dynamic";
@@ -52,10 +52,13 @@ export async function POST(request) {
       return NextResponse.json({ error: `A key named "${trimmedName}" already exists. Use a different name.` }, { status: 409 });
     }
 
-    // Scoping: API key user cannot grant permissions beyond what they own
+    // Scoping: a session authenticated by an API key cannot hand out permissions at
+    // all. Whatever it asks for, the sub-key is created with the default (view usage
+    // only), so a key that can create keys cannot mint one with more reach than it
+    // was given. The dashboard renders the same rule as a disabled editor.
     let finalPermissions = requestedPermissions;
     if (ctx.session?.role === "apikey") {
-      finalPermissions = clampPermissions(ctx.permissions, requestedPermissions || {});
+      finalPermissions = DEFAULT_PERMISSIONS;
 
       // Token limit: sub-key cannot exceed creator's limit
       const creatorLimit = ctx.session.tokenLimit || 0;
