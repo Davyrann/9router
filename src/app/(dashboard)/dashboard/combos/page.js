@@ -78,17 +78,12 @@ export default function CombosPage() {
   }, [combos]);
 
   const selectedCombos = combos.filter((c) => selectedIds.includes(c.id));
-  const allSelected = combos.length > 0 && selectedIds.length === combos.length;
   const someSelected = selectedIds.length > 0;
 
   const toggleSelect = (id) => {
     setSelectedIds((prev) => (
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     ));
-  };
-
-  const toggleSelectAll = () => {
-    setSelectedIds(allSelected ? [] : combos.map((c) => c.id));
   };
 
   const clearSelection = () => setSelectedIds([]);
@@ -426,63 +421,48 @@ export default function CombosPage() {
       ) : (
         <div className="flex flex-col gap-3">
           {/* Selection toolbar */}
-          <div className="flex min-w-0 flex-col gap-2 rounded-lg border border-black/5 bg-black/[0.015] px-3 py-2 dark:border-white/5 dark:bg-white/[0.02] sm:flex-row sm:items-center sm:justify-between">
-            <label className="flex cursor-pointer items-center gap-2 text-xs text-text-muted hover:text-primary select-none">
-              <input
-                type="checkbox"
-                checked={allSelected}
-                ref={(el) => {
-                  if (el) el.indeterminate = someSelected && !allSelected;
-                }}
-                onChange={toggleSelectAll}
-                className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary"
-              />
-              <span>
-                {someSelected
-                  ? `${selectedIds.length} selected`
-                  : `Select all (${combos.length})`}
+          {someSelected && (
+            <div className="flex min-w-0 flex-col gap-2 rounded-lg border border-black/5 bg-black/[0.015] px-3 py-2 dark:border-white/5 dark:bg-white/[0.02] sm:flex-row sm:items-center sm:justify-between">
+              <span className="text-xs text-text-muted select-none">
+                {selectedIds.length} selected
               </span>
-            </label>
 
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
-              {someSelected && (
-                <>
-                  <div className="w-full min-w-[160px] sm:w-[200px]">
-                    <Select
-                      options={STRATEGY_OPTIONS}
-                      value=""
-                      placeholder="Set strategy…"
-                      disabled={bulkBusy}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        if (v) handleBulkSetStrategy(v);
-                      }}
-                      selectClassName="py-1.5 text-xs"
-                    />
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="danger"
-                    icon="delete"
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <div className="w-full min-w-[160px] sm:w-[200px]">
+                  <Select
+                    options={STRATEGY_OPTIONS}
+                    value=""
+                    placeholder="Set strategy…"
                     disabled={bulkBusy}
-                    loading={bulkBusy}
-                    onClick={handleBulkDelete}
-                    className="whitespace-nowrap"
-                  >
-                    Delete ({selectedIds.length})
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={clearSelection}
-                    disabled={bulkBusy}
-                  >
-                    Clear
-                  </Button>
-                </>
-              )}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v) handleBulkSetStrategy(v);
+                    }}
+                    selectClassName="py-1.5 text-xs"
+                  />
+                </div>
+                <Button
+                  size="sm"
+                  variant="danger"
+                  icon="delete"
+                  disabled={bulkBusy}
+                  loading={bulkBusy}
+                  onClick={handleBulkDelete}
+                  className="whitespace-nowrap"
+                >
+                  Delete ({selectedIds.length})
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={clearSelection}
+                  disabled={bulkBusy}
+                >
+                  Clear
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="flex flex-col gap-3">
             {(() => {

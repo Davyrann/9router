@@ -5,6 +5,14 @@
 - **Combo tools capability reporting fixed**: Changed `aggregateComboCapabilities` to use `some` instead of `every` for the `tools` capability so a single member without tools no longer disables tools for the entire combo.
 - **API-key user model filtering fixed**: Added missing `fetch("/api/auth/status")` in EndpointPageClient so `creatorAllowedModels` and `creatorPermissions` resolve correctly instead of falling back to defaults.
 
+# v0.5.124-Custom (2026-09-27)
+
+## Fixes
+- **Combo body mutation in fallback loop**: the fallback loop passed the same `body` reference to each member in turn, and `translateRequest` plus `fixMissingToolResponses` mutated `messages` in place. A second member inherited the corrupted history, which silently broke tool calling. Each member now gets its own cloned messages array, so a failed first member no longer poisons the next attempt.
+
+## Custom Features & Enhancements
+- **Select All removed from Combos page**: the master checkbox that toggled all combo cards at once was removed, along with the `Select all (N)` label. Combos are selected one card at a time via the per-card checkbox; the bulk strategy and bulk delete controls only appear when something is selected, next to the current count.
+
 # v0.5.122-Custom (2026-09-27)
 
 ## Changes
@@ -71,8 +79,6 @@
 - **Frontend Modals & UI**: Updated Add API Key modal to automatically suggest specific cookie capturing instructions for new Web-cookie providers. Added `FeloCaptureButton` and `CookieCaptureButton` helper components. 
 - **Preserved 9Router-specific Providers**: Kept exclusive 9Router providers and aliases intact (like OpenCode Zen, CodeBuddy Intl, Qoder CN, Devin CLI, Grok CLI, DeepSeek Web Tool Bridge).
 
-=======
->>>>>>> parent of a782471f (feat: add 304+ providers (API-key, OAuth, web-cookie, free-tier, and free community providers))
 # v0.5.114-Custom (2026-09-25)
 
 ## Fixes & Enhancements
