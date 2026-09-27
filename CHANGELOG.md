@@ -1,3 +1,11 @@
+# v0.5.125-Custom (2026-09-27)
+
+## Upstream Sync
+- **Synced with decolua upstream v0.5.91**: 37 upstream commits merged, including the Token Harbor provider, four OpenAI-compatible aggregators (dahl, atria, agnes, bai), Claude thinking text returned to OpenAI-format clients, Claude decloak fallback when toolNameMap misses, Zed OAuth auto-import, GPT-6 Sol and Luna for Codex, the completed OpenCode Go catalog, Codex CLI multi-profile support, and Hermes multi-role model config.
+- **Fixes from upstream**: usage attribution keyed by full API key to stop team-key collisions, combo limits resolved with server capabilities, capabilities catalog no longer cached per module copy, `POST /api/providers` made O(1) with silent key overwrite refused, Command Code raw byte replay, empty think markers no longer emitted, Gemini terminal turns and unresponded functionCalls guarded, Tailscale enable-flow health wait capped at 20s, Claude cli version bumped to 2.1.280 for Opus 5.5.
+- **Serenhope fixes kept**: per API key permissions and sign-in, combo context window resolution, combo body deep-copy so tool calling survives the fallback loop, usage chart and live stats scoped to the signed-in key, real custom plugin implementations, plugin badges on custom and combo models, default pricing fallback so Est. Cost is never always zero, Docker npm cache mount fix for Railway.
+- **Serenhope removals kept**: Union Alpha models, the Custom Domain endpoint option, the Uncensored Output plugin, the withdrawn 304+ provider batch, and the Fastest / Cheapest / Select All combo options stay out.
+
 # v0.5.123-Custom (2026-09-27)
 
 ## Fixes & Enhancements
@@ -429,7 +437,37 @@
 - **Key Editing & Management**: key names, token limits, reset intervals, and allowed models stay editable anytime, with a manual `restart_alt` button to zero the used tokens.
 - **UI & Theme Sync**: the app is locked to dark mode with theme and language switchers removed, and custom select dropdowns now follow the app theme.
 
-# v0.5.100 (2026-09-18)
+
+# v0.5.91 (2026-09-26)
+
+## Features
+- **Providers**: add Token Harbor provider and four OpenAI-compatible aggregator providers (dahl, atria, agnes, bai)
+- **Claude**: forward `x-claude-code-session-id` on OAuth requests; merge client `anthropic-beta` flags and forward rate-limit headers; return thinking text to OpenAI-format clients
+- **Codex**: add GPT-6 Sol and Luna support
+- **CLI Tools**: support multiple model profiles for Codex CLI
+- **Hermes**: multi-role model config (delegation + auxiliary slots)
+- **OpenCode Go**: complete the Go catalog (40 models) with auto-fetch + family endpoint regex
+- **Usage**: show and redeem free limit resets for cc accounts
+- **Cline**: expose the `cline-free/*` tier and price it at zero
+- **Combos**: display vision adapter models in an ordered table view
+
+## Fixes
+- **Claude**: decloak tool names when `toolNameMap` misses (#4342); update spoofed cli version to 2.1.280 to support Opus 5.5
+- **Providers API**: make POST `/api/providers` O(1) and refuse silent key overwrite (#4350)
+- **Capabilities**: stop caching the catalog source per module copy (#4351)
+- **OAuth**: stop Zed paste-token crash and add IDE auto-import (#4359)
+- **Dashboard**: resolve combo limits with the server's capabilities (#4360); lazy-load charts and `marked`, preload in background on idle
+- **Responses**: carry the streamed output items in `response.completed` (#4307)
+- **STT**: dispatch live-API-only Gemini models over the Live WebSocket transport (#4006)
+- **Gemini**: guard terminal model turns and unresponded functionCalls in `normalizeGeminiContents`
+- **Command Code**: replay raw byte chunks to preserve all NDJSON lines
+- **Translator**: stop emitting empty `<think>` markers into OpenAI content
+- **CLI Tools**: refresh Codex settings after apply (#4347); keep existing `ANTHROPIC_AUTH_TOKEN` when applying Claude settings
+- **Tray**: native arm64 macOS menubar binary, no Rosetta required
+- **CLI**: filter model selector by active connections and noAuth providers
+- **Usage**: key live byApiKey stats by full api key to prevent team-key collision and preserve API key usage attribution
+- **Tailscale**: cap enable-flow health wait at 20s
+
 # v0.5.86 (2026-09-23)
 
 ## Features
