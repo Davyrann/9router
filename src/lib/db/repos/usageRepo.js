@@ -425,23 +425,25 @@ export async function getUsageStats(period = "all", filterApiKey = null) {
     totalPromptTokens: 0, totalCompletionTokens: 0, totalCachedTokens: 0, totalCost: 0,
     byProvider: {}, byModel: {}, byAccount: {}, byApiKey: {}, byEndpoint: {},
     last10Minutes: [],
-    pending: pendingRequests,
-    activeRequests: [],
+    pending: filterApiKey ? {} : pendingRequests,
+    activeRequests: filterApiKey ? [] : [],
     recentRequests,
     errorProvider: (Date.now() - lastErrorProvider.ts < 10000) ? lastErrorProvider.provider : "",
   };
 
-  // Active requests
-  for (const [connectionId, models] of Object.entries(pendingRequests.byAccount)) {
-    for (const [modelKey, count] of Object.entries(models)) {
-      if (count > 0) {
-        const accountName = connectionMap[connectionId] || `Account ${connectionId.slice(0, 8)}...`;
-        const match = modelKey.match(/^(.*) \((.*)\)$/);
-        stats.activeRequests.push({
-          model: match ? match[1] : modelKey,
-          provider: match ? match[2] : "unknown",
-          account: accountName, count,
-        });
+  // Active requests - only populate for global view, or filter for specific key
+  if (!filterApiKey) {
+    for (const [connectionId, models] of Object.entries(pendingRequests.byAccount)) {
+      for (const [modelKey, count] of Object.entries(models)) {
+        if (count > 0) {
+          const accountName = connectionMap[connectionId] || `Account ${connectionId.slice(0, 8)}...`;
+          const match = modelKey.match(/^(.*) \((.*)\)$/);
+          stats.activeRequests.push({
+            model: match ? match[1] : modelKey,
+            provider: match ? match[2] : "unknown",
+            account: accountName, count,
+          });
+        }
       }
     }
   }
