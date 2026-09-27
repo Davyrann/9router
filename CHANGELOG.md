@@ -1,3 +1,8 @@
+# v0.5.128-Custom (2026-09-27)
+
+## Custom Features & Enhancements
+- **Automatic tool calling fallback**: a tool payload that a provider refuses no longer surfaces as a tool error. Before dispatch, malformed tool arguments are repaired (truncated JSON is closed back up, non-string arguments are stringified, empty ones become `{}`), tool results whose call id matches nothing are dropped, and a `tool_choice` pointing at a tool that is not in the array is removed. When an upstream still answers 400/404/422 naming the tools, the request is re-dispatched with the tool machinery relaxed one step at a time, stopping at the first level the provider accepts: drop `tool_choice` and `strict`, then strip JSON Schema keywords that many gateways reject while keeping every tool name and description, and finally drop the tool definitions entirely and inline the tool history as prose so the turn is still answered. On by default; set `toolCallFallback` to `false` in settings to restore the previous behaviour. A rejection that does not name tools, such as a context overflow or a policy refusal, is never touched.
+
 # v0.5.127-Custom (2026-09-27)
 
 ## Fixes

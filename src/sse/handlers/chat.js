@@ -369,6 +369,10 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
       pxpipeTransform: chatSettings.pxpipeEnabled ? await getPxpipeTransform() : null,
       onPxpipeEvent: appendPxpipeEvent,
       providerThinking,
+      // Undefined means on: the fallback is opt-out so a malformed tool payload
+      // never reaches the caller, and `toolCallFallback: false` restores the
+      // previous pass-the-error-through behaviour.
+      toolCallFallbackEnabled: chatSettings.toolCallFallback !== false,
       // Detect source format by endpoint + body
       sourceFormatOverride: request?.url ? detectFormatByEndpoint(new URL(request.url).pathname, body) : null,
       onCredentialsRefreshed: async (newCreds) => {
