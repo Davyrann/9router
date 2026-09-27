@@ -42,6 +42,11 @@ export async function PUT(request, { params }) {
       return NextResponse.json({ error: "Key not found" }, { status: 404 });
     }
 
+    // API key users cannot manage their own key
+    if (ctx.session?.role === "apikey" && existing.key === ctx.session.apiKey) {
+      return NextResponse.json({ error: "Cannot manage your own API key" }, { status: 403 });
+    }
+
     // API key user can only edit their own key
     if (ctx.session?.role === "apikey" && existing.key !== ctx.session.apiKey) {
       return NextResponse.json({ error: "Permission denied: cannot edit other keys" }, { status: 403 });
@@ -131,6 +136,11 @@ export async function DELETE(request, { params }) {
     const existing = await getApiKeyById(id);
     if (!existing) {
       return NextResponse.json({ error: "Key not found" }, { status: 404 });
+    }
+
+    // API key users cannot manage their own key
+    if (ctx.session?.role === "apikey" && existing.key === ctx.session.apiKey) {
+      return NextResponse.json({ error: "Cannot manage your own API key" }, { status: 403 });
     }
 
     // API key user can only delete their own key

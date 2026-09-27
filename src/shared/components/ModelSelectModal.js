@@ -302,7 +302,7 @@ export default function ModelSelectModal({
             value: fullModel,
           }));
         const customRegisteredModels = customModels
-          .filter((m) => m.providerAlias === alias)
+          .filter((m) => m.providerAlias === alias || m.providerAlias?.toLowerCase() === alias?.toLowerCase())
           .map((m) => ({
             id: m.id,
             name: m.name || m.id,
@@ -372,7 +372,7 @@ export default function ModelSelectModal({
         // Merge custom models registered via /api/models/custom for this provider
         // providerAlias in DB uses the raw providerId, not the display prefix
         const registeredCustom = customModels
-          .filter((m) => m.providerAlias === providerId)
+          .filter((m) => m.providerAlias === providerId || m.providerAlias?.toLowerCase() === providerId?.toLowerCase())
           .map((m) => ({
             id: m.id,
             name: m.name || m.id,
@@ -423,7 +423,7 @@ export default function ModelSelectModal({
         // Custom models registered via /api/models/custom (provider "Add Model" button)
         const customAliasIds = new Set(customAliasModels.map((m) => m.id));
         const customRegisteredModels = customModels
-          .filter((m) => m.providerAlias === alias && !hardcodedIds.has(m.id) && !customAliasIds.has(m.id))
+          .filter((m) => (m.providerAlias === alias || m.providerAlias?.toLowerCase() === alias?.toLowerCase()) && !hardcodedIds.has(m.id) && !customAliasIds.has(m.id))
           .map((m) => ({ id: m.id, name: m.name || m.id, value: `${alias}/${m.id}`, isCustom: true }));
 
         const merged = [
@@ -458,6 +458,63 @@ export default function ModelSelectModal({
         }
       }
     });
+
+    // Fallback: custom models that did not land in any provider group yet.
+    // This happens when the provider alias stored in DB does not match any
+    // active provider shown above (e.g. scoped API key sessions). Attach them
+    // to the first provider with passthroughModels, otherwise create a
+    // "Custom Models" group so they stay visible in the picker. The
+    // allowedModelPatterns filter below still applies.
+    const groupedValues = new Set(
+      Object.values(groups).flatMap((g) => (g.models || []).map((m) => m.value))
+    );
+    const ungroupedCustom = customModels.filter((m) => {
+      const candidates = [
+        `${m.providerAlias}/${m.id}`,
+        `${m.providerAlias?.toLowerCase()}/${m.id}`,
+      ];
+      const inGroup = [...groupedValues].some(
+        (v) => candidates.includes(v) || String(v).toLowerCase().endsWith(`/${String(m.id).toLowerCase()}`)
+      );
+      if (inGroup) return false;
+      // Only surface models that pass the scope filter when it is active.
+      if (allowedModelPatterns) {
+        return matchesModelScope(allowedModelPatterns, `${m.providerAlias}/${m.id}`, m.id)
+          || matchesModelScope(allowedModelPatterns, m.name, m.id);
+      }
+      return true;
+    });
+    if (ungroupedCustom.length > 0) {
+      const passthroughId = sortedProviderIds.find((id) => (allProviders[id] || {}).passthroughModels);
+      if (passthroughId && groups[passthroughId]) {
+        const alias = getProviderAlias(passthroughId);
+        for (const m of ungroupedCustom) {
+          const value = `${alias}/${m.id}`;
+          if (groupedValues.has(value)) continue;
+          groups[passthroughId].models.push({
+            id: m.id,
+            name: m.name || m.id,
+            value,
+            kind: getModelKind(m),
+            isCustom: true,
+          });
+          groupedValues.add(value);
+        }
+      } else {
+        groups.__custom = {
+          name: "Custom Models",
+          alias: "custom",
+          color: "#8b5cf6",
+          models: ungroupedCustom.map((m) => ({
+            id: m.id,
+            name: m.name || m.id,
+            value: `${m.providerAlias}/${m.id}`,
+            kind: getModelKind(m),
+            isCustom: true,
+          })),
+        };
+      }
+    }
 
     // Filter out disabled models per provider (disabled keyed by storage alias OR providerId)
     Object.entries(groups).forEach(([providerId, group]) => {
