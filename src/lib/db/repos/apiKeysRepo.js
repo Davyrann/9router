@@ -31,6 +31,7 @@ function rowToKey(row) {
     expiresAt: row.expiresAt || null,
     systemPrompt: row.systemPrompt || "",
     permissions: parsePermissions(row.permissions),
+    createdBy: row.createdBy || "",
   };
 }
 
@@ -76,10 +77,11 @@ export async function createApiKey(name, machineId, options = {}) {
     expiresAt: options.expiresAt || null,
     systemPrompt: options.systemPrompt || "",
     permissions: typeof options.permissions === "object" ? options.permissions : parsePermissions(options.permissions),
+    createdBy: options.createdBy || ctx.session?.apiKey || "",
   };
   const permStr = typeof options.permissions === "string" ? options.permissions : JSON.stringify(apiKey.permissions);
   db.run(
-    `INSERT INTO apiKeys(id, key, name, machineId, isActive, createdAt, tokenLimit, usedTokens, resetInterval, lastResetAt, allowedModels, rpmLimit, tpmLimit, ipWhitelist, expiresAt, systemPrompt, permissions) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO apiKeys(id, key, name, machineId, isActive, createdAt, tokenLimit, usedTokens, resetInterval, lastResetAt, allowedModels, rpmLimit, tpmLimit, ipWhitelist, expiresAt, systemPrompt, permissions, createdBy) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       apiKey.id,
       apiKey.key,
@@ -98,6 +100,7 @@ export async function createApiKey(name, machineId, options = {}) {
       apiKey.expiresAt,
       apiKey.systemPrompt,
       permStr,
+      apiKey.createdBy,
     ]
   );
   return apiKey;
@@ -112,7 +115,7 @@ export async function updateApiKey(id, data) {
     const merged = { ...rowToKey(row), ...data };
     const permStr = typeof merged.permissions === "string" ? merged.permissions : JSON.stringify(merged.permissions || {});
     db.run(
-      `UPDATE apiKeys SET key = ?, name = ?, machineId = ?, isActive = ?, tokenLimit = ?, usedTokens = ?, resetInterval = ?, lastResetAt = ?, allowedModels = ?, rpmLimit = ?, tpmLimit = ?, ipWhitelist = ?, expiresAt = ?, systemPrompt = ?, permissions = ? WHERE id = ?`,
+      `UPDATE apiKeys SET key = ?, name = ?, machineId = ?, isActive = ?, tokenLimit = ?, usedTokens = ?, resetInterval = ?, lastResetAt = ?, allowedModels = ?, rpmLimit = ?, tpmLimit = ?, ipWhitelist = ?, expiresAt = ?, systemPrompt = ?, permissions = ?, createdBy = ? WHERE id = ?`,
       [
         merged.key,
         merged.name,
@@ -129,6 +132,7 @@ export async function updateApiKey(id, data) {
         merged.expiresAt || null,
         merged.systemPrompt || "",
         permStr,
+        merged.createdBy || "",
         id,
       ]
     );

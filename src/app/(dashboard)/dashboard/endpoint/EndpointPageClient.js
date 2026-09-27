@@ -46,7 +46,7 @@ const PERMISSION_OPTIONS = [
 
 const EMPTY_PERMISSIONS = { manageApiKeys: false, manageModels: false, manageProviders: false, viewUsage: true };
 
-function PermissionsEditor({ value, onChange, allowed }) {
+function PermissionsEditor({ value, onChange, allowed, hideManageKeys }) {
   return (
     <div className="flex flex-col gap-1.5">
       <label className="text-sm font-medium text-text-main">Permissions</label>
@@ -54,7 +54,7 @@ function PermissionsEditor({ value, onChange, allowed }) {
         What this key may do once it signs in. The sidebar and the forms it opens follow these.
       </p>
       <div className="flex flex-col gap-1.5 mt-1">
-        {PERMISSION_OPTIONS.map((opt) => {
+        {PERMISSION_OPTIONS.filter((opt) => !(hideManageKeys && opt.key === "manageApiKeys")).map((opt) => {
           const locked = !allowed[opt.key];
           const checked = locked ? false : Boolean(value?.[opt.key]);
           return (
@@ -146,7 +146,11 @@ export default function APIPageClient({ machineId }) {
  const [newKeyPermissions, setNewKeyPermissions] = useState({ manageApiKeys: false, manageModels: false, manageProviders: false, viewUsage: true });
  const [editPermissions, setEditPermissions] = useState({ manageApiKeys: false, manageModels: false, manageProviders: false, viewUsage: true });
  const isApiKeyUser = authStatus?.role === "apikey";
- const creatorPermissions = authStatus?.permissions || { manageApiKeys: true, manageModels: true, manageProviders: true, viewUsage: true };
+ const sessionApiKey = authStatus?.apiKey || null;
+  // A key cannot edit, switch off or delete itself, so those controls are dimmed
+  // instead of bouncing a 403 back at the user.
+  const isOwnKey = (key) => isApiKeyUser && !!key && key.key === sessionApiKey;
+  const creatorPermissions = authStatus?.permissions || { manageApiKeys: true, manageModels: true, manageProviders: true, viewUsage: true };
  const creatorTokenLimit = authStatus?.tokenLimit || 0;
  const creatorAllowedModels = authStatus?.allowedModels || "*";
 // A key that is itself limited to certain models can only hand those same models on.
@@ -1337,6 +1341,7 @@ const scopedModelPatterns =
                   <Toggle
                     size="sm"
                     checked={key.isActive !== false}
+                    disabled={isOwnKey(key)}
                     onChange={(nextActive) => handleToggleKeyActive(key, nextActive)}
                   />
                   </div>
@@ -1361,21 +1366,23 @@ const scopedModelPatterns =
                       setEditExpiresAt(key.expiresAt || "");
                       setEditPermissions(key.permissions || EMPTY_PERMISSIONS);
                     }}
-                    className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition-all"
+                    disabled={isOwnKey(key)}
+                    className={cn("p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition-all", isOwnKey(key) && "opacity-40 cursor-not-allowed")}
                     title="Edit key settings & quota"
                   >
                     <span className="material-symbols-outlined text-[18px]">edit</span>
                   </button>
  <button
  onClick={() => handleDuplicateKey(key)}
- className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition-all"
+ className={cn("p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition-all", isOwnKey(key) && "opacity-40 cursor-not-allowed")}
  title="Duplicate key (copy settings)"
  >
  <span className="material-symbols-outlined text-[18px]">library_add</span>
  </button>
                   <button
                     onClick={() => handleManualResetUsage(key)}
-                    className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition-all"
+                    disabled={isOwnKey(key)}
+                    className={cn("p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition-all", isOwnKey(key) && "opacity-40 cursor-not-allowed")}
                     title="Reset used tokens to 0"
                   >
                     <span className="material-symbols-outlined text-[18px]">restart_alt</span>
@@ -1389,7 +1396,8 @@ const scopedModelPatterns =
           </button>
                   <button
                     onClick={() => handleDeleteKey(key.id)}
-                    className="p-2 hover:bg-red-500/10 rounded text-red-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all"
+                    disabled={isOwnKey(key)}
+                    className={cn("p-2 hover:bg-red-500/10 rounded text-red-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all", isOwnKey(key) && "opacity-30 cursor-not-allowed")}
                   >
                     <span className="material-symbols-outlined text-[18px]">delete</span>
                   </button>
@@ -1520,6 +1528,7 @@ const scopedModelPatterns =
             value={newKeyPermissions}
             onChange={setNewKeyPermissions}
             allowed={creatorPermissions}
+            hideManageKeys={isApiKeyUser}
           />
           <div className="flex gap-2 w-full mt-2">
             <Button onClick={handleCreateKey} fullWidth disabled={!newKeyName.trim()} className="min-h-[44px]">

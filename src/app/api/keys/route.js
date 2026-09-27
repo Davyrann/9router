@@ -11,9 +11,11 @@ export async function GET() {
   try {
     const ctx = await getSessionContext();
     const allKeys = await getApiKeys();
-    // An API key session only ever manages its own key, so hide the rest.
+    // An API key session sees its own key plus every key it handed out itself.
+    // Keys it cannot reach at all stay hidden, so a scoped session never reads
+    // another branch's numbers.
     const keys = ctx.session?.role === "apikey"
-      ? allKeys.filter((k) => k.key === ctx.session.apiKey)
+      ? allKeys.filter((k) => k.key === ctx.session.apiKey || k.createdBy === ctx.session.apiKey)
       : allKeys;
     return NextResponse.json({ keys });
   } catch (error) {
@@ -65,12 +67,17 @@ export async function POST(request) {
         }, { status: 400 });
       }
 
-      // Allowed models: sub-key can only use a subset of creator's models
+      // Allowed models: sub-key can only use a subset of creator's models.
+      // Match against both the bare model id and the provider-qualified value,
+      // so a custom model entered by its bare id is not silently dropped.
       const creatorPatterns = parseAllowedModels(ctx.session.allowedModels);
       if (creatorPatterns) {
         const requestedList = (allowedModels || "*").split(",").map(m => m.trim().toLowerCase()).filter(Boolean);
         if (requestedList[0] !== "*") {
-          const filtered = requestedList.filter(m => matchesAllowedModels(creatorPatterns, m));
+          const filtered = requestedList.filter((model) =>
+            matchesAllowedModels(creatorPatterns, model) ||
+            matchesAllowedModels(creatorPatterns, `${model}/*`)
+          );
           allowedModels = filtered.length ? filtered.join(",") : creatorPatterns.join(",");
         } else {
           // Wildcard or empty request is clamped to the creator's own scope.
@@ -91,6 +98,7 @@ export async function POST(request) {
       expiresAt: expiresAt || null,
       systemPrompt: systemPrompt || "",
       permissions: finalPermissions,
+      createdBy: ctx.session?.role === "apikey" ? ctx.session.apiKey : undefined,
     });
 
     return NextResponse.json({
