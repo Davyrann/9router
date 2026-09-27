@@ -212,6 +212,13 @@ const scopedModelPatterns =
 
   const { copied, copy } = useCopyToClipboard();
 
+  useEffect(() => {
+    fetch("/api/auth/status")
+      .then(res => res.json())
+      .then(data => setAuthStatus(data))
+      .catch(() => {});
+  }, []);
+
   // Auto-scroll install log
   useEffect(() => {
     if (tsLogRef.current) tsLogRef.current.scrollTop = tsLogRef.current.scrollHeight;
