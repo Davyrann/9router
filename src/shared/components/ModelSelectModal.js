@@ -50,8 +50,12 @@ const PROVIDER_ORDER = [
   ...Object.keys(APIKEY_PROVIDERS),
 ];
 
-// Providers that need no auth — always show in model selector
-const NO_AUTH_PROVIDER_IDS = Object.keys(FREE_PROVIDERS).filter(id => FREE_PROVIDERS[id].noAuth);
+// Providers that need no auth — always show in model selector.
+// Hidden entries stay out: their upstream channel is gone, but they keep
+// `noAuth` so the request path still resolves if an old model id is replayed.
+const NO_AUTH_PROVIDER_IDS = Object.keys(FREE_PROVIDERS).filter(
+  id => FREE_PROVIDERS[id].noAuth && !FREE_PROVIDERS[id].hidden
+);
 
 // Providers with per-account live catalogs via /api/providers/[id]/models.
 // Static registry stays as fallback when live fetch fails or is empty.

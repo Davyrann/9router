@@ -1,3 +1,12 @@
+# v0.5.127-Custom (2026-09-27)
+
+## Fixes
+- **MiMo Code Free hidden properly**: the provider was flagged `hidden` in the registry but still surfaced in the model selector and in `/v1/models`, because the no-auth provider lists were built from every `noAuth` free provider without checking that flag. Both lists now skip hidden entries, so the dead Xiaomi free channel no longer shows up with a large auto-fetched model list. The entry keeps its `noAuth` flag so an old `mmf/mimo-auto` request still resolves on the request path.
+- **MiMo free model catalog no longer auto-fetched**: the registry entry pulled a model list from models.dev through `modelsFetcher` and accepted any id through `passthroughModels`. Both are gone, so the provider exposes only its single curated model and no longer grows a catalog from an external source.
+
+## Changes
+- **Web cookie provider names shortened**: DeepSeek Web (Cookie), Gemini Web (Cookie) and Kimi Web (Cookie) are now DeepSeek Web, Gemini Web and Kimi Web. The provider ids and aliases are unchanged, so saved connections keep working.
+
 # v0.5.126-Custom (2026-09-27)
 
 ## Custom Features & Enhancements
