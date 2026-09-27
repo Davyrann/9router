@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import PropTypes from "prop-types";
 import { Card, Button, Input, Select, Modal, CardSkeleton, Toggle, ConfirmModal, ModelSelectModal, SegmentedControl } from "@/shared/components";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
+import { nextResetAt, formatDuration } from "@/shared/utils/interval";
+import { useNow } from "@/shared/hooks/useNow";
 import {
   TUNNEL_BENEFITS,
   TUNNEL_PING_INTERVAL_MS,
@@ -45,6 +47,24 @@ const PERMISSION_OPTIONS = [
 ];
 
 const EMPTY_PERMISSIONS = { manageApiKeys: false, manageModels: false, manageProviders: false, viewUsage: true };
+
+function ResetCountdown({ resetInterval, lastResetAt }) {
+  const now = useNow(true);
+  if (!resetInterval || resetInterval === "never") return null;
+  const due = nextResetAt(resetInterval, lastResetAt);
+  if (!due) return null;
+  const remaining = new Date(due).getTime() - now;
+  return (
+    <span className="text-xs max-w-full truncate px-2 py-0.5 rounded bg-gray-500/10 text-text-muted">
+      {remaining <= 0 ? "Resetting..." : `Next reset: ${formatDuration(remaining)}`}
+    </span>
+  );
+}
+
+ResetCountdown.propTypes = {
+  resetInterval: PropTypes.string,
+  lastResetAt: PropTypes.string,
+};
 
 function PermissionsEditor({ value, onChange, allowed, hideManageKeys }) {
   return (
@@ -955,6 +975,9 @@ const scopedModelPatterns =
               next.delete(id);
               return next;
             });
+          } else {
+            const errBody = await res.json().catch(() => null);
+            alert(errBody?.error || "Delete failed");
           }
         } catch (error) {
           console.log("Error deleting key:", error);
@@ -1305,6 +1328,9 @@ const scopedModelPatterns =
                       <span className="text-xs max-w-full truncate px-2 py-0.5 rounded bg-gray-500/10 text-text-muted">
                         Reset: every {key.resetInterval}
                       </span>
+                    )}
+                    {key.tokenLimit > 0 && key.resetInterval && key.resetInterval !== "never" && (
+                      <ResetCountdown resetInterval={key.resetInterval} lastResetAt={key.lastResetAt} />
                     )}
                     <span className="text-xs max-w-full truncate px-2 py-0.5 rounded bg-blue-500/10 text-blue-500 font-medium">
                       Models: {key.allowedModels && key.allowedModels !== "*" ? key.allowedModels : "All"}

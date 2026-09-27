@@ -617,8 +617,23 @@ export default function ModelSelectModal({
       };
     });
 
+    // A studio callName already rendered under "Custom Models" must not
+    // also appear inside a provider group. Dedupe against the raw studio
+    // list so the check holds even while search or other filters narrow it.
+    const studioIds = new Set(studioModels.map((s) => (s.callName || "").toLowerCase()));
+    if (studioIds.size > 0) {
+      Object.entries(filtered).forEach(([id, group]) => {
+        const models = group.models.filter((m) => !studioIds.has((m.id || "").toLowerCase()));
+        if (models.length === 0) {
+          delete filtered[id];
+        } else {
+          filtered[id] = { ...group, models };
+        }
+      });
+    }
+
     return filtered;
-  }, [groupedModels, searchQuery, addedModelValues, allowedModelPatterns, capFilter, getCaps]);
+  }, [groupedModels, searchQuery, addedModelValues, allowedModelPatterns, capFilter, getCaps, studioModels]);
 
   const handleSelect = (model) => {
     const value = model?.value || model?.name || model;

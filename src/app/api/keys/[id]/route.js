@@ -48,7 +48,7 @@ export async function PUT(request, { params }) {
     }
 
     // API key user can only edit their own key
-    if (ctx.session?.role === "apikey" && existing.key !== ctx.session.apiKey) {
+    if (ctx.session?.role === "apikey" && existing.createdBy !== ctx.session.apiKey) {
       return NextResponse.json({ error: "Permission denied: cannot edit other keys" }, { status: 403 });
     }
 
@@ -144,7 +144,7 @@ export async function DELETE(request, { params }) {
     }
 
     // API key user can only delete their own key
-    if (ctx.session?.role === "apikey" && existing.key !== ctx.session.apiKey) {
+    if (ctx.session?.role === "apikey" && existing.createdBy !== ctx.session.apiKey) {
       return NextResponse.json({ error: "Permission denied: cannot delete other keys" }, { status: 403 });
     }
 
