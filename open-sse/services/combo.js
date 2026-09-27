@@ -312,7 +312,10 @@ export async function handleComboChat({ body, models, handleSingleModel, log, co
     log.info("COMBO", `Trying model ${i + 1}/${rotatedModels.length}: ${modelStr}`);
 
     try {
-      const result = await handleSingleModel(body, modelStr);
+      const result = await handleSingleModel(
+        { ...body, messages: [...body.messages] },
+        modelStr
+      );
       
       // Success (2xx) - return response
       if (result.ok) {
@@ -565,7 +568,7 @@ export async function handleFusionChat({ body, models, handleSingleModel, log, c
 
   // A single-model fusion has nothing to fuse — just answer directly.
   if (panel.length === 1) {
-    return handleSingleModel(body, panel[0]);
+    return handleSingleModel({ ...body, messages: [...body.messages] }, panel[0]);
   }
 
   const cfg = { ...FUSION_DEFAULTS, ...(tuning || {}) };
@@ -625,7 +628,7 @@ export async function handleFusionChat({ body, models, handleSingleModel, log, c
   }
   if (answers.length === 1) {
     log.info("FUSION", `Only ${answers[0].model} succeeded — answering directly (no fusion)`);
-    return handleSingleModel(body, answers[0].model);
+    return handleSingleModel({ ...body, messages: [...body.messages] }, answers[0].model);
   }
 
   // 4. Judge analyzes + writes one final answer (streams to client if requested).
