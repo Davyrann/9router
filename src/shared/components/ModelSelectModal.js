@@ -465,18 +465,11 @@ export default function ModelSelectModal({
     // to the first provider with passthroughModels, otherwise create a
     // "Custom Models" group so they stay visible in the picker. The
     // allowedModelPatterns filter below still applies.
-    const groupedValues = new Set(
-      Object.values(groups).flatMap((g) => (g.models || []).map((m) => m.value))
+    const groupedModelIds = new Set(
+      Object.values(groups).flatMap((g) => (g.models || []).map((m) => m.id))
     );
     const ungroupedCustom = customModels.filter((m) => {
-      const candidates = [
-        `${m.providerAlias}/${m.id}`,
-        `${m.providerAlias?.toLowerCase()}/${m.id}`,
-      ];
-      const inGroup = [...groupedValues].some(
-        (v) => candidates.includes(v) || String(v).toLowerCase().endsWith(`/${String(m.id).toLowerCase()}`)
-      );
-      if (inGroup) return false;
+      if (groupedModelIds.has(m.id)) return false;
       // Only surface models that pass the scope filter when it is active.
       if (allowedModelPatterns) {
         return matchesModelScope(allowedModelPatterns, `${m.providerAlias}/${m.id}`, m.id)
@@ -490,7 +483,7 @@ export default function ModelSelectModal({
         const alias = getProviderAlias(passthroughId);
         for (const m of ungroupedCustom) {
           const value = `${alias}/${m.id}`;
-          if (groupedValues.has(value)) continue;
+          if (groupedModelIds.has(m.id)) continue;
           groups[passthroughId].models.push({
             id: m.id,
             name: m.name || m.id,
@@ -498,20 +491,20 @@ export default function ModelSelectModal({
             kind: getModelKind(m),
             isCustom: true,
           });
-          groupedValues.add(value);
+          groupedModelIds.add(m.id);
         }
       } else {
         groups.__custom = {
           name: "Custom Models",
           alias: "custom",
           color: "#8b5cf6",
-          models: ungroupedCustom.map((m) => ({
+          models: filterByKind(ungroupedCustom.map((m) => ({
             id: m.id,
             name: m.name || m.id,
             value: `${m.providerAlias}/${m.id}`,
             kind: getModelKind(m),
             isCustom: true,
-          })),
+          }))),
         };
       }
     }
@@ -560,7 +553,7 @@ export default function ModelSelectModal({
       });
     }
     return groups;
-  }, [filteredActiveProviders, modelAliases, allProviders, providerNodes, customModels, disabledModels, kindFilter, activeProviders, cursorModels, clineModels, clinepassModels, studioModels, showStudioTargets]);
+  }, [filteredActiveProviders, modelAliases, allProviders, providerNodes, customModels, disabledModels, kindFilter, activeProviders, cursorModels, clineModels, clinepassModels, studioModels, showStudioTargets, allowedModelPatterns]);
 
   // Filter combos by search query (and hide combos when kindFilter is set — combos are LLM-only by design)
   const filteredCombos = useMemo(() => {
