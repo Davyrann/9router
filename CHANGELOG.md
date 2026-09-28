@@ -1,3 +1,17 @@
+# v0.5.132-Custom (2026-09-28)
+
+## Fixes
+- **Model picker merged unrelated models into one provider**: custom models that could not be placed in a provider group were pushed into the first provider with `passthroughModels`, which both stacked them under that provider's heading and rewrote their value to that provider's prefix. Picking one silently retargeted the request at a provider the model never belonged to, and a provider such as OpenCode Free could show hundreds of borrowed models. They are now grouped under the alias each model actually belongs to, which is the prefix the value needs anyway.
+- **A permission comment described the opposite of what the code does**: an empty `permissions: []` page rule was documented as "open to any session", but `canOpenPage` asks whether any listed permission is held, and an empty list has none, so the page is closed. The comment is corrected, and the two pages relying on it (Basic Chat, Profile) keep their existing behaviour.
+
+## Changes
+- **Four more API key permissions**: `manageTools` (CLI Tools, Token Saver), `manageAdvanced` (Console Log, Translator, Proxy Pools, PXPIPE), `managePlugins` (Custom Plugins, Skills) and `manageMediaProviders`. All default to off, so a key created before this change gains nothing: `normalizePermissions` reads a missing field as false, and no migration grants anything. A password session keeps every page. The sidebar now shows an API key session only the parts of the System section it may open, instead of hiding all of it.
+- **API key allowed models follow the models**: deleting a model drops it from every key's allowlist, and renaming one rewrites the entries that referenced it, across custom models, the model editor and model aliases. Only the ids the caller reports as gone are touched, so a provider that is momentarily unreachable cannot shrink anyone's list, and wildcard patterns are never pruned. When the last entry would be removed the old value is kept and the key is reported back, because an empty allowlist parses as "no restriction" and would silently unlock the key.
+- **Usage charts hidden for API key sessions**: the token chart and the two breakdown charts are replaced with a short muted note. The overview numbers and the recent request list are unaffected. A password session sees exactly what it saw before. If the session lookup fails the page falls back to the password view.
+
+## Internal
+- **Two self-checks added**: `permissionPathsSelfCheck.mjs` (12 cases) proves each permission opens only its own pages, that none leaks into another section, and that a page with no rule stays shut. `allowedModelsReconcileSelfCheck.mjs` (15 cases) covers pruning, renaming, wildcard and `*` preservation, idempotence, and the refuse-to-empty rule. The reconcile check caught a real defect while being written: an untouched list was being respaced and rewritten, which is fixed.
+
 # v0.5.131-Custom (2026-09-28)
 
 ## Fixes

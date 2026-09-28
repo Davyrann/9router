@@ -41,6 +41,16 @@ function TimeAgo({ timestamp }) {
   return <>{timeAgo(timestamp)}</>;
 }
 
+function ChartsUnavailableNote() {
+  return (
+    <div className="rounded-lg border border-border-subtle bg-surface/40 px-3 py-2.5">
+      <span className="text-[11px] text-text-muted/70">
+        Charts are not available for this key. The numbers above and the request list still are.
+      </span>
+    </div>
+  );
+}
+
 function RecentRequests({ requests = [] }) {
   return (
     <Card className="flex min-w-0 flex-col overflow-hidden" padding="sm" style={{ height: 480 }}>
@@ -221,6 +231,10 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [fetching, setFetching] = useState(false);
+  // null until /api/auth/status answers, then true for an API-key session. Both
+  // this and the stats fetch are in flight together, and the charts only render
+  // once `loading` is false, so waiting for it costs no visible flash.
+  const [isApiKeyUser, setIsApiKeyUser] = useState(null);
   const [tableView, setTableView] = useState("model");
   const [viewMode, setViewMode] = useState("costs");
   const [providers, setProviders] = useState([]);
@@ -229,6 +243,18 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
   const hasLoadedStats = useRef(false);
   const period = periodProp ?? periodLocal;
   const setPeriod = setPeriodProp ?? setPeriodLocal;
+
+  // Which kind of session is looking at this. A key-authenticated session gets the
+  // charts swapped for a note; a failed lookup falls back to the password view so
+  // an admin is never left without the page they expect.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/auth/status")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (!cancelled) setIsApiKeyUser(d?.role === "apikey"); })
+      .catch(() => { if (!cancelled) setIsApiKeyUser(false); });
+    return () => { cancelled = true; };
+  }, []);
 
   // Fetch connected providers once, deduplicate by provider type
   // Always include noAuth free providers (e.g. opencode) regardless of connections
@@ -517,15 +543,22 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
         </div>
       )}
 
-      {/* Token / Cost chart - sync period */}
-      {loading ? spinner : <UsageChart period={period} updateKey={chartUpdateKey} />}
+      {/* Charts. An API-key session sees a quiet note in their place: its numbers
+          are already on the overview cards and the recent request list, and the
+          charts only add bulk the restricted view has no use for. */}
+      {loading || isApiKeyUser === null ? spinner : isApiKeyUser ? (
+        <ChartsUnavailableNote />
+      ) : (
+        <>
+          <UsageChart period={period} updateKey={chartUpdateKey} />
 
-      {/* Provider and model breakdown charts */}
-      {!loading && (stats.byProvider || stats.byModel) && (
-        <div className="grid min-w-0 grid-cols-1 gap-2 lg:grid-cols-2">
-          <ProviderBarChart byProvider={stats.byProvider} />
-          <TopModelsChart byModel={stats.byModel} />
-        </div>
+          {(stats.byProvider || stats.byModel) && (
+            <div className="grid min-w-0 grid-cols-1 gap-2 lg:grid-cols-2">
+              <ProviderBarChart byProvider={stats.byProvider} />
+              <TopModelsChart byModel={stats.byModel} />
+            </div>
+          )}
+        </>
       )}
 
       {/* Table with dropdown selector */}
