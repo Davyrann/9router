@@ -1,3 +1,17 @@
+# v0.5.138-Custom (2026-09-28)
+
+## Fixes
+- **The model picker no longer heads a group with a generated node id.** A compatible provider node is stored under an id like `openai-compatible-chat-b5bca155-fc33-4899-a868-2ff3d7891e3c`, and a custom model records that id as its provider. When no group owned the alias, the picker opened one and titled it with the id, so a database key was rendered as a provider name with a model count beside it. The heading now resolves in order: the node's own name, the connection's name, the static registry, and finally the family the id belongs to, so an unresolvable node reads as OpenAI Compatible rather than as a uuid. A registry entry that merely echoes the id back is not trusted as a name.
+- **A custom model no longer opens a second group for a node that already has one.** A compatible group is keyed by the node id but stores the node prefix as its display alias, and a custom model stores the id, so the alias-only lookup never matched. The id is tried as well, which is what makes the group and the model meet.
+
+## Internal
+- **`providerDisplay.js` added, with a 26-case check.** It covers the reported shapes (chat node, responses node, anthropic node, a missing node record, an empty node list during the first render) alongside the cases that must stay unchanged: a known registry alias is used as-is, an unknown plain id resolves to empty so the caller keeps its own default, and a schema-less lookup never guesses. The check was confirmed to fail by reinstating each defect separately: labelling a group with its own id reddened 10 cases, and dropping the node-id match from the owner lookup reddened 2.
+- **The check also reads the component.** A perfect helper does not help while the picker keeps reaching for the registry fallback, which is `{ name: providerId }` and therefore the id again, so two cases assert the leaking expressions are gone from the source. Restoring one of them in the component was confirmed to redden the check.
+- **One defect was found while writing the check.** The api type sits after the `compatible` segment in the id, not in the second word, so the first version read `openai-compatible` as the type and matched nothing. Six of the nine id cases failed until it was corrected.
+
+## Notes
+- **Verification is static**, as it has been throughout this fork: per-file esbuild plus the self-checks. Nothing here has been exercised in a browser.
+
 # v0.5.137-Custom (2026-09-28)
 
 ## Fixes

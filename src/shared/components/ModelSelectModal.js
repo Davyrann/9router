@@ -9,6 +9,7 @@ import { useModelCaps } from "@/shared/hooks/useModelCaps";
 import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
 import { OAUTH_PROVIDERS, APIKEY_PROVIDERS, FREE_PROVIDERS, FREE_TIER_PROVIDERS, AI_PROVIDERS, isOpenAICompatibleProvider, isAnthropicCompatibleProvider, getProviderAlias } from "@/shared/constants/providers";
 import { buildStudioTargetIndex } from "@/shared/utils/studioModelVisibility";
+import { resolveProviderName, findOwningGroupId } from "@/shared/utils/providerDisplay";
 import { formatContextWindow } from "@/shared/utils/contextWindow";
 
 // Same matching rules the server applies to allowedModels: exact name, `prefix*`
@@ -345,7 +346,7 @@ export default function ModelSelectModal({
         if (combined.length > 0) {
           // Check for custom name from providerNodes (for compatible providers)
           const matchedNode = providerNodes.find(node => node.id === providerId);
-          const displayName = matchedNode?.name || providerInfo.name;
+          const displayName = resolveProviderName(providerId, { node: matchedNode, registry: providerInfo });
 
           groups[providerId] = {
             name: displayName,
@@ -360,7 +361,7 @@ export default function ModelSelectModal({
         // Find connection object to get prefix synchronously without waiting for providerNodes fetch
         const connection = activeProviders.find(p => p.provider === providerId);
         const matchedNode = providerNodes.find(node => node.id === providerId);
-        const displayName = matchedNode?.name || connection?.name || providerInfo.name;
+        const displayName = resolveProviderName(providerId, { node: matchedNode, connection, registry: providerInfo });
         const nodePrefix = connection?.providerSpecificData?.prefix || matchedNode?.prefix || providerId;
 
         // Aliases are stored using the raw providerId as key (e.g. "openai-compatible-chat-<uuid>/glm-4.7"),
@@ -504,9 +505,9 @@ export default function ModelSelectModal({
         };
 
         // A group already standing in for this alias keeps ownership of the model.
-        const existingId = modelAlias ? aliasToGroupId.get(modelAlias.toLowerCase()) : null;
-        if (existingId) {
-          groups[existingId].models.push(entry);
+        const ownerId = findOwningGroupId(groups, aliasToGroupId, modelAlias);
+        if (ownerId) {
+          groups[ownerId].models.push(entry);
           groupedModelIds.add(m.id);
           continue;
         }
@@ -515,7 +516,7 @@ export default function ModelSelectModal({
         if (!groups[groupId]) {
           const node = providerNodes.find((n) => n.id === modelAlias);
           groups[groupId] = {
-            name: node?.name || (modelAlias ? modelAlias : "Custom Models"),
+            name: resolveProviderName(modelAlias, { node }) || "Custom Models",
             alias: modelAlias || "custom",
             color: node?.color || CUSTOM_GROUP_COLOR,
             models: [],
