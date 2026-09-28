@@ -162,6 +162,7 @@ export default function QuotaTable({
           // and their resetAt is a hard expiry, so word it as "expires".
           const recurring = quota.recurring !== false;
           const countdownLabel = recurring ? `in ${countdown}` : `expires in ${countdown}`;
+          const resetWord = recurring ? "Reset" : "Expires";
 
           return (
             <div
