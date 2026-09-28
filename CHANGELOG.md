@@ -1,3 +1,18 @@
+# v0.5.137-Custom (2026-09-28)
+
+## Fixes
+- **A tool call the client could not satisfy ended the turn.** `Invalid args for tool "Bash": must have required property 'command'` is the client validating the call against the schema the request itself declared, and it throws rather than continuing. The argument object was reaching the client as `{}` because the only repair in the pipeline, `toolCallFallback.repair`, reads the request history and never looks at the call the model is producing right now. Three rules now run over each response: a name spelled in a different case than the request declared is raised back to the declared one, a missing required property is filled from a value the model did supply under another name, and a call whose arguments cannot be recovered is dropped so the model tries again on the next turn instead of the turn dying.
+- **A model that wrote the command as the whole argument string is understood.** `arguments: "ls -la"` is lifted into `{"command":"ls -la"}`, but only when the tool declares exactly one required string property. With more than one, the value is ambiguous and the call is dropped rather than guessed.
+- **A rejected call no longer poisons every turn after it.** The call the client rejected stays in the history it sends back, so the same broken call was re-validated and rejected on each retry. The history is now rescued on the way out, which is what makes a turn recoverable after the first failure.
+
+## Internal
+- **`toolCallRescue.js` added, with a 31-case check** covering the reported shapes (lower-case name, empty arguments, bare string, `cmd`, `commandLine`, `oldString`) plus the shapes that must stay untouched: a well-formed call is re-encoded byte-identically, an undeclared name is left alone, a schema without `required` is not second-guessed, and a non-object argument value does not throw. The check was confirmed to fail by reinstating each defect separately: removing the case-insensitive name match reddened 11 cases, and passing an unrecoverable call through instead of dropping it reddened 7.
+- **Three defects were found while writing the check.** A Claude `tool_use` block carries `input` as an object, not a JSON string, and the first version parsed it as a string and discarded it. Separator-insensitive matching was skipping every spelling variant of the key itself, so `newString` could not fill `new_string`. And a Claude-format response is the message itself rather than a choice inside one, so the first version never reached it at all.
+
+## Notes
+- **Streaming is not covered.** Tool arguments arrive in fragments there, and buffering them to repair would hold back every tool call until the last fragment lands. The non-streaming path and the request history are repaired; a streaming call is still repaired on the following turn through the history rule above.
+- **Verification is static**, as it has been throughout this fork: per-file esbuild plus the self-checks. Nothing here has been exercised in a browser.
+
 # v0.5.136-Custom (2026-09-28)
 
 ## Fixes
