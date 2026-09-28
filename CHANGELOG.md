@@ -1,3 +1,16 @@
+# v0.5.136-Custom (2026-09-28)
+
+## Fixes
+- **Creating an API key failed everywhere.** `createApiKey` in the repository module read `ctx.session?.apiKey` to work out who was creating the key, but that module has no session and never had one. Every call threw a ReferenceError, the route caught it, and the dashboard got a bare 500 with no clue what went wrong. The caller already resolved the creator and passes it in, so the inference is gone. The key name check in the form was unrelated and is unchanged.
+- **The Live Request tab was not reachable.** The tab strip scrolled sideways, so its last option sat off the edge of a narrow viewport, and the label was long enough to make that likely. The tab is now called Inspector, and the strip wraps instead of scrolling, so no option can end up hidden behind a scrollbar.
+
+## Internal
+- **A leaked-identifier scan added**, `leakedIdentifiersSelfCheck.mjs` (5 cases), scanning every module under `src` and `open-sse` for names that only exist inside a route handler or auth helper. It is written after the outage above, where esbuild passed the whole time because an undeclared global is a valid program to a bundler and only throws when the line runs.
+- **The scan's first version did not catch its own bug.** Its destructuring rule accepted any braces around the name, so an object literal containing it read as a declaration and the offending line came back clean. The rule now requires the name to be a bare binding, and a case reproduces the exact shape of the line that caused the outage so the rule cannot widen back into matching it. Reintroducing the fault is what proved the difference.
+
+## Notes
+- **None of this has been exercised in a browser.** Verification is static: per-file esbuild plus the self-checks. The same applies to everything else shipped in this fork.
+
 # v0.5.135-Custom (2026-09-28)
 
 ## Fixes
