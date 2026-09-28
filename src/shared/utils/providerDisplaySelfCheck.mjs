@@ -80,9 +80,11 @@ run("a responses node is labelled", () => {
   assert.ok(humanizeCompatId(RESPONSES_NODE).startsWith("OpenAI Compatible"), "unexpected label");
 });
 
-run("an anthropic node gets its own family label", () => {
-  assert.equal(humanizeCompatId(ANTHROPIC_NODE), "Anthropic Compatible", "unexpected label");
-  assert.ok(!humanizeCompatId(ANTHROPIC_NODE).includes("7c1d9a55"), "label leaked the uuid");
+run("an anthropic node gets its own family label with short uuid", () => {
+  const label = humanizeCompatId(ANTHROPIC_NODE);
+  assert.ok(label.startsWith("Anthropic Compatible"), `expected Anthropic Compatible prefix, got ${label}`);
+  assert.ok(label.includes("7c1d9a55"), `expected short uuid 7c1d9a55 in ${label}`);
+  assert.ok(!label.includes("7c1d9a55-2f0b-4d1e"), "label contains too much uuid");
 });
 
 run("chat and responses of one family share a label", () => {
