@@ -1,3 +1,37 @@
+# v0.5.134-Custom (2026-09-28)
+
+## Changes
+- **The Change Log modal no longer stacks both contributors into one scroll.** It opens on Serenhope with a switcher in the header to move between Serenhope and Decolua. Both changelogs were already fetched separately, so nothing new is requested; only the display changed. A tab appears only for a source that actually loaded, so an unreachable upstream no longer offers a button that leads to nothing.
+- **A selection that points at an empty changelog falls back** to one that has content, rather than leaving the body blank. This is the case where upstream goes down after the user has picked it.
+
+## Internal
+- **Two self-checks added**: `changelogSourcesSelfCheck.mjs` (9 cases) covers the source list, the default, and every empty-state fallback, and `changelogModalRenderSelfCheck.mjs` (6 cases) renders the modal with both changelogs present, with one absent, and with a stale selection. The render check feeds state through a queue, because with the component's real empty state the switcher never appears and a check that only renders that would pass against a broken one. Both were confirmed to fail against a deliberately reintroduced defect.
+- **Source selection moved into `changelogSources.js`**, free of imports, so it can be tested without the bundled dependencies. It mirrors what `pluginModelMatch.js` does for the plugins page.
+
+# v0.5.133-Custom (2026-09-28)
+
+## Changes
+- **Three more Custom Plugins, each per model and each off by default**: Structured Output Lock normalises the response format a request asked for, writes the required fields into the system prompt for providers with no native JSON mode, and strips fences, leading prose and truncation out of non-streaming answers. Tool Argument Repair compares every call against the schema the model was actually given, fills safe defaults, coerces near-miss types, and drops a call whose required arguments cannot be recovered instead of sending one the harness will reject. Context Doctor cuts a conversation that no longer fits the model's window, shortens the tool output that is left, and leaves a recap naming the files and commands that were removed. All three carry their own badge on the model, the way Image Vision and Think Deeper already do.
+- **Adaptive Pruning by Context Window** in Token Saver sizes the cut to the model rather than to a message count, so a short session is never touched and only a request that would actually overflow loses turns. Room is held back for the reply, and the existing message limit becomes the floor rather than the target.
+- **A tool call and the result answering it are now treated as one unit when cutting history.** The new pruning groups turns by the call ids actually present in the conversation, so a call is never dropped while its result survives. That split is a hard 400 upstream, and inside a combo it burns every member before one can reply.
+
+## Fixes
+- **A tool call that could not be repaired was never actually dropped.** The repair tested whether anything had changed before testing whether the call was recoverable, and a call missing only an unfillable required property had nothing left to change, so it passed straight through and the client failed on it again.
+- **The Context Doctor recap was inserted ahead of the system prompt.** It was spliced at index 0 rather than after the pinned prefix, which Claude and Gemini both reject.
+- **A truncated JSON object whose last key had no colon stayed unparseable.** The shared closing helper only handled the form with a trailing comma, so `{"city":"Lisbon","popu` reached the caller untouched instead of as `{"city":"Lisbon"}`.
+
+## Internal
+- **Seven self-checks added**: `tokenBudgetSelfCheck.mjs` (17 cases), `adaptivePruningSelfCheck.mjs` (16), `contextDoctorSelfCheck.mjs` (18), `structuredOutputSelfCheck.mjs` (21), `toolSchemaRepairSelfCheck.mjs` (24), `pluginModelMatchSelfCheck.mjs` (9) and a render smoke-check for the two changed pages (8). Each was confirmed to fail against a deliberately reintroduced defect before being accepted. The adaptive pruning check initially accepted a broken one, because its cases only ever cut a call and its result in sequence, so a case was added where the budget is met the instant the call alone is dropped.
+- **Plugin list management no longer repeats itself per plugin.** The API route and the plugins page derive their keys from one list, so a newly added plugin cannot be silently dropped from a save or from the load path.
+- **Plugin model matching moved to its own module** so it can be tested without the settings database. Two of its assumptions are now pinned by tests: a bare model name matches across provider prefixes, which is what makes a plugin work at all when the dashboard stores an aliased id, and a prefix of a real id is not a match.
+- **The render check drives boolean state on.** Every enabled branch in both pages is gated on a boolean, and a stub that returned the initial `false` would leave those branches unevaluated, so a typo inside one would never throw. A case also forces the model picker open and asserts on the resulting tree, because a picker title built from a renamed variable throws in a way a plain render does not.
+
+## Notes
+- **Streaming answers are not cleaned by Structured Output Lock.** Validating JSON means holding the text until the stream ends, which is the one thing streaming is for. That path is carried by the native response format plus the pinned schema.
+- **Streaming tool arguments are not buffered by Tool Argument Repair**, for the same reason. A partial JSON string cannot be validated, and holding the fragments would stop tool arguments streaming at all. Complete calls inside a chunk, which is how Claude and Responses emit them, are still repaired; fragmented OpenAI deltas are picked up on the next turn, where the request-side repair fixes the history.
+- **The Context Doctor summariser is a hook, not a feature yet.** The module accepts a summariser and falls back to the deterministic recap when it throws, returns nothing, or is absent, and both paths are tested. Nothing supplies one: a nested LLM call inside the request path needs its own auth and recursion handling, so wiring it is left for a change that can be tested on its own.
+- **None of this has been exercised in a browser.** Verification is static: per-file esbuild plus the self-checks above. The same applies to everything else shipped in this fork.
+
 # v0.5.132-Custom (2026-09-28)
 
 ## Fixes
