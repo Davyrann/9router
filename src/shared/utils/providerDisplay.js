@@ -17,6 +17,21 @@ const COMPAT_FAMILY = {
 };
 
 /**
+ * Short suffix taken from the uuid in a compatible provider id, or "" when the
+ * id has no uuid to take one from. Nodes are distinguished this way so two
+ * custom providers never share one heading.
+ */
+function extractCompatShortId(providerId) {
+  const words = providerId.split("-").filter(Boolean);
+  const compatibleAt = words.findIndex((w) => w.toLowerCase() === "compatible");
+  if (compatibleAt === -1) return "";
+  const uuidWords = words.slice(compatibleAt + 2);
+  if (uuidWords.length === 0) return "";
+  const uuid = uuidWords.join("-");
+  return uuid.length >= 8 ? uuid.slice(0, 8) : uuid;
+}
+
+/**
  * Readable label for a compatible provider id, or "" when the id is not one.
  * Callers use the empty string to fall through to their own default.
  */
@@ -30,7 +45,9 @@ export function humanizeCompatId(providerId) {
   if (compatibleAt === -1) return "";
   const apiType = (words[compatibleAt + 1] || "").toLowerCase();
   if (!COMPAT_API_TYPES.has(apiType)) return "";
-  return COMPAT_FAMILY[(words[0] || "").toLowerCase()] || "";
+  const familyLabel = COMPAT_FAMILY[(words[0] || "").toLowerCase()] || "";
+  const shortId = extractCompatShortId(providerId);
+  return shortId ? `${familyLabel} (${shortId})` : familyLabel;
 }
 
 /**
@@ -38,8 +55,9 @@ export function humanizeCompatId(providerId) {
  *
  * `node` and `connection` are the records carrying a user-chosen name; the
  * static registry entry is next; a compatible id that reached all the way here
- * is named by its family. A non-compatible id we know nothing about is returned
- * unchanged, because a plain alias like `deepseek` is already a label.
+ * is named by its family plus a short disambiguator. A non-compatible id we know
+ * nothing about is returned unchanged, because a plain alias like `deepseek` is
+ * already a label.
  */
 export function resolveProviderName(providerId, { node, connection, registry } = {}) {
   const chosen = node?.name || connection?.name || registry?.name;

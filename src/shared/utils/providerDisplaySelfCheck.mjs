@@ -24,6 +24,7 @@ const CHAT_NODE = "openai-compatible-chat-b5bca155-fc33-4899-a868-2ff3d7891e3c";
 const RESPONSES_NODE = "openai-compatible-responses-46fbd0dc-e79f-48c8-9e4a-620231adbeaf";
 const ANTHROPIC_NODE = "anthropic-compatible-chat-7c1d9a55-2f0b-4d1e-9a3c-5b6e8f0a1d22";
 const UUID_FRAGMENT = "b5bca155-fc33-4899-a868-2ff3d7891e3c";
+const CHAT_SHORT_ID = UUID_FRAGMENT.slice(0, 8); // "b5bca155"
 
 // --- the reported leak ---
 
@@ -40,7 +41,7 @@ run("REPORT: a node missing from providerNodes still gets a readable heading", (
   const registry = { name: CHAT_NODE, color: "#666" };
   const name = resolveProviderName(CHAT_NODE, { registry });
   assert.ok(name !== CHAT_NODE, "raw id became the heading");
-  assert.equal(name, "OpenAI Compatible", "named by family instead");
+  assert.ok(name.startsWith("OpenAI Compatible"), "family prefix present");
 });
 
 run("REPORT: an empty node list during the first render does not show ids", () => {
@@ -64,7 +65,7 @@ run("REPORT: the duplicate group is never headed by the id", () => {
   const node = providerNodes().find((n) => n.id === providerAlias);
   const name = resolveProviderName(providerAlias, { node }) || "Custom Models";
   assert.ok(name !== providerAlias, "raw id became the heading");
-  assert.equal(name, "OpenAI Compatible", "family label used");
+  assert.ok(name.startsWith("OpenAI Compatible"), "family label used");
 });
 
 // A small stand-in for the node list the picker receives, so the bucket case
@@ -76,7 +77,7 @@ function providerNodes() {
 // --- family labels ---
 
 run("a responses node is labelled", () => {
-  assert.equal(humanizeCompatId(RESPONSES_NODE), "OpenAI Compatible", "unexpected label");
+  assert.ok(humanizeCompatId(RESPONSES_NODE).startsWith("OpenAI Compatible"), "unexpected label");
 });
 
 run("an anthropic node gets its own family label", () => {
@@ -87,7 +88,8 @@ run("an anthropic node gets its own family label", () => {
 run("chat and responses of one family share a label", () => {
   const a = humanizeCompatId("openai-compatible-chat-aaaa-bbbb-cccc-dddd-eeeeffff0000");
   const b = humanizeCompatId("openai-compatible-responses-1111-2222-3333-4444-555566667777");
-  assert.equal(a, b, `family labels diverged: ${a} vs ${b}`);
+  assert.ok(a.startsWith("OpenAI Compatible"), "chat label ok");
+  assert.ok(b.startsWith("OpenAI Compatible"), "responses label ok");
 });
 
 run("regression: no compat id ever labels itself", () => {
@@ -149,7 +151,27 @@ run("nothing known at all resolves to empty", () => {
 
 run("an empty node name does not win over the family label", () => {
   const name = resolveProviderName(CHAT_NODE, { node: { name: "" }, registry: { name: CHAT_NODE } });
-  assert.equal(name, "OpenAI Compatible", "unexpected name");
+  assert.ok(name.startsWith("OpenAI Compatible"), "family prefix present");
+});
+
+// Two compat nodes must not collide on one heading — they are different providers.
+run("N compat nodes get N distinct labels for distinct uuids", () => {
+  const nodes = [
+    "openai-compatible-chat-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+    "openai-compatible-chat-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+    "openai-compatible-chat-cccccccc-cccc-cccc-cccc-cccccccccccc",
+  ];
+  const labels = nodes.map(humanizeCompatId);
+  assert.equal(new Set(labels).size, labels.length, `expected ${labels.length} distinct labels, got ${JSON.stringify(labels)}`);
+});
+
+// The fallback never leaks a uuid but still disambiguates.
+run("REPORT: a compat heading does not leak the full uuid yet is distinct between nodes", () => {
+  const label = humanizeCompatId(CHAT_NODE);
+  assert.ok(!label.includes(UUID_FRAGMENT), `leaked uuid in ${label}`);
+  assert.ok(label.includes(CHAT_SHORT_ID), `expected short uuid ${CHAT_SHORT_ID} in ${label}`);
+  const other = humanizeCompatId("openai-compatible-chat-00000000-aaaa-bbbb-cccc-111122223333");
+  assert.ok(other !== label, `two ids produced same heading: ${label}`);
 });
 
 // --- owner lookup ---
