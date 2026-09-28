@@ -13,6 +13,7 @@ function isLLMProvider(id) {
 import Badge from "./Badge";
 import Card from "./Card";
 import OverviewCards from "@/app/(dashboard)/dashboard/usage/components/OverviewCards";
+import KeyQuotaCard from "@/app/(dashboard)/dashboard/usage/components/KeyQuotaCard";
 import UsageTable, { fmt, fmtTime } from "@/app/(dashboard)/dashboard/usage/components/UsageTable";
 import dynamic from "next/dynamic";
 // Lazy-load: keeps @xyflow/react and recharts out of the initial bundle
@@ -41,11 +42,11 @@ function TimeAgo({ timestamp }) {
   return <>{timeAgo(timestamp)}</>;
 }
 
-function ChartsUnavailableNote() {
+function TopologyUnavailableNote() {
   return (
     <div className="rounded-lg border border-border-subtle bg-surface/40 px-3 py-2.5">
       <span className="text-[11px] text-text-muted/70">
-        Charts are not available for this key. The numbers above and the request list still are.
+        The provider map is not available for this key. The usage numbers and the request list are.
       </span>
     </div>
   );
@@ -235,6 +236,8 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
   // this and the stats fetch are in flight together, and the charts only render
   // once `loading` is false, so waiting for it costs no visible flash.
   const [isApiKeyUser, setIsApiKeyUser] = useState(null);
+  // The signing-in key's own token allowance, for the same session.
+  const [keyQuota, setKeyQuota] = useState(null);
   const [tableView, setTableView] = useState("model");
   const [viewMode, setViewMode] = useState("costs");
   const [providers, setProviders] = useState([]);
@@ -245,8 +248,8 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
   const setPeriod = setPeriodProp ?? setPeriodLocal;
 
   // Which kind of session is looking at this. A key-authenticated session gets the
-  // charts swapped for a note; a failed lookup falls back to the password view so
-  // an admin is never left without the page they expect.
+  // provider map swapped for a note and its own quota shown; a failed lookup falls
+  // back to the password view so an admin is never left without the page they expect.
   useEffect(() => {
     let cancelled = false;
     fetch("/api/auth/status")
@@ -259,6 +262,9 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
   // Fetch connected providers once, deduplicate by provider type
   // Always include noAuth free providers (e.g. opencode) regardless of connections
   useEffect(() => {
+    // Providers feed the topology and nothing else. An API-key session never
+    // renders it, so the two requests are not worth making.
+    if (isApiKeyUser !== false) return;
     Promise.all([
       fetch("/api/providers").then((r) => r.ok ? r.json() : null),
       fetch("/api/provider-nodes").then((r) => r.ok ? r.json() : null),
@@ -289,7 +295,25 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
         setProviders([...unique, ...noAuthProviders]);
       })
       .catch(() => {});
-  }, []);
+  }, [isApiKeyUser]);
+
+  // The key's own quota. /api/usage/api-keys narrows to the session's key, so
+  // this returns at most that one row and nothing about any other key.
+  useEffect(() => {
+    if (isApiKeyUser !== true) return undefined;
+    let cancelled = false;
+    const load = () => {
+      fetch("/api/usage/api-keys", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => { if (!cancelled) setKeyQuota(d?.keys?.[0] || null); })
+        .catch(() => { if (!cancelled) setKeyQuota(null); });
+    };
+    load();
+    // This page does not poll its own numbers either, and 30s is often enough
+    // for someone watching a limit while they work.
+    const timer = setInterval(load, 30000);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, [isApiKeyUser]);
 
   // Fetch filtered stats via REST when period changes
   useEffect(() => {
@@ -527,11 +551,23 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
         </div>
       )}
 
+      {/* The signing-in key's own allowance, for an API-key session. */}
+      {!loading && isApiKeyUser && keyQuota && <KeyQuotaCard quota={keyQuota} />}
+
       {/* Overview cards */}
       {loading ? spinner : <OverviewCards stats={stats} />}
 
-      {/* Provider topology + Recent Requests */}
-      {loading ? spinner : (
+      {/* Provider map + Recent Requests. The map shows every provider wired into
+          9Router, which is infrastructure rather than one key's usage, so an
+          API-key session gets a quiet note in its place. The note drops the
+          two-column grid too: RecentRequests is pinned to a fixed height, and
+          a three-line note beside it would leave most of the row empty. */}
+      {loading || isApiKeyUser === null ? spinner : isApiKeyUser ? (
+        <>
+          <TopologyUnavailableNote />
+          <RecentRequests requests={stats.recentRequests || []} />
+        </>
+      ) : (
         <div className="grid min-w-0 grid-cols-1 items-stretch gap-2 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
           <ProviderTopology
             providers={providers}
@@ -543,12 +579,9 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
         </div>
       )}
 
-      {/* Charts. An API-key session sees a quiet note in their place: its numbers
-          are already on the overview cards and the recent request list, and the
-          charts only add bulk the restricted view has no use for. */}
-      {loading || isApiKeyUser === null ? spinner : isApiKeyUser ? (
-        <ChartsUnavailableNote />
-      ) : (
+      {/* Charts. Both chart endpoints are scoped to the session's allowed models,
+          so a key-authenticated session sees its own numbers, not the global view. */}
+      {loading ? spinner : (
         <>
           <UsageChart period={period} updateKey={chartUpdateKey} />
 

@@ -1,3 +1,22 @@
+# v0.5.135-Custom (2026-09-28)
+
+## Fixes
+- **The wrong panel was hidden for API-key sessions.** The provider map is the diagram with 9Router at its centre and every configured provider arranged around it, joined by animated edges. That is infrastructure rather than one key's usage, and it is what now gets replaced with a short muted note. The usage charts, which were hidden instead in `v0.5.129-Custom`, are back for every session. Both chart endpoints were already scoped to the session's allowed models, so what an API-key holder sees is that key's own usage.
+- **The note no longer leaves most of a row empty.** Recent Requests is pinned to a fixed height and the map used to fill the wide column beside it, so the note and the request list now drop the two-column grid for an API-key session instead of sitting in a 480px cell.
+- **A session that is still being identified no longer flashes the map.** The lookup of `/api/auth/status` and the statistics load run together, and the map area now shows the same spinner the charts used to, so an API-key holder never sees the map appear and then disappear.
+
+## Changes
+- **An API-key holder can see their own token allowance.** A card above the overview numbers shows the key's name, tokens used against its limit, what is left, the percentage, and a running countdown to the next reset. `/api/usage/api-keys` already narrowed its result to the session's key, so nothing about any other key reaches the browser: the endpoint needed no change, and neither did any permission. An unlimited key shows its usage and no bar or countdown rather than a broken empty one.
+- **An API-key session stops requesting the provider list.** The two requests behind the map were the only consumer of that state, so a session that never renders the map no longer makes them.
+
+## Internal
+- **A render check added** for the Usage page, `usageStatsRenderSelfCheck.mjs` (7 cases), covering a password session, an API-key session with and without a quota, an unlimited key, and a session still being identified. It was confirmed to fail against two reintroduced defects: the charts hidden again, and the map shown again.
+- **The two render harnesses were corrected.** The PropTypes stub returned `null` from a validator, which breaks any chained `.isRequired`, and the JSX stub recorded elements without calling them, so text inside a nested component never reached the tree and the check could not see a card that rendered nothing. Both now render what a browser would.
+- **Panel detection hangs off component identity.** The four lazily loaded panels were told apart by prop name, which is unsafe: `activeRequests` and `errorProvider` are also fields of the statistics object the overview cards receive, so they appear in the tree whether or not the map is rendered.
+
+## Notes
+- **None of this has been exercised in a browser.** Verification is static: per-file esbuild plus the render check above. The same applies to everything else shipped in this fork.
+
 # v0.5.134-Custom (2026-09-28)
 
 ## Changes

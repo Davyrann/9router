@@ -69,7 +69,12 @@ module.exports = { createPortal: (node) => node, __esModule: true };
 
 const propTypesStub = w("prop-types-stub.js", `
 const chain = { __esModule: true };
-for (const n of ["string","number","bool","func","object","array","node","element","any","instanceOf","oneOf","oneOfType","arrayOf","objectOf","shape","exact"]) chain[n] = () => null;
+for (const n of ["string","number","bool","func","object","array","node","element","any","instanceOf","oneOf","oneOfType","arrayOf","objectOf","shape","exact"]) {
+  // Returns the chain, not null: real propTypes compose, e.g.
+  // PropTypes.oneOf([...]).isRequired, and a null here breaks module load.
+  chain[n] = () => chain;
+  chain[n].isRequired = chain[n];
+}
 chain.checkPropTypes = () => {}; chain.PropTypes = chain; chain.default = chain;
 module.exports = chain;
 `);
