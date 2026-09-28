@@ -316,6 +316,53 @@ export function rescueResponse(payload, tools) {
   }
 }
 
+/**
+ * rescueStreamedNames(chunk, index) — raise a streamed tool-call name back to
+ * the case the request declared, and nothing else.
+ *
+ * A name arrives whole in the first delta of a call, so fixing it costs nothing
+ * and needs no buffering. Arguments are the opposite: they arrive in fragments
+ * and only form a parseable object at the end, so this deliberately does not
+ * touch them. A streamed call whose arguments cannot be recovered is repaired on
+ * the following turn by rescueRequest, which reads the history the client sends
+ * back — too late to save this turn, but enough to stop it repeating forever.
+ *
+ * A `name` is only rewritten when it matches a declared tool under a
+ * case-folding comparison and differs exactly, so nothing outside a tool call
+ * can be renamed by accident.
+ *
+ * @returns {number} how many names were corrected
+ */
+// A tool call sits about five levels down (choices -> delta -> tool_calls ->
+// function -> name), so a name deeper than this is not one. The bound is also
+// what keeps a cyclic chunk from overflowing the stack on the stream path.
+const MAX_STREAM_WALK_DEPTH = 12;
+
+export function rescueStreamedNames(chunk, index, seen = new Map(), depth = 0) {
+  if (!chunk || typeof chunk !== "object" || !index || index.size === 0) return 0;
+  if (depth > MAX_STREAM_WALK_DEPTH) return 0;
+  if (Array.isArray(chunk)) {
+    let n = 0;
+    for (const item of chunk) n += rescueStreamedNames(item, index, seen, depth + 1);
+    return n;
+  }
+
+  let fixed = 0;
+  for (const [key, value] of Object.entries(chunk)) {
+    if (key === "name" && typeof value === "string") {
+      const declared = index.get(value.toLowerCase());
+      if (declared && declared.name !== value) {
+        chunk[key] = declared.name;
+        seen.set(value.toLowerCase(), declared.name);
+        fixed += 1;
+      }
+      continue;
+    }
+    if (value && typeof value === "object") fixed += rescueStreamedNames(value, index, seen, depth + 1);
+  }
+  return fixed;
+}
+
 function inlineable(message) {
   if (message.content == null) return false;
   if (typeof message.content === "string") return true;

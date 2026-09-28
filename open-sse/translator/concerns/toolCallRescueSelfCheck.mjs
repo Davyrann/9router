@@ -1,7 +1,10 @@
 // Tool-call rescue self-check.
 // Run: node open-sse/translator/concerns/toolCallRescueSelfCheck.mjs
 // No framework, no deps. Each case is one shape a model actually emits.
-import { indexDeclaredTools, rescueToolCall, rescueResponse, rescueRequest } from "./toolCallRescue.js";
+import { indexDeclaredTools, rescueToolCall, rescueResponse, rescueRequest, rescueStreamedNames } from "./toolCallRescue.js";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const results = [];
 function run(name, fn) {
@@ -312,6 +315,138 @@ run("request: a body with no tools declared is returned as-is", () => {
 run("request: null does not throw", () => {
   assert.equal(rescueRequest(null).body, null, "null safe");
   assert.equal(rescueRequest(undefined).body, undefined, "undefined safe");
+});
+
+// --- streaming: the name only, never the arguments ---
+
+run("stream: a wrong-case name is raised as the first delta arrives", () => {
+  // The exact OpenAI first delta: name whole, arguments still an empty string.
+  const chunk = {
+    choices: [{ delta: { tool_calls: [{ index: 0, id: "call_1", type: "function", function: { name: "bash", arguments: "" } }] } }],
+  };
+  const fixed = rescueStreamedNames(chunk, indexDeclaredTools([BASH_TOOL]));
+  assert.equal(fixed, 1, "one name corrected");
+  assert.equal(chunk.choices[0].delta.tool_calls[0].function.name, "Bash", "declared case applied");
+  assert.equal(chunk.choices[0].delta.tool_calls[0].function.arguments, "", "arguments untouched");
+  assert.equal(chunk.choices[0].delta.tool_calls[0].id, "call_1", "id untouched");
+});
+
+run("stream: argument fragments are never buffered or rewritten", () => {
+  // A name fix that also touched arguments would have to reassemble the
+  // fragments, which is exactly the latency the streaming path cannot spend.
+  const chunk = {
+    choices: [{ delta: { tool_calls: [{ index: 0, function: { name: "bash", arguments: '{"comm' } }] } }],
+  };
+  rescueStreamedNames(chunk, indexDeclaredTools([BASH_TOOL]));
+  assert.equal(chunk.choices[0].delta.tool_calls[0].function.arguments, '{"comm', "fragment passed through as-is");
+  assert.equal(chunk.choices[0].delta.tool_calls[0].function.name, "Bash", "name still fixed");
+});
+
+run("stream: every delta of a call gets the fix, not just the first", () => {
+  const index = indexDeclaredTools([BASH_TOOL]);
+  const first = { choices: [{ delta: { tool_calls: [{ index: 0, function: { name: "bash", arguments: "" } }] } }] };
+  const second = { choices: [{ delta: { tool_calls: [{ index: 0, function: { arguments: '{"command":"ls"}' } }] } }] };
+  assert.equal(rescueStreamedNames(first, index), 1, "first delta fixed");
+  assert.equal(rescueStreamedNames(second, index), 0, "later fragment needs no fix");
+});
+
+run("stream: a Claude content_block_start is corrected", () => {
+  const chunk = { type: "content_block_start", index: 0, content_block: { type: "tool_use", id: "t1", name: "bash", input: {} } };
+  assert.equal(rescueStreamedNames(chunk, indexDeclaredTools([BASH_TOOL])), 1, "name corrected");
+  assert.equal(chunk.content_block.name, "Bash", "declared case applied");
+  assert.equal(chunk.type, "content_block_start", "event type untouched");
+});
+
+run("stream: a Responses output_item.added is corrected", () => {
+  const chunk = { type: "response.output_item.added", output_index: 0, item: { type: "function_call", call_id: "c1", name: "bash", arguments: "" } };
+  assert.equal(rescueStreamedNames(chunk, indexDeclaredTools([BASH_TOOL])), 1, "name corrected");
+  assert.equal(chunk.item.name, "Bash", "declared case applied");
+  assert.equal(chunk.item.type, "function_call", "item type untouched");
+});
+
+run("stream: a text chunk is never touched", () => {
+  const chunk = { choices: [{ delta: { content: "hello bash" } }] };
+  assert.equal(rescueStreamedNames(chunk, indexDeclaredTools([BASH_TOOL])), 0, "nothing corrected");
+  assert.equal(chunk.choices[0].delta.content, "hello bash", "content intact");
+});
+
+run("stream: a name that is not a declared tool is left alone", () => {
+  const chunk = { choices: [{ delta: { tool_calls: [{ function: { name: "TotallyOther", arguments: "{}" } }] } }] };
+  assert.equal(rescueStreamedNames(chunk, indexDeclaredTools([BASH_TOOL])), 0, "nothing corrected");
+  assert.equal(chunk.choices[0].delta.tool_calls[0].function.name, "TotallyOther", "name intact");
+});
+
+run("stream: an exact name is not rewritten", () => {
+  const chunk = { choices: [{ delta: { tool_calls: [{ function: { name: "Bash", arguments: "" } }] } }] };
+  assert.equal(rescueStreamedNames(chunk, indexDeclaredTools([BASH_TOOL])), 0, "no needless rewrite");
+});
+
+run("stream: no declared tools means the walk is skipped entirely", () => {
+  const chunk = { choices: [{ delta: { tool_calls: [{ function: { name: "bash" } }] } }] };
+  assert.equal(rescueStreamedNames(chunk, indexDeclaredTools([])), 0, "empty index short-circuits");
+  assert.equal(chunk.choices[0].delta.tool_calls[0].function.name, "bash", "name left as the model wrote it");
+});
+
+run("stream: null and non-object chunks do not throw", () => {
+  const index = indexDeclaredTools([BASH_TOOL]);
+  for (const c of [null, undefined, 42, "x", true]) {
+    assert.equal(rescueStreamedNames(c, index), 0, `survived ${JSON.stringify(c)}`);
+  }
+  assert.equal(rescueStreamedNames({ choices: [] }, null), 0, "no index");
+});
+
+run("stream: a top-level array of chunks is walked", () => {
+  const chunks = [
+    { choices: [{ delta: { tool_calls: [{ function: { name: "bash" } }] } }] },
+    { choices: [{ delta: { tool_calls: [{ function: { name: "read" } }] } }] },
+  ];
+  const fixed = rescueStreamedNames(chunks, indexDeclaredTools([BASH_TOOL, READ_TOOL]));
+  assert.equal(fixed, 2, "both chunks corrected");
+  assert.equal(chunks[0].choices[0].delta.tool_calls[0].function.name, "Bash", "first corrected");
+  assert.equal(chunks[1].choices[0].delta.tool_calls[0].function.name, "Read", "second corrected");
+});
+
+run("stream: a circular chunk does not hang the walk", () => {
+  const chunk = { choices: [{ delta: { tool_calls: [{ function: { name: "bash" } }] } }] };
+  chunk.self = chunk;
+  assert.equal(rescueStreamedNames(chunk, indexDeclaredTools([BASH_TOOL])), 1, "fixed before recursing further");
+});
+
+// --- structural guard on the stream wiring ---
+
+// The helper above is only reachable if the stream actually calls it, and every
+// case above passed with the call site removed. A pure-function check cannot
+// see a missing hook, so the emit sites are counted in the source instead.
+run("every translated chunk the stream emits passes through the name rescue", () => {
+  const src = readFileSync(
+    path.join(path.dirname(fileURLToPath(import.meta.url)), "../../utils/stream.js"),
+    "utf8",
+  );
+  assert.ok(src.includes("indexDeclaredTools(body?.tools)"), "the declared tools are not indexed");
+  assert.ok(src.includes("const fixStreamedToolNames ="), "no rescue wrapper");
+
+  // Total emits, so a new emit site forces a decision rather than slipping past.
+  const emits = (src.match(/controller\.enqueue\(sharedEncoder\.encode\(output\)\)/g) || []).length;
+  assert.equal(emits, 6, `emit sites changed to ${emits}; decide whether the new one needs the guard`);
+
+  // Two of the six enqueue a raw upstream SSE line rather than a translated
+  // object, so there is nothing parsed to correct without re-parsing the line.
+  // They are passthrough, where the CLI tool and the provider are the same
+  // ecosystem and the model sees the names the client declared. The other four
+  // are guarded, and this count is what makes a regression there visible.
+  const fixes = (src.match(/fixStreamedToolNames\((parsed|item)\)/g) || []).length;
+  assert.equal(fixes, 5, `expected 5 guarded sites, found ${fixes}`);
+});
+
+run("the stream rescue never rewrites streamed arguments", () => {
+  // A name fix that also rewrote arguments would have to reassemble fragments,
+  // holding back every tool call in the stream.
+  const src = readFileSync(
+    path.join(path.dirname(fileURLToPath(import.meta.url)), "../../utils/stream.js"),
+    "utf8",
+  );
+  assert.ok(!src.includes("toolSchemas"), "streaming re-introduced a schema buffer");
+  assert.ok(!src.includes("repairToolCallsInNode"), "streaming re-introduced in-flight repair");
 });
 
 const failed = results.filter((r) => !r.ok);

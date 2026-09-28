@@ -1,3 +1,18 @@
+# v0.5.139-Custom (2026-09-28)
+
+## Fixes
+- **A streamed tool call is no longer rejected over the case of its name.** The name and the arguments are corrected differently on purpose. A name arrives whole in the first delta of a call, so raising it back to the case the request declared costs nothing and holds nothing back. Arguments arrive in fragments and only form a parseable object at the end, so they are not touched here: buffering them would delay every tool call in the stream until its last fragment landed. A streamed call whose arguments cannot be recovered is repaired on the following turn instead, by the history rule shipped in `v0.5.137-Custom`, which is too late to save that turn but stops it repeating.
+- **The fix is applied on every path that emits a chunk.** Passthrough, the Responses same-format passthrough, the translate loop, the flush tail and the final flush all correct a name before the frame is written.
+
+## Internal
+- **Twelve cases added** for the streaming rule, covering the real delta shapes: an OpenAI first delta with an empty argument string, a later argument fragment, a Claude `content_block_start`, a Responses `output_item.added`, a text chunk that must stay untouched, a name that is not a declared tool, and an exact-case name that must not be rewritten needlessly.
+- **A circular-chunk case found a real defect.** The name walk is recursive and had no depth bound, so a cyclic chunk overflowed the stack. Chunks arrive about five levels deep, so a bound of twelve is generous and stops it. Confirmed by removing the bound, which reproduces the overflow.
+- **The check counts the emit sites in the stream source.** Every case above passed with the call site removed from the translate loop, because a pure-function check cannot see a missing hook. The source is now read to assert the index is built, the wrapper exists, and the guarded-site count has not moved; removing one hook was confirmed to redden it.
+- **The scope limit is asserted rather than left implicit.** Six frames are enqueued and five are guarded. The two that are not hand the client a raw upstream SSE line rather than a parsed object, so correcting a name there means re-parsing the line; they are passthrough, where the CLI tool and the provider are the same ecosystem and the model sees the names the client declared. The check pins the total at six so a new emit site forces that decision again instead of slipping past.
+
+## Notes
+- **Verification is static**, as it has been throughout this fork: per-file esbuild plus the self-checks. Nothing here has been exercised in a browser.
+
 # v0.5.138-Custom (2026-09-28)
 
 ## Fixes
