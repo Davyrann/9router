@@ -113,6 +113,8 @@ export async function exportDb(options = null) {
       ipWhitelist: r.ipWhitelist,
       expiresAt: r.expiresAt || null,
       systemPrompt: r.systemPrompt || "",
+      permissions: r.permissions || "",
+      createdBy: r.createdBy || "",
     }));
   }
   if (isIncluded("combos")) {
@@ -252,9 +254,11 @@ export async function importDb(payload) {
         const ipWhitelist = k.ipWhitelist !== undefined ? k.ipWhitelist : (prev.ipWhitelist || "");
         const expiresAt = k.expiresAt !== undefined ? k.expiresAt : (prev.expiresAt || null);
         const systemPrompt = k.systemPrompt !== undefined ? k.systemPrompt : (prev.systemPrompt || "");
+        const permissions = k.permissions !== undefined ? k.permissions : (prev.permissions || "");
+        const createdBy = k.createdBy !== undefined ? k.createdBy : (prev.createdBy || "");
 
         db.run(
-          `INSERT OR REPLACE INTO apiKeys(id, key, name, machineId, isActive, createdAt, tokenLimit, usedTokens, resetInterval, lastResetAt, allowedModels, rpmLimit, tpmLimit, ipWhitelist, expiresAt, systemPrompt) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT OR REPLACE INTO apiKeys(id, key, name, machineId, isActive, createdAt, tokenLimit, usedTokens, resetInterval, lastResetAt, allowedModels, rpmLimit, tpmLimit, ipWhitelist, expiresAt, systemPrompt, permissions, createdBy) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             k.id,
             k.key,
@@ -272,6 +276,8 @@ export async function importDb(payload) {
             ipWhitelist,
             expiresAt,
             systemPrompt,
+            permissions,
+            createdBy,
           ]
         );
       }

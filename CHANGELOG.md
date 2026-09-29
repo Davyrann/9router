@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.5.141
+
+- feat: include permissions and createdBy columns in apiKeys backup export/import
+- fix: added createdBy "dashboard" value for dashboard users in POST /api/keys
+- feat: add backup self-check for round-trip export->import preserving apiKey metadata
+- fix: fix round-trip exportDb/importDb to preserve permissions and createdBy fields
+
 ## v0.5.140
 
 - fix: stop the model picker heading a group with a generated node id
