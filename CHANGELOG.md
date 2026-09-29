@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.5.146
+
+- fix: drop unknown webpack flag from build script for next 14.2.35
+
 ## v0.5.145
 
 - fix: pin @types/react-dom to existing 18.x to fix Railway install
