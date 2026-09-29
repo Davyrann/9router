@@ -1,6 +1,6 @@
 {
   "name": "9router-app",
-  "version": "0.5.144",
+  "version": "0.5.145",
   "description": "9Router web dashboard",
   "private": true,
   "scripts": {
@@ -46,7 +46,7 @@
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.9.0",
     "@types/react": "^18.3.12",
-    "@types/react-dom": "^18.3.12",
+    "@types/react-dom": "^18.3.7",
     "@types/react-syntax-highlighter": "^15.2.3",
     "eslint": "^8.57.1",
     "eslint-config-next": "14.2.35",
