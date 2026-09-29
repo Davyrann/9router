@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.5.142
+
+- feat: show centered loading overlay with progress while exporting, importing, or testing a backup
+- feat: run backup import as a background job with per section progress so the UI stays responsive
+
 ## v0.5.141
 
 - feat: include permissions and createdBy columns in apiKeys backup export/import
