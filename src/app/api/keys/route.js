@@ -120,6 +120,7 @@ export async function POST(request) {
       tpmLimit: apiKey.tpmLimit,
       ipWhitelist: apiKey.ipWhitelist,
       permissions: apiKey.permissions,
+      createdBy: apiKey.createdBy || "",
     }, { status: 201 });
   } catch (error) {
     console.log("Error creating key:", error);

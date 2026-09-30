@@ -1021,6 +1021,18 @@ const scopedModelPatterns =
     });
   };
 
+  // Small "who made this key" label under the key name. Dashboard-made keys say
+  // so directly; keys handed out by another key name their parent. Old keys from
+  // before tracking carry no value and show no label.
+  const creatorLabelFor = (key) => {
+    const by = key?.createdBy || "";
+    if (!by) return "";
+    if (by === "dashboard") return "Created by dashboard";
+    const parent = keys.find((k) => k.key === by && k.id !== key.id);
+    if (parent) return `Created by ${parent.name || "API key"}`;
+    return "Created by API key";
+  };
+
   const [baseUrl] = useState(() => {
     if (typeof window !== "undefined") {
       return `${window.location.origin}/v1`;
@@ -1316,6 +1328,9 @@ const scopedModelPatterns =
               >
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium truncate min-w-0">{key.name}</p>
+                  {creatorLabelFor(key) && (
+                    <p className="text-xs text-text-muted truncate min-w-0">{creatorLabelFor(key)}</p>
+                  )}
                   <div className="flex flex-wrap items-center gap-1.5 mt-1 min-w-0">
                     <code className="text-xs text-text-muted font-mono truncate max-w-[200px] sm:max-w-xs min-w-0">
                       {visibleKeys.has(key.id) ? key.key : maskKey(key.key)}

@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.5.150
+
+- fix: show created-by label under each API key name on the endpoint page
+- fix: include createdBy in POST /api/keys 201 response
+- fix: open live-requests inspector stream without login gate, scope rows by key allowedModels, refresh every 5s
+- fix: hide orphaned compat alias ghost groups in the model picker and clean up custom models plus aliases on provider node delete
+- test: add structural backup self-check covering apiKeys permissions and createdBy round-trip
+
 ## v0.5.149
 
 - fix: move tracing config into experimental and exclude user profile paths
