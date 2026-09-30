@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.5.147
+
+- fix: restore build dependencies dropped during next 14 downgrade
+
 ## v0.5.146
 
 - fix: drop unknown webpack flag from build script for next 14.2.35
