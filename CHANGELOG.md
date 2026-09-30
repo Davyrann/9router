@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.5.148
+
+- fix: mark db adapters external the next 14 way so bun sqlite skips webpack bundle
+
 ## v0.5.147
 
 - fix: restore build dependencies dropped during next 14 downgrade
