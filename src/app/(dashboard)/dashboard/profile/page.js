@@ -930,12 +930,14 @@ export default function ProfilePage() {
   // Poll a background import job started by agent B. Resolves when the job
   // reports done/failed, rejects on timeout or job failure. Non-blocking: the
   // page stays interactive while polling, progress is mirrored to the overlay.
-  const pollImportJob = async (jobId) => {
+  const pollImportJob = async (jobId, password) => {
     const startedAt = Date.now();
     const timeoutMs = 5 * 60 * 1000;
     for (;;) {
       await new Promise((resolve) => setTimeout(resolve, 750));
-      const res = await fetch(`${IMPORT_JOB_ENDPOINT}/${encodeURIComponent(jobId)}`);
+      const res = await fetch(`${IMPORT_JOB_ENDPOINT}/${encodeURIComponent(jobId)}`, {
+        headers: { "x-9r-password": password || "" },
+      });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || "Failed to check import status");
@@ -1010,7 +1012,7 @@ export default function ProfilePage() {
               section: jobData.section || "",
               progress: jobData.progress,
             });
-            await pollImportJob(jobData.jobId);
+            await pollImportJob(jobData.jobId, password);
           } else {
             await runDirectImport(body);
           }

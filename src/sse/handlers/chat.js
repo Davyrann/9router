@@ -6,6 +6,7 @@ import {
   clearAccountError,
   extractApiKey,
   isValidApiKey,
+  shouldLogAuthFailure,
 } from "../services/auth.js";
 import { handleAntigravityQuotaError, clearAntigravityStrikes } from "../services/antigravityQuota.js";
 import { getSettings } from "@/lib/localDb";
@@ -78,7 +79,9 @@ export async function handleChat(request, clientRawRequest = null) {
   // Enforce API key if provided or if required by settings
   const settings = await getSettings();
   if (settings.requireApiKey && !apiKey) {
-    log.warn("AUTH", "Missing API key (requireApiKey=true)");
+    if (shouldLogAuthFailure("chat", getClientIp(request), null)) {
+      log.warn("AUTH", "Missing API key (requireApiKey=true)");
+    }
     return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Missing API key");
   }
 
@@ -114,7 +117,9 @@ export async function handleChat(request, clientRawRequest = null) {
  return errorResponse(HTTP_STATUS.FORBIDDEN, "API key has expired");
  }
     if (!valid && settings.requireApiKey) {
-      log.warn("AUTH", "Invalid API key (requireApiKey=true)");
+      if (shouldLogAuthFailure("chat", clientIp, apiKey.slice(0, 8))) {
+        log.warn("AUTH", "Invalid API key (requireApiKey=true)");
+      }
       return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key");
     }
   }

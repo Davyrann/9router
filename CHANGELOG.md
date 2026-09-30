@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.5.151
+
+- fix: show bulk import progress overlay and block closing the modal while a bulk add/import loop is running, split large codex/grok payloads into batches of 20
+- fix: dedupe repeated auth-failure log lines per source/ip/key prefix so a misconfigured polling client no longer floods the log, 401 responses still sent
+- fix: forward the backup password as x-9r-password header when polling the import job so password-protected imports track progress
+- fix: resolve provider aliases for suggested-model fetcher lookup, fall back to built-in models with an error note when upstream is unreachable, tolerate upstream schema drift
+
 ## v0.5.150
 
 - fix: show created-by label under each API key name on the endpoint page
