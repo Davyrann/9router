@@ -46,15 +46,25 @@ const nextConfig = {
   turbopack: {
     root: tracingRoot
   },
-  outputFileTracingRoot: tracingRoot,
-  outputFileTracingExcludes: {
-    "*": ["./gitbook/**/*"]
-  },
   images: {
     unoptimized: true
   },
   env: stampBuild(),
   experimental: {
+    // Next 14 reads tracing keys here (top-level is Next 15+ and ignored with a
+    // warning). #4: also exclude Windows user-profile junctions (EPERM scandir
+    // AppData/Local/Application Data) plus roaming/config caches from NFT tracing.
+    outputFileTracingRoot: tracingRoot,
+    outputFileTracingExcludes: {
+      "*": [
+        "./gitbook/**/*",
+        "**/AppData/Local/**/*",
+        "**/AppData/Roaming/**/*",
+        "**/.config/**/*",
+        "**/.codex/**/*",
+        "**/Cookies/**/*",
+      ],
+    },
     // Next 14 reads this key (top-level serverExternalPackages is Next 15+ and
     // ignored with a warning). Keep both so the db adapters stay external.
     serverComponentsExternalPackages: ["better-sqlite3", "sql.js", "node:sqlite", "bun:sqlite", "open"],

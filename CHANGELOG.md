@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.5.149
+
+- fix: move tracing config into experimental and exclude user profile paths
+
 ## v0.5.148
 
 - fix: mark db adapters external the next 14 way so bun sqlite skips webpack bundle
