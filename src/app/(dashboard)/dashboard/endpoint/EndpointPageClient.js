@@ -1,5 +1,10 @@
 "use client";
 
+// One auto-provision per page load: two concurrent loads (StrictMode remount)
+// both seeing "no keys" would each create one, leaving a duplicate behind.
+let defaultKeyProvisionInFlight = false;
+
+
 import { useState, useEffect, useRef, useCallback } from "react";
 import PropTypes from "prop-types";
 import { Card, Button, Input, Select, Modal, CardSkeleton, Toggle, ConfirmModal, ModelSelectModal, SegmentedControl } from "@/shared/components";
@@ -449,15 +454,17 @@ const scopedModelPatterns =
 
       let existing = await fetchKeys();
       // Auto-provision a default key for first-time users so the endpoint works out of the box.
-      if (existing.length === 0) {
+      if (existing.length === 0 && !defaultKeyProvisionInFlight) {
+        defaultKeyProvisionInFlight = true;
         try {
           const createRes = await fetch("/api/keys", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: "Default Key" }),
+            body: JSON.stringify({ name: "Default Keys" }),
           });
           if (createRes.ok) existing = await fetchKeys();
         } catch { /* fall through to empty render */ }
+        finally { defaultKeyProvisionInFlight = false; }
       }
       setKeys(existing);
     } catch (error) {
