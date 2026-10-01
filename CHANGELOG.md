@@ -1,4 +1,4 @@
-# v0.5.152 (2026-10-01) · 17 commits
+# v0.5.152 (2026-10-01) · 20 commits
 
 ## Features
 - **Providers**: add v1m System One provider
@@ -19,8 +19,11 @@
 ## Fixes
 - **Backup**: stop invalid-password error during import by polling with a token
 - **Keys**: show created keys to their creator session everywhere, label creators by name
+- **Tests,endpoint**: throwaway DATA_DIR for vitest; auto-create key named 'Default Keys' with duplicate-provision guard
+- **Tests**: point vitest DATA_DIR at a throwaway dir so fixtures never write the live DB
 
 ## Docs
+- **Changelog**: regen changelog for upstream v0.5.95 features
 - **Changelog**: restyle fork CHANGELOG to match the upstream format
 
 # v0.5.151 (2026-09-30)
