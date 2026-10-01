@@ -337,7 +337,8 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
   const userAgent = request?.headers?.get("user-agent") || "";
 
   // What the caller may be told: an alias never names the model that served it.
-  const requestedModel = modelStr && modelStr !== `${provider}/${effectiveModel}` ? modelStr : null;
+  // Alias callers may omit it; derive from the alias the same way upstream does.
+  requestedModel = requestedModel || (modelStr && modelStr !== `${provider}/${effectiveModel}` ? modelStr : null);
   const calledModel = requestedModel || `${provider}/${effectiveModel}`;
 
   // Try with available accounts (fallback on errors)
