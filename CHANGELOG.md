@@ -1,3 +1,11 @@
+# v0.5.152 (2026-10-01) · 2 commits
+
+## Fixes
+- **Backup**: stop invalid-password error during import by polling with a token
+
+## Docs
+- **Changelog**: restyle fork CHANGELOG to match the upstream format
+
 # v0.5.151 (2026-09-30)
 
 ## Fixes

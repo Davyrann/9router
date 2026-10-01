@@ -930,13 +930,22 @@ export default function ProfilePage() {
   // Poll a background import job started by agent B. Resolves when the job
   // reports done/failed, rejects on timeout or job failure. Non-blocking: the
   // page stays interactive while polling, progress is mirrored to the overlay.
-  const pollImportJob = async (jobId, password) => {
+  //
+  // Auth is the poll token issued at job creation, not the password: the import
+  // replaces the settings row that stores the password hash, so re-checking the
+  // password on every poll starts failing part-way through a restore that is
+  // actually succeeding. The password stays as a fallback for servers that
+  // predate the token.
+  const pollImportJob = async (jobId, password, pollToken) => {
     const startedAt = Date.now();
     const timeoutMs = 5 * 60 * 1000;
+    const pollHeaders = pollToken
+      ? { "x-9r-poll-token": pollToken }
+      : { "x-9r-password": password || "" };
     for (;;) {
       await new Promise((resolve) => setTimeout(resolve, 750));
       const res = await fetch(`${IMPORT_JOB_ENDPOINT}/${encodeURIComponent(jobId)}`, {
-        headers: { "x-9r-password": password || "" },
+        headers: pollHeaders,
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -1012,7 +1021,7 @@ export default function ProfilePage() {
               section: jobData.section || "",
               progress: jobData.progress,
             });
-            await pollImportJob(jobData.jobId, password);
+            await pollImportJob(jobData.jobId, password, jobData.pollToken);
           } else {
             await runDirectImport(body);
           }
