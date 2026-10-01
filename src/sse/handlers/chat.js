@@ -415,6 +415,8 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
       // never reaches the caller, and `toolCallFallback: false` restores the
       // previous pass-the-error-through behaviour.
       toolCallFallbackEnabled: chatSettings.toolCallFallback !== false,
+      // Per-provider user overrides (custom headers / connect timeout) from settings
+      providerOverrides: (chatSettings.providerOverrides || {})[provider] || null,
       // Detect source format by endpoint + body
       sourceFormatOverride: request?.url ? detectFormatByEndpoint(new URL(request.url).pathname, body) : null,
       onCredentialsRefreshed: async (newCreds) => {
