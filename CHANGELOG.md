@@ -1,10 +1,11 @@
-# v0.5.152 (2026-10-01) · 3 commits
+# v0.5.152 (2026-10-01) · 5 commits
 
 ## Features
 - **UI**: unify every long-operation loading into one centered progress card
 
 ## Fixes
 - **Backup**: stop invalid-password error during import by polling with a token
+- **Keys**: show created keys to their creator session everywhere, label creators by name
 
 ## Docs
 - **Changelog**: restyle fork CHANGELOG to match the upstream format

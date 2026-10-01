@@ -1021,16 +1021,14 @@ const scopedModelPatterns =
     });
   };
 
-  // Small "who made this key" label under the key name. Dashboard-made keys say
-  // so directly; keys handed out by another key name their parent. Old keys from
-  // before tracking carry no value and show no label.
+  // Small "who made this key" label under the key name. The server resolves the
+  // creator to a name, so the raw creator key never has to travel to the browser;
+  // the same wording rules live in one helper so both key pages read alike.
   const creatorLabelFor = (key) => {
-    const by = key?.createdBy || "";
-    if (!by) return "";
-    if (by === "dashboard") return "Created by dashboard";
-    const parent = keys.find((k) => k.key === by && k.id !== key.id);
-    if (parent) return `Created by ${parent.name || "API key"}`;
-    return "Created by API key";
+    const creator = key?.createdByName || "";
+    if (creator) return `Created by ${creator}`;
+    if (key?.createdBy === "dashboard") return "Created by dashboard";
+    return "";
   };
 
   const [baseUrl] = useState(() => {
