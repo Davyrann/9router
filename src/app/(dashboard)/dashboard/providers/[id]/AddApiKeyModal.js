@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import PropTypes from "prop-types";
-import { Button, Badge, Input, Modal, Select } from "@/shared/components";
-import { CenterLoading } from "@/shared/components/Loading";
+import { Button, Badge, Input, Modal, Select, ProgressCard } from "@/shared/components";
 import { AI_PROVIDERS } from "@/shared/constants/providers";
 import { planBulkAdd } from "@/shared/utils/bulkAdd";
 
@@ -419,9 +418,10 @@ export default function AddApiKeyModal({ isOpen, provider, providerName, isCompa
         </>)}
       </div>
       {bulkProgress && (
-        <CenterLoading
+        <ProgressCard
           fixed={false}
-          message={bulkPct !== null ? `Adding keys ${bulkProgress.done}/${bulkProgress.total}` : "Adding keys"}
+          title="Adding keys"
+          message={bulkPct !== null ? `${bulkProgress.done}/${bulkProgress.total} keys` : null}
           progress={bulkPct}
         />
       )}

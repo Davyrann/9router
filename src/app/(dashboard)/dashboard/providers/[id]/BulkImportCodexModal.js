@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import PropTypes from "prop-types";
-import { Button, Modal } from "@/shared/components";
-import { CenterLoading } from "@/shared/components/Loading";
+import { Button, Modal, ProgressCard } from "@/shared/components";
 import { translate } from "@/i18n/runtime";
 
 // Server-side bulk insert runs serially (priority transaction), so very
@@ -165,9 +164,10 @@ export default function BulkImportCodexModal({ isOpen, onClose, onSuccess }) {
         </div>
       </div>
       {importProgress && (
-        <CenterLoading
+        <ProgressCard
           fixed={false}
-          message={importPct !== null ? `${translate("Importing accounts")} ${importProgress.done}/${importProgress.total}` : translate("Importing accounts")}
+          title={translate("Importing accounts")}
+          message={importPct !== null ? `${importProgress.done}/${importProgress.total} accounts` : null}
           progress={importPct}
         />
       )}
