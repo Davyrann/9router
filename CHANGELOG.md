@@ -1,7 +1,20 @@
-# v0.5.152 (2026-10-01) · 5 commits
+# v0.5.152 (2026-10-01) · 17 commits
 
 ## Features
+- **Providers**: add v1m System One provider
+- **Agnes**: seed the 2.5/3.0 model ids in the registry
+- **Claude**: add Claude Sonnet 5.5
+- **CLI**: add connect command for remote 9router servers
+- **Codebuddy**: parse 6004 rate limit error and extract resetsAtMs
+- **Codex**: add GPT-6.1 Sol
+- **Codex**: expose 1M context variants for GPT-6 and GPT-5.6
+- **Glm**: add Z.ai OAuth login to GLM Coding (dual-auth)
+- **Kiro**: add claude-opus-5.5 models to registry and capabilities
+- **Muse**: add Meta Muse provider with OAuth login and model catalog
+- **Providers**: per-provider custom header overrides from the registry
+- **Quota**: sync ?provider= URL param with provider filter for bookmarkable deep links (#4395)
 - **UI**: unify every long-operation loading into one centered progress card
+- **Web**: add TinyFish search and fetch provider
 
 ## Fixes
 - **Backup**: stop invalid-password error during import by polling with a token
