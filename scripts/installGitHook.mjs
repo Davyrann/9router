@@ -33,7 +33,7 @@ ${MARK_START}
 # Regenerate today's CHANGELOG.md section from git history.
 # Runs before the commit message editor opens so the new commit is included.
 node scripts/generateChangelog.mjs --msg-file "$1" || true
-# The generator rewrites the working tree AFTER `git add` typically ran,
+# The generator rewrites the working tree after staging usually happened,
 # so stage its output or every commit leaves CHANGELOG.md dirty again.
 git add CHANGELOG.md package.json 2>/dev/null || true
 ${MARK_END}
