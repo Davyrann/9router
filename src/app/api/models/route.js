@@ -5,6 +5,8 @@ import { getSettings } from "@/lib/localDb";
 import { AI_MODELS } from "@/shared/constants/config";
 import { getProviderAlias } from "@/shared/constants/providers";
 import { getCapabilitiesForModel } from "open-sse/providers/capabilities.js";
+import { fetchSuggestedModelsServer } from "@/app/api/providers/suggested-models/filters.js";
+import { FREE_PROVIDERS as FREE_PROVIDER_REGISTRY } from "@/shared/constants/providers.js";
 
 // GET /api/models - Get models with aliases. Always dynamic: plugin badges
 // (vision/thinkDeeper/jsonGuard/...) come from settings, which a prerendered
@@ -71,8 +73,63 @@ export async function GET() {
         };
       });
 
-    // Custom models ride along; their stored caps override the name heuristic
+    // Custom-model ids and live-catalogue ids both live in this set.
     const seenFull = new Set(models.map((m) => m.fullModel));
+
+    // Free no-auth providers publish a live catalogue (OpenCode Free moves weekly).
+    // Registry entries above are curated, so anything upstream adds is merged in
+    // here; without this the picker would only ever show what the build captured.
+    const liveFree = await Promise.all(
+      Object.entries(FREE_PROVIDER_REGISTRY)
+        .filter(([, p]) => p.noAuth && !p.hidden && p.modelsFetcher)
+        .map(async ([id, p]) => [p.alias || id, p.modelsFetcher, await fetchSuggestedModelsServer(p.modelsFetcher)])
+    );
+    const addedLive = [];
+    for (const [alias, , liveModels] of liveFree) {
+      for (const live of liveModels) {
+        const fullModel = `${alias}/${live.id}`;
+        if (seenFull.has(fullModel)) continue;
+        seenFull.add(fullModel);
+        const c = getCapabilitiesForModel(alias, live.id);
+        const caps = {
+          vision: c.vision,
+          search: c.search,
+          reasoning: c.reasoning,
+          contextWindow: c.contextWindow ?? live.contextLength,
+          maxOutput: c.maxOutput,
+        };
+        if (ivEnabled && (ivModels.has(fullModel) || ivModels.has(live.id))) {
+          caps.vision = true;
+        }
+        if (tdEnabled && (tdModels.has(fullModel) || tdModels.has(live.id))) {
+          caps.reasoning = true;
+          caps.thinkDeeper = true;
+        }
+        if (smEnabled && (smModels.has(fullModel) || smModels.has(live.id))) {
+          caps.speedMode = true;
+        }
+        if (jgEnabled && (jgModels.has(fullModel) || jgModels.has(live.id))) {
+          caps.jsonGuard = true;
+        }
+        if (csEnabled && (csModels.has(fullModel) || csModels.has(live.id))) {
+          caps.contextSqueezer = true;
+        }
+        const entry = {
+          provider: alias,
+          model: live.id,
+          name: live.name || live.id,
+          fullModel,
+          routedModel: fullModel,
+          alias: modelAliases[fullModel] || live.id,
+          caps,
+          liveSuggested: true,
+        };
+        models.push(entry);
+        addedLive.push(entry);
+      }
+    }
+
+    // Custom models ride along; their stored caps override the name heuristic
     const customModels = (await getCustomModels()).filter((m) => {
       if (!m?.id || (m.kind || m.type || "llm") !== "llm") return false;
       return !seenFull.has(`${m.providerAlias}/${m.id}`);
