@@ -1,34 +1,36 @@
 #!/usr/bin/env node
 /**
- * Install or uninstall the git hooks that regenerate today's CHANGELOG.md
- * section from git history.
+ * Install or uninstall the git hook that keeps CHANGELOG.md in sync with
+ * every commit.
  *
  *   node scripts/installGitHook.mjs             # install
  *   node scripts/installGitHook.mjs --uninstall  # uninstall
  *
- * Two hooks, because one cannot do the job alone:
+ * A single post-commit hook, deliberately:
  *
- *   prepare-commit-msg  regenerates the section with the pending commit's
- *                       subject folded in (so the commit is described).
- *   post-commit         stages that regenerated output and amends it into
- *                       the commit that just landed. Git snapshots the index
- *                       before prepare-commit-msg's output could ever be
- *                       staged, so without this amend the changelog always
- *                       arrives one commit late and the tree stays dirty.
- *                       The amend's own post-commit run is stopped by the
- *                       NO_9R_CHANGLOG_AMEND guard.
+ *   post-commit  regenerates today's section (the new commit is already in
+ *                `git log` at this point, so its subject needs no special
+ *                --msg-file handling), stages the output and amends it into
+ *                the commit that just landed. Amending is the only moment the
+ *                generated content can join that commit — staging from
+ *                prepare-commit-msg is too early, because git snapshots the
+ *                index before that hook's output could be staged. --no-verify
+ *                keeps prepare-commit-msg (if a leftover copy exists) from
+ *                rewriting the worktree past the amended content, and the
+ *                NO_9R_CHANGLOG_AMEND guard stops the amend's own post-commit
+ *                run from recursing. A second settle pass absorbs the one-off
+ *                off-by-one between the pre-commit and post-commit counts.
  *
- * The generator itself (scripts/generateChangelog.mjs) is idempotent and
- * never touches history before today.
+ * prepare-commit-msg is uninstalled on install: with the amend in place its
+ * --msg-file count (pending commit + 1) can never match the settled count and
+ * it only ever left the tree dirty.
  */
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, existsSync, unlinkSync } from "node:fs";
-import path from "node:path";
 
 const PREPARE_HOOK = ".git/hooks/prepare-commit-msg";
 const POST_HOOK = ".git/hooks/post-commit";
 const MARK_START = "# >>> 9Router changelog hook >>>";
-const MARK_END = "# <<< 9Router changelog hook <<<";
 
 function isGitRepo() {
   try {
@@ -39,31 +41,26 @@ function isGitRepo() {
   }
 }
 
-function hookContent() {
-  return `#!/bin/sh
-${MARK_START}
-# Regenerate today's CHANGELOG.md section from git history.
-# Runs before the commit message editor opens so the new commit is included.
-node scripts/generateChangelog.mjs --msg-file "$1" || true
-${MARK_END}
-`;
-}
-
 /**
- * The generator's output can only join the commit that triggered it by
- * amending after git wrote that commit — staging from prepare-commit-msg is
- * too early, because git snapshots the index before that hook runs. The amend
- * also passes --no-verify so prepare-commit-msg does not rewrite the worktree
- * past the amended content, and the NO_9R_CHANGLOG_AMEND guard stops the
- * amend's own post-commit run from recursing.
- *
- * Stored base64 so this function keeps one flat literal with no nesting.
+ * Kept as one flat base64 literal: the body is shell with quotes, dollar
+ * signs and backticks, none of which survive nesting inside a JS template.
  */
 function hookContentPost() {
   return Buffer.from(
-    "IyEvYmluL3NoCiMgPj4+IDlSb3V0ZXIgY2hhbmdlbG9nIGhvb2sgPj4+CiMgRm9sZCB0aGUgcmVnZW5lcmF0ZWQgQ0hBTkdFTE9HIGludG8gdGhlIGNvbW1pdCB0aGF0IGp1c3QgbGFuZGVkLgojIFRoZSBnZW5lcmF0b3Igb25seSBydW5zIGFmdGVyIHRoZSBjb21taXQgZXhpc3RzLCBzbyB0aGUgYW1lbmQgaXMgdGhlIG9ubHkKIyBtb21lbnQgaXRzIG91dHB1dCBjYW4gam9pbiB0aGF0IGNvbW1pdC4gLS1uby12ZXJpZnkgc3RvcHMgdGhlIGFtZW5kIGZyb20KIyByZS1ydW5uaW5nIHByZXBhcmUtY29tbWl0LW1zZywgd2hpY2ggd291bGQgcmV3cml0ZSB0aGUgd29ya3RyZWUgcGFzdCB0aGUKIyBhbWVuZGVkIGNvbnRlbnQgYW5kIGxlYXZlIHRoZSB0cmVlIGRpcnR5IGFnYWluLiBUaGUgZW52IGd1YXJkIHN0b3BzIHRoZQojIGFtZW5kJ3Mgb3duIHBvc3QtY29tbWl0IHJ1biBmcm9tIHJlY3Vyc2luZy4KaWYgWyAtbiAiJE5PXzlSX0NIQU5HTE9HX0FNRU5EIiBdOyB0aGVuIGV4aXQgMDsgZmkKbm9kZSBzY3JpcHRzL2dlbmVyYXRlQ2hhbmdlbG9nLm1qcyA+L2Rldi9udWxsIDI+JjEgfHwgdHJ1ZQppZiAhIGdpdCBkaWZmIC0tcXVpZXQgLS0gQ0hBTkdFTE9HLm1kIHBhY2thZ2UuanNvbjsgdGhlbgogIGdpdCBhZGQgQ0hBTkdFTE9HLm1kIHBhY2thZ2UuanNvbgogIE5PXzlSX0NIQU5HTE9HX0FNRU5EPTEgZ2l0IGNvbW1pdCAtLWFtZW5kIC0tbm8tZWRpdCAtLW5vLXZlcmlmeSA+L2Rldi9udWxsIDI+JjEgfHwgdHJ1ZQpmaQojIDw8PCA5Um91dGVyIGNoYW5nZWxvZyBob29rIDw8PAo=",
+    "IyEvYmluL3NoCiMgPj4+IDlSb3V0ZXIgY2hhbmdlbG9nIGhvb2sgPj4+CiMgUmVnZW5lcmF0ZSB0b2RheSdzIENIQU5HRUxPRy5tZCBmcm9tIGdpdCBoaXN0b3J5ICh0aGUgbmV3IGNvbW1pdCBpcyBhbHJlYWR5CiMgaW4gYGdpdCBsb2dgIGhlcmUpIGFuZCBhbWVuZCBpdCBpbnRvIHRoZSBjb21taXQgdGhhdCBqdXN0IGxhbmRlZC4gLS1uby12ZXJpZnkgc3RvcHMgYSBsZWZ0b3ZlcgojIHByZXBhcmUtY29tbWl0LW1zZyBmcm9tIHJld3JpdGluZyB0aGUgd29ya3RyZWUgcGFzdCB0aGUgYW1lbmRlZCBjb250ZW50LiBUaGUgZW52IGd1YXJkIHN0b3BzIHRoZSBhbWVuZCdzIG93biBwb3N0LWNvbW1pdAojIHJ1biBmcm9tIHJlY3Vyc2luZy4KaWYgWyAtbiAiJE5PXzlSX0NIQU5HTE9HX0FNRU5EIiBdOyB0aGVuIGV4aXQgMDsgZmkKZm9yIGkgaW4gMSAyOyBkbwogIG5vZGUgc2NyaXB0cy9nZW5lcmF0ZUNoYW5nZWxvZy5tanMgPi9kZXYvbnVsbCAyPiYxIHx8IHRydWUKICBnaXQgYWRkIENIQU5HRUxPRy5tZCBwYWNrYWdlLmpzb24KICBOT185Ul9DSEFOR0xPR19BTUVORD0xIGdpdCBjb21taXQgLS1hbWVuZCAtLW5vLWVkaXQgLS1uby12ZXJpZnkgPi9kZXYvbnVsbCAyPiYxIHx8IHRydWUKZG9uZQojIDw8PCA5Um91dGVyIGNoYW5nZWxvZyBob29rIDw8PAo=",
     "base64"
   ).toString("utf8");
+}
+
+function removeHook(file) {
+  if (!existsSync(file)) return 0;
+  const current = readFileSync(file, "utf8");
+  if (!current.includes(MARK_START)) {
+    console.warn(`[hook] ${file} does not match; manual removal required`);
+    return 1;
+  }
+  unlinkSync(file);
+  return 0;
 }
 
 function main() {
@@ -75,20 +72,16 @@ function main() {
   const uninstall = args.has("--uninstall");
 
   if (uninstall) {
-    if (!existsSync(PREPARE_HOOK)) {
-      console.log("[hook] already absent");
-      return 0;
-    }
     let rc = removeHook(PREPARE_HOOK);
     rc |= removeHook(POST_HOOK);
     if (rc === 0) console.log("[hook] uninstalled");
     return rc;
   }
 
-  // Install
-  writeFileSync(PREPARE_HOOK, hookContent(), { mode: 0o755 });
+  // Install: post-commit only; retire any leftover prepare-commit-msg copy.
+  removeHook(PREPARE_HOOK);
   writeFileSync(POST_HOOK, hookContentPost(), { mode: 0o755 });
-  console.log("[hook] installed at", PREPARE_HOOK, "and", POST_HOOK);
+  console.log("[hook] installed at", POST_HOOK);
   return 0;
 }
 

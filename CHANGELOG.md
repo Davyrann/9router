@@ -1,8 +1,9 @@
-# v0.5.153 (2026-10-02) · 10 commits
+# v0.5.153 (2026-10-02) · 11 commits
 
 ## Fixes
 - **Auth**: enforce the dashboard guard in custom-server because Next 14 middleware is Edge-only
 - **Dev**: isolate dev build to .next-dev on localhost:20128 so dev runs stop corrupting the production .next
+- **Hook**: converge via a single settled post-commit amend loop
 - **Hook**: fold regenerated changelog into each commit via post-commit amend
 - **Hook**: keep backticks out of the hook template so install works
 - **Hook**: pass --no-verify on the amend so prepare-commit-msg stops re-dirtying the tree
