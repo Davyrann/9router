@@ -1,12 +1,14 @@
-# v0.5.153 (2026-10-02) · 5 commits
+# v0.5.153 (2026-10-02) · 7 commits
 
 ## Fixes
 - **Auth**: enforce the dashboard guard in custom-server because Next 14 middleware is Edge-only
 - **Dev**: isolate dev build to .next-dev on localhost:20128 so dev runs stop corrupting the production .next
+- **Hook**: keep backticks out of the hook template so install works
 
 ## Docs
 - **Auth**: regen changelog for auth-guard fix
 - **Backup**: restore full fork changelog history (119 versions, an old commit had truncated it to 3)
+- **Changelog**: stage changelog output in the git hook so commits stop leaving CHANGELOG.md dirty
 
 ## Internal
 - **Auth**: release v0.5.153 (auth guard enforced at HTTP layer)
