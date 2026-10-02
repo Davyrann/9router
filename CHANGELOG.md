@@ -1,4 +1,4 @@
-# v0.5.153 (2026-10-02) · 12 commits
+# v0.5.153 (2026-10-02) · 13 commits
 
 ## Features
 - **UI**: single animated update banner on dashboard; drop sidebar copy
@@ -10,6 +10,7 @@
 - **Hook**: fold regenerated changelog into each commit via post-commit amend
 - **Hook**: keep backticks out of the hook template so install works
 - **Hook**: pass --no-verify on the amend so prepare-commit-msg stops re-dirtying the tree
+- **UI**: drop key={pathname} from UpdateBanner; sibling keys collided with Header and leaked one header per navigation
 
 ## Docs
 - **Auth**: regen changelog for auth-guard fix
