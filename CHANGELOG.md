@@ -1,4 +1,4 @@
-# v0.5.153 (2026-10-02) · 4 commits
+# v0.5.153 (2026-10-02) · 5 commits
 
 ## Fixes
 - **Auth**: enforce the dashboard guard in custom-server because Next 14 middleware is Edge-only
@@ -6,6 +6,7 @@
 
 ## Docs
 - **Auth**: regen changelog for auth-guard fix
+- **Backup**: restore full fork changelog history (119 versions, an old commit had truncated it to 3)
 
 ## Internal
 - **Auth**: release v0.5.153 (auth guard enforced at HTTP layer)
