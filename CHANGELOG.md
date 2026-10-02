@@ -1,3 +1,11 @@
+# v0.5.153 (2026-10-02) · 2 commits
+
+## Fixes
+- **Auth**: enforce the dashboard guard in custom-server because Next 14 middleware is Edge-only
+
+## Internal
+- **Auth**: release v0.5.153 (auth guard enforced at HTTP layer)
+
 # v0.5.152 (2026-10-01) · 20 commits
 
 ## Features
