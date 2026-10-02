@@ -52,26 +52,18 @@ ${MARK_END}
 /**
  * The generator's output can only join the commit that triggered it by
  * amending after git wrote that commit — staging from prepare-commit-msg is
- * too early. Stored base64 so this function keeps one flat literal with no
- * nested quoting.
+ * too early, because git snapshots the index before that hook runs. The amend
+ * also passes --no-verify so prepare-commit-msg does not rewrite the worktree
+ * past the amended content, and the NO_9R_CHANGLOG_AMEND guard stops the
+ * amend's own post-commit run from recursing.
+ *
+ * Stored base64 so this function keeps one flat literal with no nesting.
  */
 function hookContentPost() {
-  const body = Buffer.from(
-    "IyEvYmluL3NoCiMgPj4+IDlSb3V0ZXIgY2hhbmdlbG9nIGhvb2sgPj4+CiMgRm9sZCB0aGUgcmVnZW5lcmF0ZWQgQ0hBTkdFTE9HIGludG8gdGhlIGNvbW1pdCB0aGF0IGp1c3QgbGFuZGVkLgojIFRoZSBnZW5lcmF0b3Igb25seSBydW5zIGFmdGVyIHRoZSBjb21taXQgZXhpc3RzLCBzbyB0aGUgYW1lbmQgaXMgdGhlIG9ubHkKIyBtb21lbnQgaXRzIG91dHB1dCBjYW4gam9pbiB0aGF0IGNvbW1pdC4gR3VhcmRlZCBzbyB0aGUgYW1lbmQncyBvd24KIyBwb3N0LWNvbW1pdCBydW4gZXhpdHMgYmVmb3JlIHJlY3Vyc2luZy4KaWYgWyAtbiAiJE5PXzlSX0NIQU5HTE9HX0FNRU5EIiBdOyB0aGVuIGV4aXQgMDsgZmkKbm9kZSBzY3JpcHRzL2dlbmVyYXRlQ2hhbmdlbG9nLm1qcyA+L2Rldi9udWxsIDI+JjEgfHwgdHJ1ZQppZiAhIGdpdCBkaWZmIC0tcXVpZXQgLS0gQ0hBTkdFTE9HLm1kIHBhY2thZ2UuanNvbjsgdGhlbgogIGdpdCBhZGQgQ0hBTkdFTE9HLm1kIHBhY2thZ2UuanNvbgogIE5PXzlSX0NIQU5HTE9HX0FNRU5EPTEgZ2l0IGNvbW1pdCAtLWFtZW5kIC0tbm8tZWRpdCA+L2Rldi9udWxsIDI+JjEgfHwgdHJ1ZQpmaQojIDw8PCA5Um91dGVyIGNoYW5nZWxvZyBob29rIDw8PAo=",
+  return Buffer.from(
+    "IyEvYmluL3NoCiMgPj4+IDlSb3V0ZXIgY2hhbmdlbG9nIGhvb2sgPj4+CiMgRm9sZCB0aGUgcmVnZW5lcmF0ZWQgQ0hBTkdFTE9HIGludG8gdGhlIGNvbW1pdCB0aGF0IGp1c3QgbGFuZGVkLgojIFRoZSBnZW5lcmF0b3Igb25seSBydW5zIGFmdGVyIHRoZSBjb21taXQgZXhpc3RzLCBzbyB0aGUgYW1lbmQgaXMgdGhlIG9ubHkKIyBtb21lbnQgaXRzIG91dHB1dCBjYW4gam9pbiB0aGF0IGNvbW1pdC4gLS1uby12ZXJpZnkgc3RvcHMgdGhlIGFtZW5kIGZyb20KIyByZS1ydW5uaW5nIHByZXBhcmUtY29tbWl0LW1zZywgd2hpY2ggd291bGQgcmV3cml0ZSB0aGUgd29ya3RyZWUgcGFzdCB0aGUKIyBhbWVuZGVkIGNvbnRlbnQgYW5kIGxlYXZlIHRoZSB0cmVlIGRpcnR5IGFnYWluLiBUaGUgZW52IGd1YXJkIHN0b3BzIHRoZQojIGFtZW5kJ3Mgb3duIHBvc3QtY29tbWl0IHJ1biBmcm9tIHJlY3Vyc2luZy4KaWYgWyAtbiAiJE5PXzlSX0NIQU5HTE9HX0FNRU5EIiBdOyB0aGVuIGV4aXQgMDsgZmkKbm9kZSBzY3JpcHRzL2dlbmVyYXRlQ2hhbmdlbG9nLm1qcyA+L2Rldi9udWxsIDI+JjEgfHwgdHJ1ZQppZiAhIGdpdCBkaWZmIC0tcXVpZXQgLS0gQ0hBTkdFTE9HLm1kIHBhY2thZ2UuanNvbjsgdGhlbgogIGdpdCBhZGQgQ0hBTkdFTE9HLm1kIHBhY2thZ2UuanNvbgogIE5PXzlSX0NIQU5HTE9HX0FNRU5EPTEgZ2l0IGNvbW1pdCAtLWFtZW5kIC0tbm8tZWRpdCAtLW5vLXZlcmlmeSA+L2Rldi9udWxsIDI+JjEgfHwgdHJ1ZQpmaQojIDw8PCA5Um91dGVyIGNoYW5nZWxvZyBob29rIDw8PAo=",
     "base64"
   ).toString("utf8");
-  return body;
-}
-
-function removeHook(file) {
-  if (!existsSync(file)) return 0;
-  const current = readFileSync(file, "utf8");
-  if (!current.includes(MARK_START)) {
-    console.warn(`[hook] ${file} does not match; manual removal required`);
-    return 1;
-  }
-  unlinkSync(file);
-  return 0;
 }
 
 function main() {
