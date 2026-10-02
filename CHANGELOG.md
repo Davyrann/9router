@@ -1,6 +1,8 @@
-# v0.5.153 (2026-10-02) · 13 commits
+# v0.5.153 (2026-10-02) · 15 commits
 
 ## Features
+- **Plugins**: JSON Guard + Context Squeezer custom plugins
+- **Providers**: add MiMoCode Free no-auth provider (mimocode/, mimocode-free/)
 - **UI**: single animated update banner on dashboard; drop sidebar copy
 
 ## Fixes

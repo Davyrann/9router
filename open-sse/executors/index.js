@@ -65,6 +65,8 @@ const executors = {
   "xiaomi-mimo": new XiaomiMimoExecutor(),
   "mimo-free": new MimoFreeExecutor(),
   mmf: new MimoFreeExecutor(), // Alias for mimo-free
+  mimocode: new MimoFreeExecutor(), // MiMoCode free channel (same upstream)
+  "mimocode-free": new MimoFreeExecutor(), // Alias for mimocode
   "codebuddy-cn": new CodeBuddyExecutor(),
   "codebuddy-intl": new CodeBuddyIntlExecutor(),
   trae: new TraeExecutor(),
