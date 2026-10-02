@@ -1,4 +1,7 @@
-# v0.5.153 (2026-10-02) · 11 commits
+# v0.5.153 (2026-10-02) · 12 commits
+
+## Features
+- **UI**: single animated update banner on dashboard; drop sidebar copy
 
 ## Fixes
 - **Auth**: enforce the dashboard guard in custom-server because Next 14 middleware is Edge-only
