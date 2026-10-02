@@ -6,7 +6,11 @@ import { AI_MODELS } from "@/shared/constants/config";
 import { getProviderAlias } from "@/shared/constants/providers";
 import { getCapabilitiesForModel } from "open-sse/providers/capabilities.js";
 
-// GET /api/models - Get models with aliases
+// GET /api/models - Get models with aliases. Always dynamic: plugin badges
+// (vision/thinkDeeper/jsonGuard/...) come from settings, which a prerendered
+// response would freeze at whatever the settings were during the build.
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     const modelAliases = await getModelAliases();
@@ -19,6 +23,10 @@ export async function GET() {
     const tdModels = new Set(customPlugins.thinkDeeper?.models || []);
     const smEnabled = Boolean(customPlugins.speedMode?.enabled);
     const smModels = new Set(customPlugins.speedMode?.models || []);
+    const jgEnabled = Boolean(customPlugins.jsonGuard?.enabled);
+    const jgModels = new Set(customPlugins.jsonGuard?.models || []);
+    const csEnabled = Boolean(customPlugins.contextSqueezer?.enabled);
+    const csModels = new Set(customPlugins.contextSqueezer?.models || []);
 
     const models = AI_MODELS
       .filter((m) => {
@@ -47,6 +55,12 @@ export async function GET() {
         }
         if (smEnabled && (smModels.has(fullModel) || smModels.has(routedModel) || smModels.has(m.model))) {
           caps.speedMode = true;
+        }
+        if (jgEnabled && (jgModels.has(fullModel) || jgModels.has(routedModel) || jgModels.has(m.model))) {
+          caps.jsonGuard = true;
+        }
+        if (csEnabled && (csModels.has(fullModel) || csModels.has(routedModel) || csModels.has(m.model))) {
+          caps.contextSqueezer = true;
         }
         return {
           ...m,
@@ -83,6 +97,12 @@ export async function GET() {
       }
       if (smEnabled && (smModels.has(fullModel) || smModels.has(m.id))) {
         caps.speedMode = true;
+      }
+      if (jgEnabled && (jgModels.has(fullModel) || jgModels.has(m.id))) {
+        caps.jsonGuard = true;
+      }
+      if (csEnabled && (csModels.has(fullModel) || csModels.has(m.id))) {
+        caps.contextSqueezer = true;
       }
       models.push({
         provider: m.providerAlias,
@@ -126,6 +146,12 @@ export async function GET() {
       if (smEnabled && names.some((n) => smModels.has(n))) {
         caps.speedMode = true;
       }
+      if (jgEnabled && names.some((n) => jgModels.has(n))) {
+        caps.jsonGuard = true;
+      }
+      if (csEnabled && names.some((n) => csModels.has(n))) {
+        caps.contextSqueezer = true;
+      }
       models.push({
         provider: s.provider,
         model: s.callName,
@@ -168,6 +194,12 @@ export async function GET() {
       }
       if (smEnabled && (smModels.has(combo.name) || smModels.has(`combo/${combo.name}`) || members.some((m) => smModels.has(m)))) {
         comboCaps.speedMode = true;
+      }
+      if (jgEnabled && (jgModels.has(combo.name) || jgModels.has(`combo/${combo.name}`) || members.some((m) => jgModels.has(m)))) {
+        comboCaps.jsonGuard = true;
+      }
+      if (csEnabled && (csModels.has(combo.name) || csModels.has(`combo/${combo.name}`) || members.some((m) => csModels.has(m)))) {
+        comboCaps.contextSqueezer = true;
       }
       models.push({
         provider: "combo",
