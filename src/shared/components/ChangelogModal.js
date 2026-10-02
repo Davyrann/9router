@@ -114,16 +114,20 @@ function renderVersionCards(md, accent) {
  }
  return groupByReleaseDate(sections)
  .map((group) => {
- const totalCommits = group.items.reduce((sum, s) => sum + (s.commits || 0), 0);
- const commitLabel = totalCommits ? ` · ${totalCommits} commit${totalCommits === 1 ? "" : "s"}` : "";
+ // The newest release of the day titles the merged card, so it reads like any
+ // other release ("v0.5.151 (2026-09-30)") instead of a bare date rollup.
+ const versionOf = (s) => ((s.title.match(/v?(\d+(?:\.\d+)+)/) || [])[1] || "");
+ const sortKey = (a, b) =>
+ versionOf(a).localeCompare(versionOf(b), undefined, { numeric: true });
+ const newest = [...group.items].sort(sortKey).pop();
  const head = group.items.length === 1
  ? group.items[0].title
- : `${group.date} · ${group.items.length} releases${commitLabel}`;
+ : newest.title.includes("(")
+ ? newest.title
+ : `${newest.title} (${group.date})`;
  const inner = group.items.length === 1
  ? renderBody(group.items[0].body)
- : group.items
- .map((section) => `<h4 style="${subStyle}">${escapeHtml(section.title)}</h4>${renderBody(section.body)}`)
- .join("");
+ : group.items.map((section) => renderBody(section.body)).join("");
  return `<div style="${cardStyle}">
  <h3 style="${titleStyle}">
  <span class="material-symbols-outlined" style="font-size:18px;">${accent.icon}</span>
