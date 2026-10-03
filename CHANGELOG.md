@@ -1,4 +1,4 @@
-# v0.5.154 (2026-10-03) · 5 commits
+# v0.5.154 (2026-10-03) · 6 commits
 
 ## Features
 - **Token saver**: level presets for pruning and a measurable response cache
@@ -7,6 +7,7 @@
 - **Models**: honor .env PORT on start and persist free model catalogues
 - **Providers**: drop the duplicate MiMo free registry entries
 - **Providers**: keep suggested free models visible when opencode flakes
+- **Token saver**: keep option rows under their own text
 - **UI**: merge duplicate category headings in day-rolled changelog cards
 
 # v0.5.153 (2026-10-02) · 18 commits

@@ -561,7 +561,7 @@ export default function TokenSaverClient() {
         </div>
 
         {/* Smart Context Truncation & History Pruning */}
-        <div className="flex items-center justify-between py-4 border-b border-border gap-4 flex-wrap">
+        <div className="flex items-start justify-between py-4 border-b border-border gap-4 flex-wrap">
           <div className="min-w-0 flex-1">
             <p className="font-medium">
               Smart Context Truncation & Pruning
@@ -619,14 +619,16 @@ export default function TokenSaverClient() {
               </div>
             )}
           </div>
-          <Toggle
-            checked={contextPruningEnabled}
-            onChange={() => handleContextPruningEnabled(!contextPruningEnabled)}
-          />
+          <div className="shrink-0 pt-0.5">
+            <Toggle
+              checked={contextPruningEnabled}
+              onChange={() => handleContextPruningEnabled(!contextPruningEnabled)}
+            />
+          </div>
         </div>
 
         {/* Semantic / Local Response Caching */}
-        <div className="flex items-center justify-between py-4 border-b border-border gap-4 flex-wrap">
+        <div className="flex items-start justify-between py-4 border-b border-border gap-4 flex-wrap">
           <div className="min-w-0 flex-1">
             <p className="font-medium">
               Response Caching (Instant & 0-Cost Cache)
@@ -634,11 +636,9 @@ export default function TokenSaverClient() {
             <p className="text-sm text-text-muted">
               Keeps identical prompt completions in memory so duplicates return instantly (~10ms) at 0 upstream tokens.
             </p>
-          </div>
-          <div className="flex items-center gap-3 shrink-0">
             {semanticCacheEnabled && (
-              <div className="flex flex-col items-end gap-1">
-                <div className="flex items-center gap-1.5">
+              <div className="mt-2 space-y-1.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <label className="text-xs text-text-muted">TTL (h)</label>
                   <input
                     type="number"
@@ -666,6 +666,8 @@ export default function TokenSaverClient() {
                 )}
               </div>
             )}
+          </div>
+          <div className="shrink-0 pt-0.5">
             <Toggle
               checked={semanticCacheEnabled}
               onChange={() => handleSemanticCacheEnabled(!semanticCacheEnabled)}
