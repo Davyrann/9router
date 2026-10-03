@@ -4,17 +4,18 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { THEME_CONFIG } from "@/shared/constants/config";
 
-// Two modes, both dark-based: the current solid theme, and a glassmorphism
-// variant that keeps the exact same palette while surfaces turn translucent.
-export const THEME_IDS = ["dark", "glass"];
+// Two modes, both dark-based: glass is the default (a glassmorphism variant
+// that keeps the exact same palette while surfaces turn translucent), and solid
+// dark stays as the fallback.
+export const THEME_IDS = ["glass", "dark"];
 
 const useThemeStore = create(
   persist(
     (set, get) => ({
-      theme: "dark",
+      theme: "glass",
 
       setTheme: (theme) => {
-        const id = THEME_IDS.includes(theme) ? theme : "dark";
+        const id = THEME_IDS.includes(theme) ? theme : "glass";
         set({ theme: id });
         applyTheme(id);
       },
@@ -26,7 +27,7 @@ const useThemeStore = create(
       },
 
       initTheme: () => {
-        applyTheme(get().theme || "dark");
+        applyTheme(get().theme || "glass");
       },
     }),
     {

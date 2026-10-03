@@ -3,7 +3,7 @@
  *
  * Both modes keep `.dark` on <html> (every component renders from dark-tuned
  * tokens); `.glass` adds the frosted overrides. An unknown persisted value
- * must degrade to solid dark rather than a class combination the CSS never
+ * must degrade to the glass default rather than a class combination the CSS never
  * defines, which would silently render a broken theme.
  *
  * The suite runs in the node environment, so window/document/localStorage are
@@ -48,7 +48,7 @@ describe("theme mode contract", () => {
   });
 
   it("only knows Dark and Glass", () => {
-    expect(globalThis.__THEME_IDS__).toEqual(["dark", "glass"]);
+    expect(globalThis.__THEME_IDS__).toEqual(["glass", "dark"]);
   });
 
   it("applies dark as plain .dark and glass as .dark.glass", () => {
@@ -63,26 +63,27 @@ describe("theme mode contract", () => {
     expect(classes.has("glass")).toBe(false);
   });
 
-  it("degrades an unknown persisted value to solid dark", () => {
+  it("degrades an unknown persisted value to the glass default", () => {
     const setTheme = store.getState().setTheme;
 
     setTheme("light");
-    expect(store.getState().theme).toBe("dark");
-    expect(classes.has("glass")).toBe(false);
+    expect(store.getState().theme).toBe("glass");
+    expect(classes.has("glass")).toBe(true);
     expect(classes.has("dark")).toBe(true);
   });
 
-  it("toggles between the two modes", () => {
-    const { setTheme, toggleTheme } = store.getState();
+  it("toggles between the two modes starting from the glass default", () => {
+    const { toggleTheme } = store.getState();
 
-    setTheme("dark");
-    toggleTheme();
     expect(store.getState().theme).toBe("glass");
-    expect(classes.has("glass")).toBe(true);
 
     toggleTheme();
     expect(store.getState().theme).toBe("dark");
     expect(classes.has("glass")).toBe(false);
+
+    toggleTheme();
+    expect(store.getState().theme).toBe("glass");
+    expect(classes.has("glass")).toBe(true);
   });
 
   it("re-applies the persisted mode on init (page reload path)", () => {
