@@ -73,12 +73,10 @@ import p70 from "./kiro.js";
 import p71 from "./linkup.js";
 import p72 from "./llm7.js";
 import p73 from "./local-device.js";
-import p74 from "./mimo-free.js";
 import p75 from "./mimocode.js";
 import p76 from "./minimax-cn.js";
 import p77 from "./minimax.js";
 import p78 from "./mistral.js";
-import p79 from "./mmf.js";
 import p80 from "./morph.js";
 import p81 from "./muse.js";
 import p82 from "./nanobanana.js";
@@ -209,12 +207,10 @@ export default [
   p71,
   p72,
   p73,
-  p74,
   p75,
   p76,
   p77,
   p78,
-  p79,
   p80,
   p81,
   p82,

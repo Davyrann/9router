@@ -8,7 +8,7 @@ export default {
   hasFree: true,
   alias: "mimocode",
   uiAlias: "mimocode",
-  aliases: ["mimocode-free", "mimo-auto"],
+  aliases: ["mimocode-free", "mimo-auto", "mmf", "mimo-free"],
   display: {
     name: "MiMoCode Free",
     icon: "smart_toy",

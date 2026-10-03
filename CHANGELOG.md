@@ -1,3 +1,8 @@
+# v0.5.154 (2026-10-03) · 1 commit
+
+## Fixes
+- **Providers**: drop the duplicate MiMo free registry entries
+
 # v0.5.153 (2026-10-02) · 18 commits
 
 ## Features
