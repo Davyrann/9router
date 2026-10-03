@@ -1,6 +1,7 @@
-# v0.5.154 (2026-10-03) · 3 commits
+# v0.5.154 (2026-10-03) · 4 commits
 
 ## Fixes
+- **Models**: honor .env PORT on start and persist free model catalogues
 - **Providers**: drop the duplicate MiMo free registry entries
 - **Providers**: keep suggested free models visible when opencode flakes
 - **UI**: merge duplicate category headings in day-rolled changelog cards
