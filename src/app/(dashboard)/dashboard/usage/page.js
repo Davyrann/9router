@@ -5,7 +5,6 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { RequestLogger, CardSkeleton, SegmentedControl } from "@/shared/components";
 import UsageStats from "@/shared/components/UsageStats";
 import RequestDetailsTab from "./components/RequestDetailsTab";
-import LiveRequestInspectorTab from "./components/LiveRequestInspectorTab";
 import ErrorClassificationTab from "./components/ErrorClassificationTab";
 import ModelLeaderboardTab from "./components/ModelLeaderboardTab";
 
@@ -33,7 +32,7 @@ function UsageContent() {
   const [period, setPeriod] = useState("today");
 
   const tabFromUrl = searchParams.get("tab");
-  const activeTab = tabFromUrl && ["overview", "logs", "details", "errors", "leaderboard", "inspector"].includes(tabFromUrl)
+  const activeTab = tabFromUrl && ["overview", "logs", "details", "errors", "leaderboard"].includes(tabFromUrl)
     ? tabFromUrl
     : "overview";
 
@@ -52,7 +51,6 @@ function UsageContent() {
           options={[
             { value: "overview", label: "Overview" },
             { value: "details", label: "Details" },
- { value: "inspector", label: "Inspector" },
  { value: "errors", label: "Errors" },
  { value: "leaderboard", label: "Leaderboard" },
           ]}
@@ -78,7 +76,6 @@ function UsageContent() {
       )}
       {activeTab === "logs" && <RequestLogger />}
       {activeTab === "details" && <RequestDetailsTab />}
-      {activeTab === "inspector" && <LiveRequestInspectorTab />}
  {activeTab === "errors" && <ErrorClassificationTab period={period} />}
  {activeTab === "leaderboard" && <ModelLeaderboardTab period={period} />}
     </div>
