@@ -6,6 +6,7 @@ import Link from "next/link";
 import PropTypes from "prop-types";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import HeaderMenu from "@/shared/components/HeaderMenu";
+import ThemeToggle from "@/shared/components/ThemeToggle";
 import { useHeaderSearchStore } from "@/store/headerSearchStore";
 import { OAUTH_PROVIDERS, APIKEY_PROVIDERS } from "@/shared/constants/config";
 import { MEDIA_PROVIDER_KINDS, AI_PROVIDERS } from "@/shared/constants/providers";
@@ -330,6 +331,7 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
           </svg>
           <span className="whitespace-nowrap">Visit On GitHub</span>
         </a>
+        <ThemeToggle />
         <HeaderMenu onLogout={handleLogout} />
       </div>
     </header>

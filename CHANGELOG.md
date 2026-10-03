@@ -1,7 +1,8 @@
-# v0.5.154 (2026-10-03) · 9 commits
+# v0.5.154 (2026-10-03) · 10 commits
 
 ## Features
 - **Theme**: add a glassmorphism mode alongside dark
+- **Theme**: dedicated theme button next to the grid menu
 - **Token saver**: level presets for pruning and a measurable response cache
 
 ## Fixes
