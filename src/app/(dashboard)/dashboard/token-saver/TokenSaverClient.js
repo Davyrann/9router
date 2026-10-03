@@ -560,14 +560,14 @@ export default function TokenSaverClient() {
           />
         </div>
 
-        {/* Smart Context Truncation & History Pruning */}
+        {/* Trim chat history */}
         <div className="flex items-start justify-between py-4 border-b border-border gap-4 flex-wrap">
           <div className="min-w-0 flex-1">
             <p className="font-medium">
-              Smart Context Truncation & Pruning
+              Trim chat history
             </p>
             <p className="text-sm text-text-muted">
-              Keep the system prompt and the most recent N messages, trimming older chat turns to save 30-50% input tokens in long sessions
+              Keep the system prompt + last N messages; 30-50% fewer input tokens in long sessions
             </p>
             {contextPruningEnabled && (
               <div className="mt-2 space-y-1.5">
@@ -627,14 +627,14 @@ export default function TokenSaverClient() {
           </div>
         </div>
 
-        {/* Semantic / Local Response Caching */}
+        {/* Cache repeat prompts */}
         <div className="flex items-start justify-between py-4 border-b border-border gap-4 flex-wrap">
           <div className="min-w-0 flex-1">
             <p className="font-medium">
-              Response Caching (Instant & 0-Cost Cache)
+              Cache repeat prompts
             </p>
             <p className="text-sm text-text-muted">
-              Keeps identical prompt completions in memory so duplicates return instantly (~10ms) at 0 upstream tokens.
+              Same prompt answers instantly (~10ms) at 0 upstream tokens.
             </p>
             {semanticCacheEnabled && (
               <div className="mt-2 space-y-1.5">

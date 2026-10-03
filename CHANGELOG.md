@@ -1,4 +1,4 @@
-# v0.5.154 (2026-10-03) · 6 commits
+# v0.5.154 (2026-10-03) · 7 commits
 
 ## Features
 - **Token saver**: level presets for pruning and a measurable response cache
@@ -9,6 +9,9 @@
 - **Providers**: keep suggested free models visible when opencode flakes
 - **Token saver**: keep option rows under their own text
 - **UI**: merge duplicate category headings in day-rolled changelog cards
+
+## Docs
+- **Token saver**: shorten the two longest row labels
 
 # v0.5.153 (2026-10-02) · 18 commits
 
