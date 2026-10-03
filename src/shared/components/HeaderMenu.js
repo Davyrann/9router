@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import PropTypes from "prop-types";
 import ChangelogModal from "./ChangelogModal";
 import { ConfirmModal } from "./Modal";
+import useThemeStore from "@/store/themeStore";
 
 function MenuItem({ icon, label, onClick, trailing, danger }) {
   return (
@@ -31,6 +32,49 @@ MenuItem.propTypes = {
   trailing: PropTypes.node,
   danger: PropTypes.bool,
 };
+
+const THEME_ROWS = [
+  { id: "dark", icon: "dark_mode", label: "Dark" },
+  { id: "glass", icon: "blur_on", label: "Glass" },
+];
+
+function ThemeSection({ close }) {
+  // Store subscription keeps the highlight live when the mode changes.
+  const theme = useThemeStore((state) => state.theme);
+  const setTheme = useThemeStore((state) => state.setTheme);
+
+  return (
+    <>
+      <p className="px-4 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-text-subtle">
+        Theme
+      </p>
+      {THEME_ROWS.map((row) => {
+        const active = theme === row.id;
+        return (
+          <button
+            key={row.id}
+            onClick={() => {
+              setTheme(row.id);
+              close();
+            }}
+            className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm transition-colors ${
+              active
+                ? "text-primary bg-primary/10 font-medium"
+                : "text-text-main hover:bg-surface-2"
+            }`}
+          >
+            <span className={`material-symbols-outlined text-[20px] ${active ? "" : "text-text-muted"}`}>
+              {row.icon}
+            </span>
+            <span className="flex-1 text-left">{row.label}</span>
+            {active && <span className="material-symbols-outlined text-[18px]">check</span>}
+          </button>
+        );
+      })}
+      <div className="mx-4 my-1 border-t border-border-subtle" />
+    </>
+  );
+}
 
 export default function HeaderMenu({ onLogout }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -77,6 +121,7 @@ export default function HeaderMenu({ onLogout }) {
 
         {isOpen && (
           <div className="absolute right-0 top-full mt-2 w-60 bg-surface border border-border-subtle rounded-xl shadow-[var(--shadow-elev)] z-50 slide-in-top overflow-hidden py-1">
+            <ThemeSection close={close} />
             <MenuItem
               icon="history"
               label="Change Log"
