@@ -272,8 +272,9 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
     return () => { cancelled = true; };
   }, []);
 
-  // Fetch connected providers once, deduplicate by provider type
-  // Always include noAuth free providers (e.g. opencode) regardless of connections
+  // Fetch the provider list for the topology once: active connections,
+  // deduplicated by provider type, plus free noAuth providers only when they
+  // have recorded traffic of their own.
   useEffect(() => {
     // Providers feed the topology and nothing else. An API-key session never
     // renders it, so the two requests are not worth making.
@@ -281,8 +282,12 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
     Promise.all([
       fetch("/api/providers").then((r) => r.ok ? r.json() : null),
       fetch("/api/provider-nodes").then((r) => r.ok ? r.json() : null),
+      // period=all so the set of "providers in use" is lifetime-stable and
+      // does not change with the period selector.
+      fetch("/api/usage/stats?period=all").then((r) => r.ok ? r.json() : null),
     ])
-      .then(([d, nodesData]) => {
+      .then(([d, nodesData, allStats]) => {
+        const usedProviders = new Set(Object.keys(allStats?.byProvider || {}));
         // Build node name lookup for custom providers
         const nodeNameMap = {};
         const nodeLogoMap = {};
@@ -302,8 +307,11 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
           nodeName: nodeNameMap[c.provider] || null,
           nodeLogo: nodeLogoMap[c.provider] || null,
         }));
+        // Only show providers that are connected or have real recorded
+        // traffic. Listing every free noAuth provider by default made unused
+        // ones (Devin CLI, …) read as live nodes in the map.
         const noAuthProviders = Object.values(FREE_PROVIDERS)
-          .filter((p) => p.noAuth && !seen.has(p.id) && isLLMProvider(p.id))
+          .filter((p) => p.noAuth && !seen.has(p.id) && isLLMProvider(p.id) && usedProviders.has(p.id))
           .map((p) => ({ provider: p.id, name: p.name }));
         setProviders([...unique, ...noAuthProviders]);
       })

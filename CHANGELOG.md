@@ -1,4 +1,4 @@
-# v0.5.154 (2026-10-03) · 19 commits
+# v0.5.154 (2026-10-03) · 20 commits
 
 ## Features
 - **Theme**: add a glassmorphism mode alongside dark
@@ -20,6 +20,7 @@
 - **Token saver**: move the two toggles to the bottom, stack all pickers
 - **UI**: merge duplicate category headings in day-rolled changelog cards
 - **Usage**: center summary card numbers and pin them to one baseline
+- **Usage**: only show providers with real traffic in the topology
 - **Usage**: savings table empty state must not blame the filter
 
 ## Docs
