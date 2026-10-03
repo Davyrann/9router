@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import PropTypes from "prop-types";
 import ChangelogModal from "./ChangelogModal";
 import { ConfirmModal } from "./Modal";
+import useThemeStore, { THEME_IDS } from "@/store/themeStore";
 
 function MenuItem({ icon, label, onClick, trailing, danger }) {
   return (
@@ -35,6 +36,9 @@ MenuItem.propTypes = {
 export default function HeaderMenu({ onLogout }) {
   const [isOpen, setIsOpen] = useState(false);
   const [changelogOpen, setChangelogOpen] = useState(false);
+  const [themeOpen, setThemeOpen] = useState(false);
+  const theme = useThemeStore((state) => state.theme);
+  const setTheme = useThemeStore((state) => state.setTheme);
   const [shutdownOpen, setShutdownOpen] = useState(false);
   const [isShuttingDown, setIsShuttingDown] = useState(false);
   const menuRef = useRef(null);
@@ -82,6 +86,40 @@ export default function HeaderMenu({ onLogout }) {
               label="Change Log"
               onClick={() => { close(); setChangelogOpen(true); }}
             />
+            <MenuItem
+              icon="palette"
+              label="Theme"
+              trailing={
+                <span className="material-symbols-outlined text-[18px] text-text-muted">
+                  {themeOpen ? "expand_less" : "expand_more"}
+                </span>
+              }
+              onClick={() => setThemeOpen((v) => !v)}
+            />
+            {themeOpen &&
+              THEME_IDS.map((id) => {
+                const isActive = id === theme;
+                return (
+                  <button
+                    key={id}
+                    onClick={() => { setTheme(id); close(); }}
+                    className={`flex items-center gap-3 w-full pl-11 pr-4 py-2.5 text-sm transition-colors ${
+                      isActive
+                        ? "text-primary bg-primary/10 font-medium"
+                        : "text-text-main hover:bg-surface-2"
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[20px]">
+                      {id === "glass" ? "blur_on" : "dark_mode"}
+                    </span>
+                    <span className="flex-1 text-left capitalize">{id}</span>
+                    {isActive && (
+                      <span className="material-symbols-outlined text-[18px]">check</span>
+                    )}
+                  </button>
+                );
+              })}
+            <div className="mx-4 my-1 border-t border-border-subtle" />
             <MenuItem
               icon="power_settings_new"
               label="Shutdown"
