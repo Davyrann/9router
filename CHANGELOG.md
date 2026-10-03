@@ -1,4 +1,4 @@
-# v0.5.154 (2026-10-03) · 15 commits
+# v0.5.154 (2026-10-03) · 16 commits
 
 ## Features
 - **Theme**: add a glassmorphism mode alongside dark
@@ -8,6 +8,7 @@
 - **Theme**: theme picker opens as a modal, matching Change Log
 - **Token saver**: level presets for pruning and a measurable response cache
 - **Usage**: remove the live request inspector tab
+- **Usage**: token saver analytics tab with real-savings estimates
 
 ## Fixes
 - **Models**: honor .env PORT on start and persist free model catalogues

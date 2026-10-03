@@ -7,6 +7,7 @@ import UsageStats from "@/shared/components/UsageStats";
 import RequestDetailsTab from "./components/RequestDetailsTab";
 import ErrorClassificationTab from "./components/ErrorClassificationTab";
 import ModelLeaderboardTab from "./components/ModelLeaderboardTab";
+import TokenSavingsTab from "./components/TokenSavingsTab";
 
 const PERIODS = [
   { value: "today", label: "Today" },
@@ -32,7 +33,7 @@ function UsageContent() {
   const [period, setPeriod] = useState("today");
 
   const tabFromUrl = searchParams.get("tab");
-  const activeTab = tabFromUrl && ["overview", "logs", "details", "errors", "leaderboard"].includes(tabFromUrl)
+  const activeTab = tabFromUrl && ["overview", "logs", "details", "errors", "leaderboard", "savings"].includes(tabFromUrl)
     ? tabFromUrl
     : "overview";
 
@@ -53,12 +54,13 @@ function UsageContent() {
             { value: "details", label: "Details" },
  { value: "errors", label: "Errors" },
  { value: "leaderboard", label: "Leaderboard" },
+            { value: "savings", label: "Savings" },
           ]}
           value={activeTab}
           onChange={handleTabChange}
           className="w-full sm:w-auto"
         />
-        {(activeTab === "overview" || activeTab === "errors" || activeTab === "leaderboard") && (
+        {(activeTab === "overview" || activeTab === "errors" || activeTab === "leaderboard" || activeTab === "savings") && (
           <SegmentedControl
             options={PERIODS}
             value={period}
@@ -78,6 +80,7 @@ function UsageContent() {
       {activeTab === "details" && <RequestDetailsTab />}
  {activeTab === "errors" && <ErrorClassificationTab period={period} />}
  {activeTab === "leaderboard" && <ModelLeaderboardTab period={period} />}
+      {activeTab === "savings" && <TokenSavingsTab period={period} />}
     </div>
   );
 }
