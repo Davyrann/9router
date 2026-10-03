@@ -1,4 +1,4 @@
-# v0.5.154 (2026-10-03) · 16 commits
+# v0.5.154 (2026-10-03) · 17 commits
 
 ## Features
 - **Theme**: add a glassmorphism mode alongside dark
@@ -18,6 +18,7 @@
 - **Token saver**: keep option rows under their own text
 - **Token saver**: move the two toggles to the bottom, stack all pickers
 - **UI**: merge duplicate category headings in day-rolled changelog cards
+- **Usage**: savings table empty state must not blame the filter
 
 ## Docs
 - **Token saver**: shorten the two longest row labels

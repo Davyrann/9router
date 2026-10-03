@@ -99,7 +99,11 @@ export default function TokenSavingsTab({ period }) {
           />
         </div>
         {rows.length === 0 ? (
-          <div className="text-zinc-500 text-sm">No models match.</div>
+          <div className="text-zinc-500 text-sm">
+            {(data.models || []).length === 0
+              ? "No savings recorded in this period yet."
+              : "No models match."}
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
