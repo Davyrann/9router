@@ -1,4 +1,4 @@
-# v0.5.154 (2026-10-03) · 7 commits
+# v0.5.154 (2026-10-03) · 8 commits
 
 ## Features
 - **Token saver**: level presets for pruning and a measurable response cache
@@ -8,6 +8,7 @@
 - **Providers**: drop the duplicate MiMo free registry entries
 - **Providers**: keep suggested free models visible when opencode flakes
 - **Token saver**: keep option rows under their own text
+- **Token saver**: move the two toggles to the bottom, stack all pickers
 - **UI**: merge duplicate category headings in day-rolled changelog cards
 
 ## Docs
