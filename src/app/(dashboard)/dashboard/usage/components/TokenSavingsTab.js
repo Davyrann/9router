@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import EmptyWithAction from "./EmptyWithAction.js";
 
 const fmt = (n) => {
   n = Number(n) || 0;
@@ -53,7 +54,9 @@ export default function TokenSavingsTab({ period }) {
   }, [period]);
 
   if (loading) return <div className="text-zinc-500 text-sm">Loading savings...</div>;
-  if (!data || !data.totals) return <div className="text-zinc-500 text-sm">No data available.</div>;
+  if (!data || !data.totals) {
+    return <div className="text-zinc-500 text-sm">Couldn't load savings — refresh the page and try again.</div>;
+  }
 
   const rows = (data.models || []).filter((m) =>
     modelFilter ? m.model.toLowerCase().includes(modelFilter.toLowerCase()) : true
@@ -84,7 +87,13 @@ export default function TokenSavingsTab({ period }) {
         {data.daily && data.daily.length > 0 ? (
           <Bars daily={data.daily} />
         ) : (
-          <div className="text-zinc-500 text-sm">No savings recorded in this period yet.</div>
+          <EmptyWithAction
+            icon="savings"
+            title="No savings recorded in this period yet"
+            hint="Pruning, tool-output compression, and cache hits are counted here once Token Saver does some work."
+            actionHref="/dashboard/token-saver"
+            actionLabel="Open Token Saver"
+          />
         )}
       </div>
 
@@ -102,7 +111,7 @@ export default function TokenSavingsTab({ period }) {
           <div className="text-zinc-500 text-sm">
             {(data.models || []).length === 0
               ? "No savings recorded in this period yet."
-              : "No models match."}
+              : "No models match your filter."}
           </div>
         ) : (
           <div className="overflow-x-auto">

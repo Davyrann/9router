@@ -1,4 +1,4 @@
-# v0.5.154 (2026-10-03) · 17 commits
+# v0.5.154 (2026-10-03) · 18 commits
 
 ## Features
 - **Theme**: add a glassmorphism mode alongside dark
@@ -7,6 +7,7 @@
 - **Theme**: theme picker lives under Change Log in the grid menu
 - **Theme**: theme picker opens as a modal, matching Change Log
 - **Token saver**: level presets for pruning and a measurable response cache
+- **Usage**: add activity heatmap, card sparklines, and smart empty states
 - **Usage**: remove the live request inspector tab
 - **Usage**: token saver analytics tab with real-savings estimates
 
