@@ -1,8 +1,9 @@
-# v0.5.154 (2026-10-03) · 2 commits
+# v0.5.154 (2026-10-03) · 3 commits
 
 ## Fixes
 - **Providers**: drop the duplicate MiMo free registry entries
 - **Providers**: keep suggested free models visible when opencode flakes
+- **UI**: merge duplicate category headings in day-rolled changelog cards
 
 # v0.5.153 (2026-10-02) · 18 commits
 
