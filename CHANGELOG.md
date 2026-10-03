@@ -1,6 +1,7 @@
-# v0.5.154 (2026-10-03) · 20 commits
+# v0.5.154 (2026-10-03) · 21 commits
 
 ## Features
+- **Dashboard**: add PRD Builder to FEATURE+
 - **Theme**: add a glassmorphism mode alongside dark
 - **Theme**: dedicated theme button next to the grid menu
 - **Theme**: glass becomes the default theme, listed above dark
