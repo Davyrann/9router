@@ -1,7 +1,8 @@
-# v0.5.154 (2026-10-03) · 1 commit
+# v0.5.154 (2026-10-03) · 2 commits
 
 ## Fixes
 - **Providers**: drop the duplicate MiMo free registry entries
+- **Providers**: keep suggested free models visible when opencode flakes
 
 # v0.5.153 (2026-10-02) · 18 commits
 

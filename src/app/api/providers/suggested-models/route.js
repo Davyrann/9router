@@ -24,8 +24,15 @@ export async function GET(request) {
   const unavailable = (message) =>
     NextResponse.json({ data: fallback, error: message || UPSTREAM_UNAVAILABLE_MESSAGE });
 
+  // opencode.ai only lists public models to requests carrying its desktop
+  // client header; without it the catalogue can 403 or hang the fetch.
+  const headers =
+    type === "opencode-free" ? { "x-opencode-client": "desktop" } : undefined;
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS) });
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+      ...(headers ? { headers } : {}),
+    });
     if (!res.ok) {
       return unavailable();
     }
