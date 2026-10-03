@@ -1,4 +1,7 @@
-# v0.5.154 (2026-10-03) · 4 commits
+# v0.5.154 (2026-10-03) · 5 commits
+
+## Features
+- **Token saver**: level presets for pruning and a measurable response cache
 
 ## Fixes
 - **Models**: honor .env PORT on start and persist free model catalogues
