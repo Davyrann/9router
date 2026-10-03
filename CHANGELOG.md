@@ -1,4 +1,4 @@
-# v0.5.154 (2026-10-03) · 12 commits
+# v0.5.154 (2026-10-03) · 13 commits
 
 ## Features
 - **Theme**: add a glassmorphism mode alongside dark
@@ -9,6 +9,7 @@
 
 ## Fixes
 - **Models**: honor .env PORT on start and persist free model catalogues
+- **Combo**: combo pills report the real window instead of the 200k default
 - **Providers**: drop the duplicate MiMo free registry entries
 - **Providers**: keep suggested free models visible when opencode flakes
 - **Token saver**: keep option rows under their own text
