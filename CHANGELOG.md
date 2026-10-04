@@ -1,4 +1,4 @@
-# v0.5.155 (2026-10-04) · 5 commits
+# v0.5.155 (2026-10-04) · 6 commits
 
 ## Features
 - **Antigravity**: add Claude Opus 5.5 and Sonnet 5.5 models
@@ -10,6 +10,9 @@
 
 ## Docs
 - **Readme**: refresh dashboard screenshot to v0.5.155
+
+## Internal
+- **Models**: Revert "feat(antigravity): add Claude Opus 5.5 and Sonnet 5.5 models"
 
 # v0.5.154 (2026-10-03) · 21 commits
 
