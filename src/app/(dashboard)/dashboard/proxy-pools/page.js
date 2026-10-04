@@ -3,6 +3,11 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { Badge, Button, Card, CardSkeleton, Input, Modal, ProgressCard, Toggle, ConfirmModal } from "@/shared/components";
 import { useNotificationStore } from "@/store/notificationStore";
+import { useTaskStore } from "@/store/taskStore";
+
+// One task id for the batch import, shared by the loop, the seed of `importing`
+// after a navigation, and the banner in the layout dock.
+const PROXY_IMPORT_TASK = "proxy-pools-import";
 
 function getStatusVariant(status) {
   if (status === "active") return "success";
@@ -43,8 +48,10 @@ export default function ProxyPoolsPage() {
   const [cloudflareForm, setCloudflareForm] = useState({ accountId: "", apiToken: "", projectName: "cloudflare-relay" });
   const [denoForm, setDenoForm] = useState({ denoToken: "", orgDomain: "", projectName: "" });
   const [saving, setSaving] = useState(false);
-  const [importing, setImporting] = useState(false);
-  const [importProgress, setImportProgress] = useState(null);
+  const [importing, setImporting] = useState(() =>
+    useTaskStore.getState().tasks.some((t) => t.id === PROXY_IMPORT_TASK)
+  );
+  const importAbortRef = useRef(null);
   const [deploying, setDeploying] = useState(false);
   const [deployLabel, setDeployLabel] = useState(null);
   const [testingId, setTestingId] = useState(null);
@@ -520,23 +527,36 @@ export default function ProxyPoolsPage() {
     }
 
     setImporting(true);
-    setImportProgress({ done: 0, total: parsedEntries.length });
+    const abort = new AbortController();
+    importAbortRef.current = abort;
+    const total = parsedEntries.length;
+    useTaskStore.getState().start({
+      id: PROXY_IMPORT_TASK,
+      title: "Importing proxies",
+      message: `0/${total} proxies`,
+      section: "Runs in the background — you can keep working while it finishes",
+      progress: 0,
+      onCancel: () => abort.abort(),
+    });
+    // Declared before the try so the catch can report how far a cancelled run got.
+    let created = 0;
+    let skipped = 0;
+    let failed = 0;
+    let processed = 0;
     try {
       const existingKeys = new Set(
         proxyPools.map((pool) => `${(pool.proxyUrl || "").trim()}|||${(pool.noProxy || "").trim()}`)
       );
 
-      let created = 0;
-      let skipped = 0;
-      let failed = 0;
-
-      let processed = 0;
       for (const entry of parsedEntries) {
         const dedupeKey = `${entry.proxyUrl}|||`;
         if (existingKeys.has(dedupeKey)) {
           skipped += 1;
           processed += 1;
-          setImportProgress({ done: processed, total: parsedEntries.length });
+          useTaskStore.getState().update(PROXY_IMPORT_TASK, {
+            message: `${processed}/${total} proxies`,
+            progress: Math.round((processed / total) * 100),
+          });
           continue;
         }
 
@@ -549,6 +569,9 @@ export default function ProxyPoolsPage() {
             noProxy: "",
             isActive: true,
           }),
+          // Cancel from the banner aborts this request; the loop stops before
+          // starting the next one.
+          signal: abort.signal,
         });
 
         if (res.ok) {
@@ -559,18 +582,28 @@ export default function ProxyPoolsPage() {
         }
 
         processed += 1;
-        setImportProgress({ done: processed, total: parsedEntries.length });
+        useTaskStore.getState().update(PROXY_IMPORT_TASK, {
+          message: `${processed}/${total} proxies`,
+          progress: Math.round((processed / total) * 100),
+        });
       }
 
       await fetchProxyPools();
       setShowBatchImportModal(false);
       notify.success(`Batch import completed: Created ${created}, Skipped ${skipped}, Failed ${failed}`);
     } catch (error) {
-      console.log("Error batch importing proxies:", error);
-      notify.error("Batch import failed");
+      if (error?.name === "AbortError") {
+        notify.info(
+          `Batch import cancelled: Created ${created ?? 0}, Skipped ${skipped ?? 0}`
+        );
+      } else {
+        console.log("Error batch importing proxies:", error);
+        notify.error("Batch import failed");
+      }
     } finally {
+      useTaskStore.getState().finish(PROXY_IMPORT_TASK);
+      importAbortRef.current = null;
       setImporting(false);
-      setImportProgress(null);
     }
   };
 
@@ -831,22 +864,8 @@ export default function ProxyPoolsPage() {
           </div>
         </div>
 
-        {importing && (
-          <ProgressCard
-            fixed={false}
-            title="Importing proxies"
-            message={
-              importProgress
-                ? `${importProgress.done}/${importProgress.total} proxies`
-                : "Validating proxy list"
-            }
-            progress={
-              importProgress && importProgress.total > 0
-                ? Math.round((importProgress.done / importProgress.total) * 100)
-                : null
-            }
-          />
-        )}
+        {/* The import banner lives in the layout's TaskDock so it survives
+            navigation; no second card inside the modal. */}
       </Modal>
 
       <Modal
