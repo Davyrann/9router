@@ -1,4 +1,4 @@
-# v0.5.155 (2026-10-04) · 19 commits
+# v0.5.155 (2026-10-04) · 20 commits
 
 ## Features
 - **Antigravity**: add Claude Opus 5.5 and Sonnet 5.5 models
@@ -17,6 +17,7 @@
 - **Import**: keep the poll digest alive until the job record expires
 - **Import**: return the poll token in the job creation response
 - **Models**: publish custom model owned_by on the connected path too
+- **Providers**: mark MiMoCode Free as Unavailable in red
 - **UI**: ship icon subset font and show commit counts on changelog cards
 - **UI**: show long operations in a ProgressCard banner
 
