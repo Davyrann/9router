@@ -426,7 +426,9 @@ export async function buildModelsList(kindFilter, options = {}) {
       models.push({
         id: `${providerAlias}/${modelId}`,
         object: "model",
-        owned_by: providerAlias,
+        // Optional operator-set label, exactly as for studio models; falls back
+        // to the provider alias so an unset field changes nothing.
+        owned_by: customModel.ownedBy || providerAlias,
       });
     }
   } else {

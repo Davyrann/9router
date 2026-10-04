@@ -127,8 +127,9 @@ export default function Sidebar({ onClose }) {
 
   const filteredDebugItems = debugItems.filter((item) => {
     // The security trail names who signed in and from where: administrators only,
-    // regardless of what a key holds.
-    if (item.href === "/dashboard/security-log") return false;
+    // regardless of what a key holds. A password session is the administrator,
+    // so it is kept; a key-signed session is refused whatever it carries.
+    if (item.href === "/dashboard/security-log") return !isApiKeyUser;
     if (!isApiKeyUser) return true;
     return permissions.manageAdvanced;
   });
