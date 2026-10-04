@@ -1,3 +1,8 @@
+# v0.5.155 (2026-10-04) · 1 commit
+
+## Fixes
+- **UI**: show long operations in a ProgressCard banner
+
 # v0.5.154 (2026-10-03) · 21 commits
 
 ## Features

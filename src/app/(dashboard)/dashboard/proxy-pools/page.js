@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
-import { Badge, Button, Card, CardSkeleton, Input, Modal, Toggle, ConfirmModal } from "@/shared/components";
+import { Badge, Button, Card, CardSkeleton, Input, Modal, ProgressCard, Toggle, ConfirmModal } from "@/shared/components";
 import { useNotificationStore } from "@/store/notificationStore";
 
 function getStatusVariant(status) {
@@ -44,7 +44,9 @@ export default function ProxyPoolsPage() {
   const [denoForm, setDenoForm] = useState({ denoToken: "", orgDomain: "", projectName: "" });
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState(null);
   const [deploying, setDeploying] = useState(false);
+  const [deployLabel, setDeployLabel] = useState(null);
   const [testingId, setTestingId] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
   const [healthChecking, setHealthChecking] = useState(false);
@@ -374,6 +376,7 @@ export default function ProxyPoolsPage() {
 
   const handleVercelDeploy = async () => {
     if (!vercelForm.vercelToken.trim()) return;
+    setDeployLabel("Deploying Vercel Relay");
     setDeploying(true);
     try {
       const res = await fetch("/api/proxy-pools/vercel-deploy", {
@@ -394,11 +397,13 @@ export default function ProxyPoolsPage() {
       notify.error("Deploy failed");
     } finally {
       setDeploying(false);
+      setDeployLabel(null);
     }
   };
 
   const handleCloudflareDeploy = async () => {
     if (!cloudflareForm.accountId.trim() || !cloudflareForm.apiToken.trim()) return;
+    setDeployLabel("Deploying Cloudflare Worker");
     setDeploying(true);
     try {
       const res = await fetch("/api/proxy-pools/cloudflare-deploy", {
@@ -419,11 +424,13 @@ export default function ProxyPoolsPage() {
       notify.error("Deploy failed");
     } finally {
       setDeploying(false);
+      setDeployLabel(null);
     }
   };
 
   const handleDenoDeploy = async () => {
     if (!denoForm.denoToken.trim()) return;
+    setDeployLabel("Deploying Deno Relay");
     setDeploying(true);
     try {
       const res = await fetch("/api/proxy-pools/deno-deploy", {
@@ -444,6 +451,7 @@ export default function ProxyPoolsPage() {
       notify.error("Deploy failed");
     } finally {
       setDeploying(false);
+      setDeployLabel(null);
     }
   };
 
@@ -512,6 +520,7 @@ export default function ProxyPoolsPage() {
     }
 
     setImporting(true);
+    setImportProgress({ done: 0, total: parsedEntries.length });
     try {
       const existingKeys = new Set(
         proxyPools.map((pool) => `${(pool.proxyUrl || "").trim()}|||${(pool.noProxy || "").trim()}`)
@@ -521,10 +530,13 @@ export default function ProxyPoolsPage() {
       let skipped = 0;
       let failed = 0;
 
+      let processed = 0;
       for (const entry of parsedEntries) {
         const dedupeKey = `${entry.proxyUrl}|||`;
         if (existingKeys.has(dedupeKey)) {
           skipped += 1;
+          processed += 1;
+          setImportProgress({ done: processed, total: parsedEntries.length });
           continue;
         }
 
@@ -545,6 +557,9 @@ export default function ProxyPoolsPage() {
         } else {
           failed += 1;
         }
+
+        processed += 1;
+        setImportProgress({ done: processed, total: parsedEntries.length });
       }
 
       await fetchProxyPools();
@@ -555,6 +570,7 @@ export default function ProxyPoolsPage() {
       notify.error("Batch import failed");
     } finally {
       setImporting(false);
+      setImportProgress(null);
     }
   };
 
@@ -778,6 +794,14 @@ export default function ProxyPoolsPage() {
         )}
       </Card>
 
+      {deploying && (
+        <ProgressCard
+          title={deployLabel || "Deploying relay"}
+          message="Pushing worker build to the edge, this can take about a minute"
+          section="Do not close this tab"
+        />
+      )}
+
       <Modal
         isOpen={showBatchImportModal}
         title="Batch Import Proxies"
@@ -799,13 +823,30 @@ export default function ProxyPoolsPage() {
 
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <Button fullWidth onClick={handleBatchImport} disabled={!batchImportText.trim() || importing}>
-              {importing ? "Importing..." : "Import"}
+              Import
             </Button>
             <Button fullWidth variant="ghost" onClick={closeBatchImportModal} disabled={importing}>
               Cancel
             </Button>
           </div>
         </div>
+
+        {importing && (
+          <ProgressCard
+            fixed={false}
+            title="Importing proxies"
+            message={
+              importProgress
+                ? `${importProgress.done}/${importProgress.total} proxies`
+                : "Validating proxy list"
+            }
+            progress={
+              importProgress && importProgress.total > 0
+                ? Math.round((importProgress.done / importProgress.total) * 100)
+                : null
+            }
+          />
+        )}
       </Modal>
 
       <Modal
@@ -847,7 +888,7 @@ export default function ProxyPoolsPage() {
               onClick={handleVercelDeploy}
               disabled={!vercelForm.vercelToken.trim() || deploying}
             >
-              {deploying ? "Deploying... (may take ~1 min)" : "Deploy"}
+              Deploy
             </Button>
             <Button fullWidth variant="ghost" onClick={closeVercelModal} disabled={deploying}>
               Cancel
@@ -911,7 +952,7 @@ export default function ProxyPoolsPage() {
               onClick={handleCloudflareDeploy}
               disabled={!cloudflareForm.accountId.trim() || !cloudflareForm.apiToken.trim() || deploying}
             >
-              {deploying ? "Deploying..." : "Deploy Worker"}
+              Deploy Worker
             </Button>
             <Button fullWidth variant="ghost" onClick={closeCloudflareModal} disabled={deploying}>
               Cancel
@@ -975,7 +1016,7 @@ export default function ProxyPoolsPage() {
               onClick={handleDenoDeploy}
               disabled={!denoForm.denoToken.trim() || !denoForm.orgDomain.trim() || deploying}
             >
-              {deploying ? "Deploying..." : "Deploy Relay"}
+              Deploy Relay
             </Button>
             <Button fullWidth variant="ghost" onClick={closeDenoModal} disabled={deploying}>
               Cancel
