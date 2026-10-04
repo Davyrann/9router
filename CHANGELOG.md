@@ -1,3 +1,36 @@
+# v0.5.158 (2026-10-04) · 23 commits
+
+## Features
+- **Antigravity**: add Claude Opus 5.5 and Sonnet 5.5 models
+- **Antigravity**: list Claude 5.5 models and flag them when tier-blocked
+- **Dashboard**: full request bodies, notification bell, settings rollback, bulk key edit, model benchmark
+- **Dashboard**: make PRD Builder one prompt, English copy
+- **Models**: optional owned_by on custom models; fix hidden security log; drop usage CTA
+- **Security**: persistent security log with red breach flags, admin-only site theme
+- **Studio,banner**: hide the upstream model, custom owned_by, cancellable background banners
+
+## Fixes
+- **Auth**: fail closed when the dashboard guard cannot run
+- **Dashboard**: accept combo names in PRD Builder
+- **Docker**: ship the auth guard sources into the runtime image
+- **Docker**: ship the guard runtime deps the src tree imports
+- **Docker**: stamp APP_REVISION from Railway commit SHA so update banner works there
+- **Import**: keep the poll digest alive until the job record expires
+- **Import**: return the poll token in the job creation response
+- **Models**: publish custom model owned_by on the connected path too
+- **Providers**: mark MiMoCode Free as Unavailable in red
+- **UI**: replay update banner animation on navigation and animate dismissal
+- **UI**: ship icon subset font and show commit counts on changelog cards
+- **UI**: show long operations in a ProgressCard banner
+- **UI**: theme the loading banner, keep progress on the background chip, always offer cancel and background
+
+## Docs
+- **Readme**: current screenshot, evergreen feature section, auto-refresh workflow
+- **Readme**: refresh dashboard screenshot to v0.5.155
+
+## Internal
+- **Models**: Revert "feat(antigravity): add Claude Opus 5.5 and Sonnet 5.5 models"
+
 # v0.5.157 (2026-10-04) · 22 commits
 
 ## Features

@@ -451,6 +451,17 @@ button:disabled,
   to { transform: translateY(0); opacity: 1; }
 }
 .slide-in-right { animation: slideInFromRight 0.25s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+@keyframes progressSweep {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+.progress-indeterminate {
+  animation: progressSweep 1.1s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .progress-indeterminate { animation: none; transform: translateX(0); width: 40%; }
+}
 .fade-in { animation: fadeIn 0.2s ease-out forwards; }
 .slide-in-top { animation: slideInFromTop 0.18s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
 .modal-in {

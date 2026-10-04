@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { cn } from "@/shared/utils/cn";
 import LongTaskBanner from "./LongTaskBanner";
 
@@ -50,7 +49,8 @@ export function CenterLoading({ message, progress = null, fixed = true, classNam
       fixed={fixed}
       className={className}
       onCancel={onCancel}
-      canExpand={false}
+      // A page-level overlay is always escapable now, so its chip can reopen it.
+      canExpand
     />
   );
 }
@@ -68,73 +68,21 @@ export const BusyOverlay = CenterLoading;
 // actually stops. Callers without onCancel see the same informational card they
 // always had, so no existing flow changed behaviour by upgrading.
 export function ProgressCard({ title, message, section, progress = null, fixed = true, className, onCancel, onBackground }) {
-  const [minimized, setMinimized] = useState(false);
-  const canCancel = typeof onCancel === "function";
-
-  // A new task (different title) starts un-minimized; reusing one card for a
-  // second operation must not inherit the first one's collapsed state.
-  useEffect(() => {
-    setMinimized(false);
-  }, [title]);
-
-  if (!canCancel) {
-    return (
-      <LongTaskBanner
-        title={title}
-        message={message}
-        section={section}
-        progress={progress ?? null}
-        fixed={fixed}
-        className={className}
-      />
-    );
-  }
-
-  if (minimized) {
-    return (
-      <div className="pointer-events-none fixed bottom-4 right-4 z-[65]">
-        <div className="pointer-events-auto flex items-center gap-2 rounded-xl border border-border-subtle bg-surface/90 px-3 py-2 shadow-[var(--shadow-elev)] backdrop-blur-md">
-          <Spinner size="sm" />
-          <span className="max-w-[40vw] truncate text-xs text-text-main">{title || "Working"}</span>
-          <button
-            type="button"
-            onClick={() => setMinimized(false)}
-            className="text-text-muted hover:text-text-main"
-            title="Show banner"
-            aria-label="Show banner"
-          >
-            <span className="material-symbols-outlined text-[16px]">expand_less</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setMinimized(false);
-              onCancel();
-            }}
-            className="text-red-500 hover:text-red-400"
-            title="Cancel"
-            aria-label="Cancel"
-          >
-            <span className="material-symbols-outlined text-[16px]">close</span>
-          </button>
-        </div>
-      </div>
-    );
-  }
-
+  // Keyed by title: a second operation remounts the banner instead of
+  // inheriting the previous one's collapsed state.
   return (
     <LongTaskBanner
+      key={title}
       title={title}
       message={message}
       section={section}
       progress={progress ?? null}
       fixed={fixed}
       className={className}
-      onCancel={() => {
-        setMinimized(true);
-        onCancel();
-      }}
-      onBackground={typeof onBackground === "function" ? onBackground : () => setMinimized(true)}
+      onCancel={onCancel}
+      // The banner offers "Run in background" itself on a fixed overlay, so an
+      // absent callback still leaves the operator a way out.
+      onBackground={onBackground}
       canExpand
     />
   );

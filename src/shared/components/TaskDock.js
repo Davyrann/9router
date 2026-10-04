@@ -17,43 +17,41 @@ export default function TaskDock() {
   const tasks = useTaskStore((s) => s.tasks);
   if (!tasks.length) return null;
 
+  const [first, ...rest] = tasks;
   return (
     <>
-      {tasks.map((task, index) => (
-        <DockBanner key={task.id} task={task} startForeground={index === 0} />
-      ))}
+      <DockBanner key={first.id} task={first} startForeground />
+      <div className="pointer-events-none fixed bottom-20 right-4 sm:bottom-6 z-[65] flex w-[min(86vw,320px)] flex-col gap-2">
+        {rest.map((task) => (
+          <DockBanner key={task.id} task={task} startForeground={false} />
+        ))}
+      </div>
     </>
   );
 }
 
-/** One task = one banner. startBackgrounded skips straight to the corner chip. */
+/**
+ * One task = one banner. The first task takes the full-screen banner (it can
+ * background into the corner); everything behind it skips straight to the chip.
+ * Chips render position-free inside the dock stack, so five imports queue as
+ * five cards in one column, not five fixed overlays.
+ */
 function DockBanner({ task, startForeground }) {
   const [backgrounded, setBackgrounded] = useState(!startForeground);
 
-  if (backgrounded) {
-    return (
-      <LongTaskBanner
-        chipOnly
-        fixed={false}
-        title={task.title}
-        message={task.message}
-        progress={task.progress ?? null}
-        canCancel
-        onCancel={() => useTaskStore.getState().cancel(task.id)}
-        onExpand={() => setBackgrounded(false)}
-      />
-    );
-  }
-
   return (
     <LongTaskBanner
-      fixed
+      fixed={startForeground && !backgrounded}
+      inlineChip={!startForeground}
       title={task.title}
       message={task.message}
       section={task.section}
       progress={task.progress ?? null}
+      chipOnly={startForeground ? backgrounded : true}
       onCancel={() => useTaskStore.getState().cancel(task.id)}
       onBackground={() => setBackgrounded(true)}
+      onExpand={() => setBackgrounded(false)}
+      canExpand
     />
   );
 }
