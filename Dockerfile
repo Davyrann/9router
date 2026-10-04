@@ -60,6 +60,14 @@ COPY --from=builder /app/custom-server.js ./custom-server.js
 COPY --from=builder /app/open-sse ./open-sse
 # Next file tracing can omit sibling files; MITM runs server.js as a separate process.
 COPY --from=builder /app/src/mitm ./src/mitm
+# The auth guard runs outside the bundle: custom-server.js imports src/ and
+# scripts/ by path, and the loader in scripts/auth-guard-hooks.mjs maps the "@/"
+# alias back onto ./src. File tracing only follows static imports, so none of it
+# reached the image: getGuardModule() resolved nothing, and before fail-closed
+# handling every request was served with no authorization at all - a fresh deploy
+# opened straight onto the dashboard with no login form.
+COPY --from=builder /app/scripts ./scripts
+COPY --from=builder /app/src ./src
 # Standalone node_modules may omit deps only required by the MITM child process.
 COPY --from=builder /app/node_modules/node-forge ./node_modules/node-forge
 # Ensure `next` is available at runtime in case tracing did not include it.
