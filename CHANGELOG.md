@@ -1,4 +1,4 @@
-# v0.5.155 (2026-10-04) · 16 commits
+# v0.5.155 (2026-10-04) · 17 commits
 
 ## Features
 - **Antigravity**: add Claude Opus 5.5 and Sonnet 5.5 models
@@ -15,6 +15,7 @@
 - **Docker**: ship the guard runtime deps the src tree imports
 - **Import**: keep the poll digest alive until the job record expires
 - **Import**: return the poll token in the job creation response
+- **Models**: publish custom model owned_by on the connected path too
 - **UI**: ship icon subset font and show commit counts on changelog cards
 - **UI**: show long operations in a ProgressCard banner
 

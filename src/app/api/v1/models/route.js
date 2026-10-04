@@ -552,6 +552,18 @@ export async function buildModelsList(kindFilter, options = {}) {
         })
         .filter((modelId) => typeof modelId === "string" && modelId.trim() !== "");
 
+      // The same filter produced customModelIds; remember which of them carry an
+      // operator-owned label so the merged entry can publish it below.
+      const customOwnedByById = new Map();
+      for (const m of customModels) {
+        if (!m?.id || !m.ownedBy) continue;
+        const alias = m.providerAlias;
+        if (alias === staticAlias || alias === outputAlias || alias === providerId) {
+          const modelId = String(m.id).trim();
+          if (modelId) customOwnedByById.set(modelId, m.ownedBy);
+        }
+      }
+
       const mergedModelIds = Array.from(new Set([...modelIds, ...customModelIds, ...aliasModelIds]));
 
       for (const modelId of mergedModelIds) {
@@ -569,7 +581,9 @@ export async function buildModelsList(kindFilter, options = {}) {
         const model = {
           id: `${outputAlias}/${modelId}`,
           object: "model",
-          owned_by: outputAlias,
+          // Optional label the operator set on this custom model; the provider
+          // alias stays the default so an unset field changes nothing.
+          owned_by: customOwnedByById.get(modelId) || outputAlias,
         };
         // Live-catalog resolvers (kiro/qoder/github/clinepass) mostly only return
         // { id, name } — no per-model capability data. Fall back to the same

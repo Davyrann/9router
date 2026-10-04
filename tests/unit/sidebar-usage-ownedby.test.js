@@ -43,5 +43,7 @@ describe("custom model owned_by", () => {
   it("the model list publishes it, defaulting to the provider alias", () => {
     const v1 = read("src/app/api/v1/models/route.js");
     expect(v1).toContain("owned_by: customModel.ownedBy || providerAlias,");
+    // The connected path merges custom ids and must publish the label there too.
+    expect(v1).toContain("owned_by: customOwnedByById.get(modelId) || outputAlias,");
   });
 });
