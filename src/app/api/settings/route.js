@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getDashboardAuthSession } from "@/lib/auth/dashboardSession";
+import { snapshotSettings } from "@/lib/db/repos/settingsHistoryRepo.js";
 import { getSettings, updateSettings } from "@/lib/localDb";
 import { applyOutboundProxyEnv } from "@/lib/network/outboundProxy";
 import { resetComboRotation } from "open-sse/services/combo.js";
@@ -100,6 +101,21 @@ export async function PATCH(request) {
       if (!body.oidcClientSecret || !String(body.oidcClientSecret).trim()) {
         delete body.oidcClientSecret;
       }
+    }
+
+    // Before-image of this mutation, so a bad change can be reverted. Taken
+    // after the handler stripped protected fields, so secrets never enter the
+    // history, and before the write, so it is the state that was replaced.
+    try {
+      const before = await getSettings();
+      await snapshotSettings({
+        before,
+        actor: "Password user",
+        reason: Object.keys(body).join(", "),
+      });
+    } catch (err) {
+      // History is a convenience; never fail the change itself.
+      console.warn("[settings-history] snapshot failed:", err?.message || err);
     }
 
     const settings = await updateSettings(body);
