@@ -1,7 +1,10 @@
-# v0.5.155 (2026-10-04) · 1 commit
+# v0.5.155 (2026-10-04) · 2 commits
 
 ## Fixes
 - **UI**: show long operations in a ProgressCard banner
+
+## Docs
+- **Readme**: refresh dashboard screenshot to v0.5.155
 
 # v0.5.154 (2026-10-03) · 21 commits
 
