@@ -1,4 +1,4 @@
-# v0.5.155 (2026-10-04) · 18 commits
+# v0.5.155 (2026-10-04) · 19 commits
 
 ## Features
 - **Antigravity**: add Claude Opus 5.5 and Sonnet 5.5 models
@@ -21,6 +21,7 @@
 - **UI**: show long operations in a ProgressCard banner
 
 ## Docs
+- **Readme**: current screenshot, evergreen feature section, auto-refresh workflow
 - **Readme**: refresh dashboard screenshot to v0.5.155
 
 ## Internal
