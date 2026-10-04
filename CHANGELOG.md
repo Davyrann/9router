@@ -1,10 +1,11 @@
-# v0.5.158 (2026-10-04) · 24 commits
+# v0.5.158 (2026-10-04) · 25 commits
 
 ## Features
 - **Antigravity**: add Claude Opus 5.5 and Sonnet 5.5 models
 - **Antigravity**: list Claude 5.5 models and flag them when tier-blocked
 - **Dashboard**: full request bodies, notification bell, settings rollback, bulk key edit, model benchmark
 - **Dashboard**: make PRD Builder one prompt, English copy
+- **Key catalog**: show context window instead of the studio label; install the fork from github in the update banner
 - **Models**: optional owned_by on custom models; fix hidden security log; drop usage CTA
 - **Security**: persistent security log with red breach flags, admin-only site theme
 - **Studio,banner**: hide the upstream model, custom owned_by, cancellable background banners
