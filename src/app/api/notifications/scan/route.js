@@ -44,7 +44,7 @@ export async function GET() {
         severity: "info",
         title: `Update available: ${info.latestVersion}`,
         body: info.commitMessage || info.releaseNotes?.[0] || "A newer release is on the repository.",
-        link: "/dashboard/settings",
+        link: "/dashboard/profile",
         dedupeKey,
       });
       created.push("update");
