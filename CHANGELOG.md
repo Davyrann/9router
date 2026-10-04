@@ -1,4 +1,7 @@
-# v0.5.155 (2026-10-04) · 2 commits
+# v0.5.155 (2026-10-04) · 3 commits
+
+## Features
+- **Dashboard**: make PRD Builder one prompt, English copy
 
 ## Fixes
 - **UI**: show long operations in a ProgressCard banner
