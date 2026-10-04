@@ -1,14 +1,16 @@
-# v0.5.155 (2026-10-04) · 10 commits
+# v0.5.155 (2026-10-04) · 12 commits
 
 ## Features
 - **Antigravity**: add Claude Opus 5.5 and Sonnet 5.5 models
 - **Antigravity**: list Claude 5.5 models and flag them when tier-blocked
 - **Dashboard**: make PRD Builder one prompt, English copy
+- **Security**: persistent security log with red breach flags, admin-only site theme
 - **Studio,banner**: hide the upstream model, custom owned_by, cancellable background banners
 
 ## Fixes
 - **Auth**: fail closed when the dashboard guard cannot run
 - **Dashboard**: accept combo names in PRD Builder
+- **Docker**: ship the auth guard sources into the runtime image
 - **UI**: ship icon subset font and show commit counts on changelog cards
 - **UI**: show long operations in a ProgressCard banner
 

@@ -142,6 +142,135 @@ function getGuardModule() {
 
 const GUARD_SKIP = /^\/(_next\/(static|image)|favicon\.ico)/;
 
+// --- Request/refusal trail -------------------------------------------------
+// Security-relevant branches write directly into securityEvents; ordinary
+// dashboard traffic goes to accessEvents. Both use the same src/ tree the guard
+// loader already resolved, so the hooks registered by getGuardModule() are in
+// place by the time any of this runs.
+let securityRepoPromise = null;
+function getSecurityRepo() {
+  if (!securityRepoPromise) {
+    securityRepoPromise = import(
+      pathToFileURL(path.join(__dirname, "src", "lib", "db", "repos", "securityLogRepo.js")).href
+    );
+  }
+  return securityRepoPromise;
+}
+
+let sessionModulePromise = null;
+function getSessionModule() {
+  if (!sessionModulePromise) {
+    sessionModulePromise = import(
+      pathToFileURL(path.join(__dirname, "src", "lib", "auth", "dashboardSession.js")).href
+    );
+  }
+  return sessionModulePromise;
+}
+
+function readCookie(req, name) {
+  const raw = (req.headers && req.headers.cookie) || "";
+  const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const m = raw.match(new RegExp("(?:^|;\\s*)" + esc + "=([^;]*)"));
+  if (!m) return null;
+  try {
+    return decodeURIComponent(m[1]);
+  } catch {
+    return m[1];
+  }
+}
+
+// Paths that answer on every poll or page shell; logging them would bury the
+// events that matter.
+const LOG_SKIP_EXACT = new Set([
+  "/api/auth/status",
+  "/api/health",
+  "/api/locale",
+  "/api/init",
+  "/api/version",
+]);
+const LOG_SKIP_PREFIX = ["/_next/", "/favicon", "/v1/", "/api/v1/", "/codex", "/responses"];
+
+function shouldLogPath(pathname) {
+  if (LOG_SKIP_EXACT.has(pathname)) return false;
+  return !LOG_SKIP_PREFIX.some((p) => pathname === p || pathname.startsWith(p));
+}
+
+// Dedupe windows: healthy polls collapse quickly, refusals slower, so a stuck
+// client retrying once a second leaves a readable trail instead of thousands of
+// identical rows.
+const recentLog = new Map();
+function isDuplicate(key, windowMs) {
+  const last = recentLog.get(key);
+  const now = Date.now();
+  if (last && now - last < windowMs) return true;
+  recentLog.set(key, now);
+  if (recentLog.size > 500) {
+    for (const [k, t] of recentLog) {
+      if (now - t > windowMs) recentLog.delete(k);
+      if (recentLog.size <= 250) break;
+    }
+  }
+  return false;
+}
+
+async function roleOfRequest(req) {
+  const token = readCookie(req, "auth_token");
+  if (!token) return "anonymous";
+  try {
+    const session = await (await getSessionModule()).getDashboardAuthSession(token);
+    if (!session) return "anonymous";
+    return session.role === "apikey" ? "apikey" : "password";
+  } catch {
+    return "anonymous";
+  }
+}
+
+function onRequestFinished(req, res, ms) {
+  try {
+    const url = req.url || "/";
+    const pathname = url.split("?")[0];
+    if (GUARD_SKIP.test(pathname) || !shouldLogPath(pathname)) return;
+    const status = res.statusCode || 0;
+    const method = (req.method || "GET").toUpperCase();
+    const ip =
+      (req.headers && (req.headers["x-9r-real-ip"] || req.headers["x-real-ip"])) ||
+      (req.socket && req.socket.remoteAddress) ||
+      "";
+
+    const guardDenial = res.__secDeny || null;
+    const isDenial = guardDenial || status === 401 || status === 403;
+    const key = method + " " + pathname + " " + status;
+    if (isDenial) {
+      if (isDuplicate("deny:" + key + ":" + ip, 60000)) return;
+    } else if (status < 400 && isDuplicate("ok:" + key, 15000)) {
+      return;
+    }
+
+    (async () => {
+      const repo = await getSecurityRepo();
+      const role = await roleOfRequest(req);
+      if (isDenial) {
+        await repo.recordSecurityEvent({
+          type: guardDenial ? "guard_denied" : "request_denied",
+          severity: "warn",
+          ip,
+          actor: role,
+          method,
+          path: pathname,
+          status,
+          detail:
+            (guardDenial && guardDenial.detail) ||
+            (status === 401 ? "Unauthorized" : "Permission refused"),
+        });
+      }
+      await repo.recordAccessEvent({ method, path: pathname, status, ms, ip, role });
+    })().catch(() => {});
+  } catch {
+    // Observability must never break the request it observes.
+  }
+}
+
+
 // NextRequest-shaped view of a raw IncomingMessage: the guard reads only
 // headers.get(), nextUrl.pathname/searchParams, cookies, method and url.
 function toGuardRequest(req) {
@@ -223,6 +352,11 @@ async function runAuthGuard(req, res) {
     console.error("[AuthGuard] proxy threw:", error && error.message);
     return denyUnresolved(req, res);
   }
+  // Remember the guard's own refusal text for the request trail: it distinguishes
+  // "no session" from "key lacks the permission for this endpoint".
+  if (response && response.status >= 400 && response.status < 500) {
+    res.__secGuardStatus = response.status;
+  }
   if (!response || response.headers.get("x-middleware-next") === "1") return false;
   res.statusCode = response.status || 500;
   response.headers.forEach((value, key) => {
@@ -231,6 +365,9 @@ async function runAuthGuard(req, res) {
   });
   if (response.body) {
     const buf = Buffer.from(await new Response(response.body).arrayBuffer());
+    if (res.__secGuardStatus) {
+      res.__secDeny = { status: res.__secGuardStatus, detail: buf.toString("utf8").slice(0, 300) };
+    }
     res.setHeader("content-length", buf.length);
     res.end(buf);
   } else {
