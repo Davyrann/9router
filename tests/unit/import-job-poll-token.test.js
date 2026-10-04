@@ -32,6 +32,14 @@ describe("import job poll credential", () => {
     expect(passIdx).toBeGreaterThan(tokenIdx);
   });
 
+  it("the digest survives completion so the last poll still authenticates", () => {
+    const lib = read("src/lib/db/importJobs.js");
+    // Nulling the digest at done/error made the completion poll fall back to
+    // the password header the token-based client never sends: 401 over a done
+    // restore. The digest now dies with the job record via RESULT_TTL cleanup.
+    expect(lib).not.toContain("pollTokenHash = null");
+  });
+
   it("the client forwards the token from the POST response", () => {
     const page = read("src/app/(dashboard)/dashboard/profile/page.js");
     expect(page).toContain("jobData.pollToken");
