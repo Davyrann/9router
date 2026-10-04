@@ -165,10 +165,44 @@ function toGuardRequest(req) {
       get(name) {
         const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
         const m = rawCookies.match(new RegExp("(?:^|;\\s*)" + esc + "=([^;]*)"));
-        return m ? { name, value: decodeURIComponent(m[1]) } : undefined;
+        if (!m) return undefined;
+        // A malformed percent-escape must not throw: see the note above. Only
+        // the raw value is used to decide whether a session exists, so an
+        // undecodable cookie is passed through and then rejected as invalid.
+        let value = m[1];
+        try {
+          value = decodeURIComponent(value);
+        } catch {
+          value = m[1];
+        }
+        return { name, value };
       },
     },
   };
+}
+
+// Answer a request whose authorization could not be determined. This is a
+// server-side fault, not an authentication failure, so it is a 503 and it must
+// not carry a body that could be mistaken for a successful response. Static
+// assets keep flowing: they are skipped before the guard runs.
+function denyUnresolved(req, res) {
+  const accept = String((req.headers && req.headers.accept) || "");
+  const wantsHtml = accept.includes("text/html");
+  if (wantsHtml && !String(req.url || "").startsWith("/api/")) {
+    const body = "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>503</title></head>"
+      + "<body style=\"font-family:system-ui;padding:2rem\"><h1>503</h1>"
+      + "<p>The dashboard authorization check could not run. Reload once the server reports ready.</p>"
+      + "</body></html>";
+    res.statusCode = 503;
+    res.setHeader("content-type", "text/html; charset=utf-8");
+    res.setHeader("content-length", Buffer.byteLength(body));
+    res.end(body);
+  } else {
+    res.statusCode = 503;
+    res.setHeader("content-type", "application/json; charset=utf-8");
+    res.end(JSON.stringify({ error: "Authorization check unavailable" }));
+  }
+  return true;
 }
 
 // True when the guard answered the request itself (deny or redirect).
@@ -178,16 +212,16 @@ async function runAuthGuard(req, res) {
   if (!guard) {
     if (!runAuthGuard._warned) {
       runAuthGuard._warned = true;
-      console.error("[AuthGuard] guard unavailable, requests NOT authenticated (src/ missing?)");
+      console.error("[AuthGuard] guard unavailable: answering 503 instead of serving (src/ missing?)");
     }
-    return false;
+    return denyUnresolved(req, res);
   }
   let response;
   try {
     response = await guard.proxy(toGuardRequest(req));
   } catch (error) {
     console.error("[AuthGuard] proxy threw:", error && error.message);
-    return false;
+    return denyUnresolved(req, res);
   }
   if (!response || response.headers.get("x-middleware-next") === "1") return false;
   res.statusCode = response.status || 500;
@@ -235,7 +269,7 @@ http.createServer = (...args) => {
       .then((handled) => { if (!handled) return handler(req, res); })
       .catch((error) => {
         console.error("[AuthGuard] request failed:", error && error.message);
-        return handler(req, res);
+        return denyUnresolved(req, res);
       });
   };
   const server = origCreate(...rest, wrapped);

@@ -1,4 +1,4 @@
-# v0.5.155 (2026-10-04) · 9 commits
+# v0.5.155 (2026-10-04) · 10 commits
 
 ## Features
 - **Antigravity**: add Claude Opus 5.5 and Sonnet 5.5 models
@@ -7,6 +7,7 @@
 - **Studio,banner**: hide the upstream model, custom owned_by, cancellable background banners
 
 ## Fixes
+- **Auth**: fail closed when the dashboard guard cannot run
 - **Dashboard**: accept combo names in PRD Builder
 - **UI**: ship icon subset font and show commit counts on changelog cards
 - **UI**: show long operations in a ProgressCard banner
