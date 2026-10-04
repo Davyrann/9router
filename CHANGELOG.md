@@ -1,4 +1,4 @@
-# v0.5.155 (2026-10-04) · 17 commits
+# v0.5.155 (2026-10-04) · 18 commits
 
 ## Features
 - **Antigravity**: add Claude Opus 5.5 and Sonnet 5.5 models
@@ -13,6 +13,7 @@
 - **Dashboard**: accept combo names in PRD Builder
 - **Docker**: ship the auth guard sources into the runtime image
 - **Docker**: ship the guard runtime deps the src tree imports
+- **Docker**: stamp APP_REVISION from Railway commit SHA so update banner works there
 - **Import**: keep the poll digest alive until the job record expires
 - **Import**: return the poll token in the job creation response
 - **Models**: publish custom model owned_by on the connected path too

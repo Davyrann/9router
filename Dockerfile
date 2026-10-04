@@ -15,6 +15,12 @@ RUN if [ "$ALPINE_MIRROR" != "dl-cdn.alpinelinux.org" ]; then \
 
 FROM base AS builder
 ARG NPM_REGISTRY
+# Railway (and any CI building without .git) injects the trigger commit as an
+# env var instead. Accept it as a build arg so next.config.mjs can stamp
+# APP_REVISION even though .dockerignore excludes .git: without this the
+# release-notes banner never fires on such deploys because the running app
+# cannot tell which revision it was built from.
+ARG RAILWAY_GIT_COMMIT_SHA
 
 RUN apk add --no-cache python3 make g++ linux-headers
 
@@ -33,7 +39,7 @@ RUN npm install \
 
 COPY . ./
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build
+RUN APP_REVISION="${APP_REVISION:-$RAILWAY_GIT_COMMIT_SHA}" npm run build
 
 FROM ${NODE_IMAGE} AS runner
 ARG ALPINE_MIRROR
