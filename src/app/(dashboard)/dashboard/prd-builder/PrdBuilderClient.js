@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Card, Button, ModelSelectModal, CardSkeleton } from "@/shared/components";
 import { streamChatCompletion } from "@/shared/utils/chatStream";
-import { STORAGE_KEY, buildPrompt, loadDraft, saveDraft, splitModel } from "./prd_model.js";
+import { STORAGE_KEY, buildPrompt, loadDraft, saveDraft } from "./prd_model.js";
 
 /**
  * One textarea, one model, one call. The full PRD streams into a single
@@ -65,8 +65,9 @@ export default function PrdBuilderClient() {
   }, [model, prompt, document, loading]);
 
   const generate = useCallback(async () => {
-    const { provider, model: modelName } = splitModel(model);
-    if (!provider || !modelName) {
+    // Combos and custom targets are selected by bare name ("mine", no slash).
+    // The gateway resolves those itself, so only an empty choice is an error.
+    if (!String(model || "").trim()) {
       setError("Select a model first.");
       return;
     }

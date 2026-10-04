@@ -10,7 +10,7 @@ import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { STORAGE_KEY, buildPrompt, loadDraft, saveDraft, splitModel } from "../../src/app/(dashboard)/dashboard/prd-builder/prd_model.js";
+import { STORAGE_KEY, buildPrompt, loadDraft, saveDraft } from "../../src/app/(dashboard)/dashboard/prd-builder/prd_model.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const builderDir = resolve(here, "../../src/app/(dashboard)/dashboard/prd-builder");
@@ -120,12 +120,12 @@ describe("loadDraft / saveDraft", () => {
   });
 });
 
-describe("splitModel", () => {
-  it("splits provider/model and refuses to guess without a slash", () => {
-    expect(splitModel("opencode/glm-4.7-free")).toEqual({ provider: "opencode", model: "glm-4.7-free" });
-    expect(splitModel("mimo-auto")).toEqual({ provider: null, model: "mimo-auto" });
-    expect(splitModel("/onlymodel")).toEqual({ provider: null, model: "/onlymodel" });
-    expect(splitModel("")).toEqual({ provider: null, model: "" });
+describe("model names are accepted verbatim", () => {
+  it("does not require a provider/ prefix, so combos stay selectable", () => {
+    // The gateway resolves bare names ("mine", a combo; "mimo-auto") itself.
+    // An earlier gate split on "/" and rejected every combo.
+    expect(component).not.toContain("splitModel");
+    expect(component).toContain('if (!String(model || "").trim())');
   });
 });
 

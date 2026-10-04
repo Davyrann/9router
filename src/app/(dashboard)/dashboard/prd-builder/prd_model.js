@@ -92,11 +92,3 @@ export function saveDraft(storage, draft) {
     return false;
   }
 }
-
-/** Split "provider/model" into its parts. The slash is required. */
-export function splitModel(value) {
-  const raw = String(value || "");
-  const slash = raw.indexOf("/");
-  if (slash <= 0 || slash === raw.length - 1) return { provider: null, model: raw };
-  return { provider: raw.slice(0, slash), model: raw.slice(slash + 1) };
-}
