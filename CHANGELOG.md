@@ -1,7 +1,8 @@
-# v0.5.155 (2026-10-04) · 6 commits
+# v0.5.155 (2026-10-04) · 7 commits
 
 ## Features
 - **Antigravity**: add Claude Opus 5.5 and Sonnet 5.5 models
+- **Antigravity**: list Claude 5.5 models and flag them when tier-blocked
 - **Dashboard**: make PRD Builder one prompt, English copy
 
 ## Fixes
