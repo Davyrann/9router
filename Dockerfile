@@ -68,6 +68,14 @@ COPY --from=builder /app/src/mitm ./src/mitm
 # opened straight onto the dashboard with no login form.
 COPY --from=builder /app/scripts ./scripts
 COPY --from=builder /app/src ./src
+# The guard imports that src/ tree directly, so Node resolves those bare
+# specifiers against ./node_modules instead of through webpack. jose (JWT
+# sign/verify), uuid and bcryptjs are reached by dashboardSession and the repos
+# but were never bundled, so their absence made the guard import throw - which
+# fail-closed then turned into a 503 on every page.
+COPY --from=builder /app/node_modules/jose ./node_modules/jose
+COPY --from=builder /app/node_modules/uuid ./node_modules/uuid
+COPY --from=builder /app/node_modules/bcryptjs ./node_modules/bcryptjs
 # Standalone node_modules may omit deps only required by the MITM child process.
 COPY --from=builder /app/node_modules/node-forge ./node_modules/node-forge
 # Ensure `next` is available at runtime in case tracing did not include it.

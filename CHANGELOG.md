@@ -1,4 +1,4 @@
-# v0.5.155 (2026-10-04) · 12 commits
+# v0.5.155 (2026-10-04) · 13 commits
 
 ## Features
 - **Antigravity**: add Claude Opus 5.5 and Sonnet 5.5 models
@@ -11,6 +11,7 @@
 - **Auth**: fail closed when the dashboard guard cannot run
 - **Dashboard**: accept combo names in PRD Builder
 - **Docker**: ship the auth guard sources into the runtime image
+- **Docker**: ship the guard runtime deps the src tree imports
 - **UI**: ship icon subset font and show commit counts on changelog cards
 - **UI**: show long operations in a ProgressCard banner
 
