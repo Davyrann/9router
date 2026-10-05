@@ -39,6 +39,9 @@ export default function HeaderMenu({ onLogout }) {
   // no control over it at all.
   const role = useSessionStore((state) => state.role);
   const canChangeTheme = role !== "apikey";
+  // Same rule as the theme row: a key session is a guest, not an operator, so
+  // it never sees the control (the route refuses it anyway).
+  const canShutdown = role !== "apikey";
   const [isOpen, setIsOpen] = useState(false);
   const [changelogOpen, setChangelogOpen] = useState(false);
   const [themeModalOpen, setThemeModalOpen] = useState(false);
@@ -96,12 +99,14 @@ export default function HeaderMenu({ onLogout }) {
                 onClick={() => { close(); setThemeModalOpen(true); }}
               />
             )}
-            <MenuItem
-              icon="power_settings_new"
-              label="Shutdown"
-              danger
-              onClick={() => { close(); setShutdownOpen(true); }}
-            />
+            {canShutdown && (
+              <MenuItem
+                icon="power_settings_new"
+                label="Shutdown"
+                danger
+                onClick={() => { close(); setShutdownOpen(true); }}
+              />
+            )}
             <MenuItem
               icon="logout"
               label="Logout"

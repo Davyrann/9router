@@ -1,3 +1,8 @@
+# v0.5.159 (2026-10-05) · 1 commit
+
+## Fixes
+- **Auth**: refuse shutdown and live-update for API key sessions; hide the controls too
+
 # v0.5.158 (2026-10-04) · 25 commits
 
 ## Features
