@@ -151,36 +151,3 @@ export async function getUnreadCount() {
   const row = db.get(`SELECT COUNT(*) AS n FROM notifications WHERE readAt IS NULL AND clearedAt IS NULL`);
   return Number(row?.n || 0);
 }
-
-/**
- * Retire every live notification of `kind` whose dedupeKey is not in `liveKeys`
- * anymore. A condition that stops being true stops nagging, and the row stays
- * in the table so a relapse is announced as a fresh entry.
- *
- * `liveKeys` are the strings passed to notify() as dedupeKey (notify() adds the
- * `kind:` prefix when it stores them).
- */
-export async function clearStaleOfKind(kind, liveKeys) {
-  const db = await getAdapter();
-  ensureTable(db);
-  const rows = db.all(
-    `SELECT dedupeKey FROM notifications
-      WHERE kind = ? AND clearedAt IS NULL AND dedupeKey IS NOT NULL`,
-    [kind],
-  );
-  if (!rows.length) return { cleared: 0 };
-
-  const live = new Set(Array.from(liveKeys || []).map((k) => `${kind}:${k}`));
-  const now = new Date().toISOString();
-  let cleared = 0;
-  for (const row of rows) {
-    if (live.has(row.dedupeKey)) continue;
-    db.run(`UPDATE notifications SET clearedAt = ?, readAt = COALESCE(readAt, ?) WHERE dedupeKey = ?`, [
-      now,
-      now,
-      row.dedupeKey,
-    ]);
-    cleared += 1;
-  }
-  return { cleared };
-}
