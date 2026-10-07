@@ -1,4 +1,4 @@
-# v0.5.161 (2026-10-07) · 3 commits
+# v0.5.161 (2026-10-07) · 4 commits
 
 ## Features
 - **Dashboard**: add inbox error listing failed requests
@@ -6,6 +6,7 @@
 
 ## Fixes
 - **Security log**: stop probe signatures from swallowing sign-in events
+- **UI**: scroll the update banner with the page and use English copy in the error inbox
 
 # v0.5.160 (2026-10-07) · 1 commit
 

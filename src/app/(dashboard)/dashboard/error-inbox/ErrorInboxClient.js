@@ -68,7 +68,7 @@ export default function ErrorInboxClient() {
           <p className="text-sm text-gray-400 mt-1">
             {loading
               ? "Loading…"
-              : `${openCount} error menunggu, ${items.length - openCount} sudah ditangani`}
+              : `${openCount} open, ${items.length - openCount} handled`}
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -77,7 +77,7 @@ export default function ErrorInboxClient() {
             onChange={(e) => setStatusFilter(e.target.value)}
             className="text-sm bg-white/5 border border-white/10 rounded-md px-2 py-1.5 text-gray-300"
           >
-            <option value="">Semua status</option>
+            <option value="">All statuses</option>
             {facets.map((f) => (
               <option key={f.status} value={f.status}>
                 {f.status} ({f.count})
@@ -85,20 +85,20 @@ export default function ErrorInboxClient() {
             ))}
           </select>
           <Button onClick={() => setShowResolved((v) => !v)} variant="secondary" size="sm">
-            {showResolved ? "Sembunyikan yang selesai" : "Tampilkan yang selesai"}
+            {showResolved ? "Hide resolved" : "Show resolved"}
           </Button>
           <Button onClick={load} variant="secondary" size="sm">
-            Muat ulang
+            Reload
           </Button>
         </div>
       </div>
 
       <Card className="p-0">
         {loading ? (
-          <div className="p-8 text-center text-gray-500">Memuat error…</div>
+          <div className="p-8 text-center text-gray-500">Loading errors…</div>
         ) : visible.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
-            Bersih — tidak ada error yang cocok.
+            No errors match the current filter.
           </div>
         ) : (
           <div className="divide-y divide-white/5">
@@ -126,7 +126,7 @@ export default function ErrorInboxClient() {
                   variant={item.resolved ? "secondary" : "primary"}
                   size="sm"
                 >
-                  {item.resolved ? "Buka lagi" : "Tandai beres"}
+                  {item.resolved ? "Reopen" : "Mark as handled"}
                 </Button>
               </div>
             ))}
