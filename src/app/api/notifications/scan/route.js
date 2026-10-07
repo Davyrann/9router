@@ -3,7 +3,9 @@ import { cookies } from "next/headers";
 import { getDashboardAuthSession } from "@/lib/auth/dashboardSession";
 import { getUpdateInfo } from "@/lib/updateCheck";
 import { getApiKeys } from "@/lib/db/repos/apiKeysRepo.js";
-import { notify, clearNotificationByKind } from "@/lib/db/repos/notificationsRepo.js";
+import { getErrorGroups } from "@/lib/db/repos/notifyConditionsRepo.js";
+import { getSecurityEvents } from "@/lib/db/repos/securityLogRepo.js";
+import { notify, clearNotificationByKind, clearStaleOfKind } from "@/lib/db/repos/notificationsRepo.js";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +24,15 @@ function quotaState(key) {
   if (pct >= 1) return { level: "critical", pct };
   if (pct >= 0.9) return { level: "warning", pct };
   return null;
+}
+
+// One fluke 400 is noise — a pattern of them is the signal.
+const MIN_REPEATS = 3;
+
+function errorSeverity(status) {
+  const code = parseInt(status, 10);
+  if (code >= 500 || code === 401 || code === 429) return "error";
+  return "warning";
 }
 
 export async function GET() {
@@ -80,6 +91,54 @@ export async function GET() {
         await clearNotificationByKind("quota", `quota:${key.id}:critical`);
       }
     }
+
+    // --- failed requests, grouped ---
+    // A window of a week, not a day: this is a "what has been failing on this
+    // install" digest, and one bad afternoon should still be visible tomorrow.
+    // A group has to repeat before it is worth a bell entry.
+    const errorWindowMs = 7 * 24 * 60 * 60 * 1000;
+    const errorGroups = await getErrorGroups(errorWindowMs);
+    const errorSeen = new Set();
+    for (const group of errorGroups) {
+      if (group.count < MIN_REPEATS) continue;
+      errorSeen.add(`errorgroup:${group.key}`);
+      await notify({
+        kind: "error",
+        severity: errorSeverity(group.status),
+        title: `${group.count}× ${group.status} from ${group.provider}`,
+        body: `Last seen ${new Date(group.lastAt).toLocaleString()}.`,
+        link: "/dashboard/error-inbox",
+        dedupeKey: `errorgroup:${group.key}`,
+      });
+      created.push(`error:${group.key}`);
+    }
+    await clearStaleOfKind("error", errorSeen);
+
+    // --- security signals ---
+    // Only breach-grade events interrupt. Routine sign-ins stay in the log; the
+    // bell is for things somebody should look at now.
+    const securityWindowMs = 24 * 60 * 60 * 1000;
+    const events = await getSecurityEvents({ limit: 200 });
+    const cutoff = Date.now() - securityWindowMs;
+    const securitySeen = new Set();
+    for (const event of events) {
+      if (new Date(event.at).getTime() < cutoff) continue;
+      if (event.level === "info") continue;
+      // One entry per (type, ip): a probe storm is one problem, not fifty.
+      const key = `${event.type}|${event.ip}`;
+      if (securitySeen.has(`security:${key}`)) continue;
+      securitySeen.add(`security:${key}`);
+      await notify({
+        kind: "security",
+        severity: event.level === "critical" ? "error" : "warning",
+        title: event.label,
+        body: `${event.ip}${event.detail ? ` — ${event.detail}` : ""}`,
+        link: "/dashboard/security-log",
+        dedupeKey: `security:${key}`,
+      });
+      created.push(`security:${key}`);
+    }
+    await clearStaleOfKind("security", securitySeen);
   } catch (error) {
     // Deriving conditions must never break the dashboard.
     console.warn("[notifications] scan failed:", error?.message || error);

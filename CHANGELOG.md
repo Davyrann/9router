@@ -1,3 +1,9 @@
+# v0.5.161 (2026-10-07) · 2 commits
+
+## Features
+- **Dashboard**: add inbox error listing failed requests
+- **Notifications**: surface failed requests and security events in the bell
+
 # v0.5.160 (2026-10-07) · 1 commit
 
 ## Features

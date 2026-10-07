@@ -36,10 +36,10 @@ const workshopItems = [
   { href: "/dashboard/prd-builder", label: "PRD Builder", icon: "description" },
 ];
 
+// Security Log and Inbox Error live in the bell, not the menu — they are
+// conditions to review, not places you visit to work.
 const debugItems = [
   { href: "/dashboard/console-log", label: "Console Log", icon: "monitor" },
-  { href: "/dashboard/error-inbox", label: "Inbox Error", icon: "report" },
-  { href: "/dashboard/security-log", label: "Security Log", icon: "shield" },
   { href: "/dashboard/translator", label: "Translator", icon: "translate" },
 ];
 
