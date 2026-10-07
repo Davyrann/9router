@@ -38,6 +38,7 @@ const workshopItems = [
 
 const debugItems = [
   { href: "/dashboard/console-log", label: "Console Log", icon: "monitor" },
+  { href: "/dashboard/error-inbox", label: "Inbox Error", icon: "report" },
   { href: "/dashboard/security-log", label: "Security Log", icon: "shield" },
   { href: "/dashboard/translator", label: "Translator", icon: "translate" },
 ];

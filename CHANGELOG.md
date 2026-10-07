@@ -1,3 +1,8 @@
+# v0.5.160 (2026-10-07) · 1 commit
+
+## Features
+- **Dashboard**: add inbox error listing failed requests
+
 # v0.5.159 (2026-10-05) · 1 commit
 
 ## Fixes
