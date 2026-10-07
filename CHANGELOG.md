@@ -1,8 +1,11 @@
-# v0.5.161 (2026-10-07) · 2 commits
+# v0.5.161 (2026-10-07) · 3 commits
 
 ## Features
 - **Dashboard**: add inbox error listing failed requests
 - **Notifications**: surface failed requests and security events in the bell
+
+## Fixes
+- **Security log**: stop probe signatures from swallowing sign-in events
 
 # v0.5.160 (2026-10-07) · 1 commit
 
