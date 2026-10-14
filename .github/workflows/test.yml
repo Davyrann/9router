@@ -1,0 +1,71 @@
+name: Test
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Unit + translator suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Install app deps
+        run: npm install --no-audit --no-fund
+
+      - name: Install test deps
+        run: npm install --no-audit --no-fund
+        working-directory: tests
+
+      # Run from the repo root: several tests resolve src/** via process.cwd().
+      # RUN_REAL stays unset, so the real-provider/network suites skip.
+      - name: Run test suite
+        id: vitest
+        continue-on-error: true
+        run: >
+          npx vitest run
+          --config tests/vitest.config.js
+          --reporter=json
+          --outputFile=${{ runner.temp }}/ci-results.json
+
+      # Known failures live in tests/__baseline__/known-fails.txt.
+      # The job fails only when a test that passed in the baseline breaks.
+      - name: Gate against known failures
+        run: node tests/__baseline__/verify-no-regression.mjs "${{ runner.temp }}/ci-results.json"
+
+      - name: Upload JSON report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: ${{ runner.temp }}/ci-results.json
+          if-no-files-found: ignore
+
+  build:
+    name: Next build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Install app deps
+        run: npm install --no-audit --no-fund
+
+      - name: Build
+        run: npm run build
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+          NEXT_TELEMETRY_DISABLED: "1"

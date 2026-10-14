@@ -42,11 +42,28 @@ function buildUsageMap(connections = []) {
 }
 
 // GET /api/proxy-pools - List proxy pools
+// Optional pagination: page (>=1), pageSize (1-100). When either is present the
+// response is sliced and includes a `pagination` block; without them the full
+// list is returned (backwards compatible with existing consumers).
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const isActive = toBoolean(searchParams.get("isActive"));
     const includeUsage = searchParams.get("includeUsage") === "true";
+
+    const pageRaw = parseInt(searchParams.get("page"), 10);
+    const pageSizeRaw = parseInt(searchParams.get("pageSize"), 10);
+    const paginated = !Number.isNaN(pageRaw) || !Number.isNaN(pageSizeRaw);
+    const page = Number.isNaN(pageRaw) ? 1 : pageRaw;
+    const pageSize = Number.isNaN(pageSizeRaw) ? 20 : pageSizeRaw;
+
+    if (paginated && page < 1) {
+      return NextResponse.json({ error: "Page must be >= 1" }, { status: 400 });
+    }
+
+    if (paginated && (pageSize < 1 || pageSize > 100)) {
+      return NextResponse.json({ error: "PageSize must be between 1 and 100" }, { status: 400 });
+    }
 
     const filter = {};
     if (isActive !== undefined) {
@@ -55,19 +72,28 @@ export async function GET(request) {
 
     const proxyPools = await getProxyPools(filter);
 
-    if (!includeUsage) {
-      return NextResponse.json({ proxyPools });
+    let results = proxyPools;
+    if (includeUsage) {
+      const connections = await getProviderConnections();
+      const usageMap = buildUsageMap(connections);
+
+      results = proxyPools.map((pool) => ({
+        ...pool,
+        boundConnectionCount: usageMap.get(pool.id) || 0,
+      }));
     }
 
-    const connections = await getProviderConnections();
-    const usageMap = buildUsageMap(connections);
+    if (!paginated) {
+      return NextResponse.json({ proxyPools: results });
+    }
 
-    const enrichedProxyPools = proxyPools.map((pool) => ({
-      ...pool,
-      boundConnectionCount: usageMap.get(pool.id) || 0,
-    }));
+    const totalPages = Math.max(1, Math.ceil(results.length / pageSize));
+    const activeCount = (await getProxyPools({ isActive: true })).length;
 
-    return NextResponse.json({ proxyPools: enrichedProxyPools });
+    return NextResponse.json({
+      proxyPools: results.slice((page - 1) * pageSize, page * pageSize),
+      pagination: { page, pageSize, total: results.length, totalPages, activeCount },
+    });
   } catch (error) {
     console.log("Error fetching proxy pools:", error);
     return NextResponse.json({ error: "Failed to fetch proxy pools" }, { status: 500 });

@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { Badge, Button, Card, CardSkeleton, Input, Modal, Toggle, ConfirmModal } from "@/shared/components";
+import Pagination from "@/shared/components/Pagination";
 import { useNotificationStore } from "@/store/notificationStore";
 
 function getStatusVariant(status) {
@@ -49,6 +50,7 @@ export default function ProxyPoolsPage() {
   const [deploying, setDeploying] = useState(false);
   const [testingId, setTestingId] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
+  const [pagination, setPagination] = useState({ page: 1, pageSize: 20, total: 0, totalPages: 1, activeCount: 0 });
   const [healthChecking, setHealthChecking] = useState(false);
   const [healthProgress, setHealthProgress] = useState({ current: 0, total: 0 });
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -70,17 +72,29 @@ export default function ProxyPoolsPage() {
 
   const fetchProxyPools = useCallback(async () => {
     try {
-      const res = await fetch("/api/proxy-pools?includeUsage=true", { cache: "no-store" });
+      const params = new URLSearchParams({
+        includeUsage: "true",
+        page: String(pagination.page),
+        pageSize: String(pagination.pageSize),
+      });
+      const res = await fetch(`/api/proxy-pools?${params}`, { cache: "no-store" });
       const data = await res.json();
       if (res.ok) {
         setProxyPools(data.proxyPools || []);
+        if (data.pagination) {
+          setPagination((prev) => ({ ...prev, ...data.pagination }));
+          // Page shrank (delete/bulk ops): jump back to the last valid page.
+          if (data.pagination.total > 0 && data.pagination.page > data.pagination.totalPages) {
+            setPagination((prev) => ({ ...prev, page: data.pagination.totalPages }));
+          }
+        }
       }
     } catch (error) {
       console.log("Error fetching proxy pools:", error);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [pagination.page, pagination.pageSize]);
 
   useEffect(() => {
     fetchProxyPools();
@@ -151,7 +165,7 @@ export default function ProxyPoolsPage() {
         try {
           const res = await fetch(`/api/proxy-pools/${proxyPool.id}`, { method: "DELETE" });
           if (res.ok) {
-            setProxyPools((prev) => prev.filter((item) => item.id !== proxyPool.id));
+            await fetchProxyPools();
             notify.success("Proxy pool deleted");
             return;
           }
@@ -210,10 +224,17 @@ export default function ProxyPoolsPage() {
     }
   };
 
-  const allSelected = proxyPools.length > 0 && selectedIds.length === proxyPools.length;
+  const pageIds = proxyPools.map((p) => p.id);
+  const allSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id));
   const toggleSelect = (id) => setSelectedIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
-  const toggleSelectAll = () => setSelectedIds(allSelected ? [] : proxyPools.map((p) => p.id));
+  const toggleSelectAll = () => setSelectedIds((prev) => (
+    allSelected
+      ? prev.filter((id) => !pageIds.includes(id))
+      : [...new Set([...prev, ...pageIds])]
+  ));
   const clearSelection = () => setSelectedIds([]);
+  const handlePageChange = (page) => setPagination((prev) => ({ ...prev, page }));
+  const handlePageSizeChange = (pageSize) => setPagination((prev) => ({ ...prev, pageSize, page: 1 }));
 
   const bulkSetActive = async (isActive) => {
     const targets = selectedIds.length > 0 ? selectedIds : proxyPools.map((p) => p.id);
@@ -267,9 +288,17 @@ export default function ProxyPoolsPage() {
   };
 
   const handleHealthCheck = async () => {
-    const targets = selectedIds.length > 0
-      ? proxyPools.filter((p) => selectedIds.includes(p.id))
-      : proxyPools;
+    let targets = proxyPools;
+    if (selectedIds.length > 0) {
+      // Selection can span pages; resolve pool objects from the full list.
+      try {
+        const res = await fetch("/api/proxy-pools", { cache: "no-store" });
+        const data = await res.json();
+        targets = (data.proxyPools || []).filter((p) => selectedIds.includes(p.id));
+      } catch {
+        targets = proxyPools.filter((p) => selectedIds.includes(p.id));
+      }
+    }
     if (targets.length === 0) return;
     setHealthChecking(true);
     setHealthProgress({ current: 0, total: targets.length });
@@ -550,8 +579,11 @@ export default function ProxyPoolsPage() {
 
     setImporting(true);
     try {
+      // Dedupe against ALL pools, not just the current page.
+      const allRes = await fetch("/api/proxy-pools", { cache: "no-store" });
+      const allData = allRes.ok ? await allRes.json() : { proxyPools: [] };
       const existingKeys = new Set(
-        proxyPools.map((pool) => `${(pool.proxyUrl || "").trim()}|||${(pool.noProxy || "").trim()}`)
+        (allData.proxyPools || proxyPools).map((pool) => `${(pool.proxyUrl || "").trim()}|||${(pool.noProxy || "").trim()}`)
       );
 
       let created = 0;
@@ -594,11 +626,6 @@ export default function ProxyPoolsPage() {
       setImporting(false);
     }
   };
-
-  const activeCount = useMemo(
-    () => proxyPools.filter((pool) => pool.isActive === true).length,
-    [proxyPools]
-  );
 
   if (loading) {
     return (
@@ -696,15 +723,15 @@ export default function ProxyPoolsPage() {
               {allSelected ? "Unselect all" : "Select all"}
             </label>
           )}
-          <Badge variant="default">Total: {proxyPools.length}</Badge>
-          <Badge variant="success">Active: {activeCount}</Badge>
+          <Badge variant="default">Total: {pagination.total}</Badge>
+          <Badge variant="success">Active: {pagination.activeCount}</Badge>
         </div>
 
         {(selectedIds.length > 0 || healthChecking) && (
           <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
             <span className="material-symbols-outlined text-[18px] text-primary">checklist</span>
             <span className="text-xs font-medium text-primary">
-              {selectedIds.length > 0 ? `${selectedIds.length} selected` : "All pools"}
+              {selectedIds.length > 0 ? `${selectedIds.length} selected` : `Page ${pagination.page} (${proxyPools.length})`}
             </span>
             <div className="ml-auto flex flex-wrap items-center gap-2">
               <Button
@@ -828,6 +855,17 @@ export default function ProxyPoolsPage() {
               </div>
             ))}
           </div>
+        )}
+
+        {pagination.total > 0 && (
+          <Pagination
+            currentPage={pagination.page}
+            pageSize={pagination.pageSize}
+            totalItems={pagination.total}
+            onPageChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
+            className="border-t border-black/[0.04] dark:border-white/[0.05] px-0"
+          />
         )}
       </Card>
 
