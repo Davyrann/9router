@@ -1,5 +1,5 @@
-// Gate: so kết quả test hiện tại với baseline known-fails.
-// PASS nếu KHÔNG có test nào pass(baseline) → fail(now). Test mới được phép.
+// Gate: compare current vitest JSON results with baseline known-fails.
+// PASS when no test that PASSED in the baseline now FAILS. New tests are allowed.
 // Usage: node tests/__baseline__/verify-no-regression.mjs <current-results.json>
 import { readFileSync } from "fs";
 
@@ -20,13 +20,17 @@ const relPath = (p) => {
   const i = norm.indexOf("tests/");
   return i >= 0 ? norm.slice(i) : norm;
 };
+const stripFingerprint = (s) => s.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, "<UUID>");
+
 const nowFails = r.testResults.flatMap(f =>
   f.assertionResults.filter(a => a.status === "failed")
-    .map(a => relPath(f.name) + " :: " + a.fullName)
+    .map(a => relPath(f.name) + " :: " + stripFingerprint(a.fullName))
 );
 
-// Regression = fail bây giờ NHƯNG không có trong baseline known-fails
-const regressions = nowFails.filter(f => !knownFails.has(f));
+// Regression = fails now but NOT in baseline known-fails (match on raw or
+// fingerprint-stripped full names).
+const knownRaw = new Set([...knownFails].map(stripFingerprint));
+const regressions = nowFails.filter(f => !knownFails.has(f) && !knownRaw.has(f));
 
 if (regressions.length) {
   console.error(`\n❌ REGRESSION: ${regressions.length} test pass→fail:\n`);
