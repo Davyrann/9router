@@ -18,6 +18,7 @@ import {
   stableSessionId,
   deriveRequestId,
 } from "../../open-sse/executors/opencode.js";
+import { OPENCODE_FINGERPRINT_TOOLS } from "../../open-sse/utils/opencodeFingerprint.js";
 
 function makeCredentials(overrides = {}) {
   return {
@@ -277,7 +278,7 @@ describe("OpenCode Stable Session Reuse (429 follow-up)", () => {
     expect(second).toBe(first);
   });
 
-  it("applies the full lowercase free-tier fingerprint quartet", () => {
+  it("applies the full lowercase free-tier fingerprint tool set", () => {
   const executor = getExecutor("opencode");
 
   const chatNoTools = executor.transformRequest("nemotron-3-ultra-free", {
@@ -286,7 +287,7 @@ describe("OpenCode Stable Session Reuse (429 follow-up)", () => {
   expect(chatNoTools.stream).toBe(true);
   expect(chatNoTools.tool_choice).toBe("none");
   expect(chatNoTools.tools.map((t) => t.function?.name)).toEqual([
-    "bash", "glob", "grep", "read",
+    ...OPENCODE_FINGERPRINT_TOOLS,
   ]);
 
   const chatWithTools = executor.transformRequest("nemotron-3-ultra-free", {
@@ -301,7 +302,9 @@ describe("OpenCode Stable Session Reuse (429 follow-up)", () => {
   });
   expect(chatWithTools.tool_choice).toBe("auto");
   expect(chatWithTools.tools.map((t) => t.function?.name)).toEqual([
+    // Client-supplied quartet keeps its positions; missing members append after.
     "bash", "glob", "grep", "read",
+    ...OPENCODE_FINGERPRINT_TOOLS.filter((name) => !["bash", "glob", "grep", "read"].includes(name)),
   ]);
 
   const chatPartial = executor.transformRequest("nemotron-3-ultra-free", {
@@ -312,7 +315,8 @@ describe("OpenCode Stable Session Reuse (429 follow-up)", () => {
     ],
   });
   expect(chatPartial.tools.map((t) => t.function?.name)).toEqual([
-    "bash", "read", "glob", "grep",
+    "bash", "read",
+    ...OPENCODE_FINGERPRINT_TOOLS.filter((name) => name !== "bash" && name !== "read"),
   ]);
   expect(chatPartial.tools[0].function.description).toBe("existing");
 });
