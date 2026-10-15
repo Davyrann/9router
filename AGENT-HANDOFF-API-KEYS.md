@@ -13,7 +13,7 @@ session (or agent) picks up exact state.
 | 2 | Inline rename + search | 0.6.2 | DONE (local, unpushed) |
 | 3 | Key expiry | 0.7.0 | DONE (local, unpushed) |
 | 4 | Per-key quota | 0.8.0 | DONE (local, unpushed) |
-| 5 | Pill-style info + handoff | — | TODO |
+| 5 | Pill-style info + handoff | — | DONE (local, unpushed) |
 
 ## Step 1 notes (done)
 
@@ -94,14 +94,22 @@ session (or agent) picks up exact state.
   (blocks live inside that condition in every handler). ponytail: lift both
   checks out of the block if keyless mode should still honor per-key limits.
 
-## Step 5 notes (todo — final polish)
+## Step 5 notes (done)
 
-- Convert the key-row info into pill/badge style so it stands out: usage line,
-  Stale, expiry, quota, paused — currently plain text + one-off badges.
-  Idea: bordered rounded-full chips with subtle tinted backgrounds in one
-  wrap row under the key name; icons from `material-symbols-outlined`.
-- Keep mobile stacking (`flex-wrap`); verify at ~390px.
-- Update this table + push everything at the end.
+- `Pill` component (module scope in `EndpointPageClient.js`): rounded-full
+  bordered chip with tone variants (neutral/info/warn/error/success/paused) and
+  optional material icon. Key row now shows one wrap row of pills:
+  created date (calendar), usage `N req · X tok · ago` (sky) or "No usage yet",
+  expiry (schedule/timer_off, amber ≤7d, red when expired), Paused, and a
+  clickable Stale pill that pauses the key.
+- Quota pill always visible: **Unlimited** (neutral, click = open set form) by
+  default, `N/M per day|month` (green donut / red block when spent) once set —
+  no manual setup needed to see quota state. Progress bar + Reset/Edit sit
+  below the pills only while a quota is active.
+- Verified in browser: all pills render; test quota (100/daily) cleared after
+  the screenshot so the DB stays in default state.
+- Changelog bullet appended under v0.8.0 (0.8.0 not pushed yet, so the quota +
+  pill changes ship together).
 
 ## Shared conventions
 

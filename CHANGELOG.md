@@ -2,6 +2,7 @@
 
 ## Features
 - **API Keys**: per-key quotas — set a daily or monthly request limit per key, watch a progress bar with reset/edit controls, and have requests over the limit answered with 429 (lazy window reset, counted atomically with usage recording)
+- **API Keys**: pill-style key metadata — created date, usage, expiry, paused/stale and quota render as colored badges so status stands out at a glance
 
 # v0.7.0 (2026-10-15)
 

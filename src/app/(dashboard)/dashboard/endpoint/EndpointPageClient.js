@@ -5,6 +5,7 @@ import PropTypes from "prop-types";
 import { Card, Button, Input, Modal, CardSkeleton, Toggle, ConfirmModal } from "@/shared/components";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { useTimezone } from "@/shared/hooks/useTimezone";
+import { cn } from "@/shared/utils/cn";
 import {
   TUNNEL_BENEFITS,
   TUNNEL_PING_INTERVAL_MS,
@@ -63,6 +64,27 @@ function expiryLabel(key) {
   const d = Math.ceil(ms / 86400000);
   if (d > 30) return { text: `expires ${new Date(key.expiresAt).toLocaleDateString()}`, variant: "muted" };
   return { text: `expires in ${d}d`, variant: d <= 7 ? "warn" : "muted" };
+}
+
+// Small rounded badge for key-row metadata — makes usage/expiry/status stand out.
+function Pill({ tone = "neutral", icon, title, children }) {
+  return (
+    <span
+      title={title}
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium",
+        tone === "neutral" && "border-border bg-surface-2 text-text-muted",
+        tone === "info" && "border-sky-500/30 bg-sky-500/10 text-sky-500",
+        tone === "warn" && "border-amber-500/30 bg-amber-500/10 text-amber-500",
+        tone === "error" && "border-red-500/30 bg-red-500/10 text-red-500",
+        tone === "success" && "border-emerald-500/30 bg-emerald-500/10 text-emerald-500",
+        tone === "paused" && "border-orange-500/30 bg-orange-500/10 text-orange-500"
+      )}
+    >
+      {icon && <span className="material-symbols-outlined text-[13px] leading-none">{icon}</span>}
+      {children}
+    </span>
+  );
 }
 
 export default function APIPageClient({ machineId }) {
@@ -1231,41 +1253,62 @@ export default function APIPageClient({ machineId }) {
                       </button>
                     </div>
                   </div>
-                  <p className="text-xs text-text-muted mt-1">
-                    Created {fmtDate(key.createdAt)}
+                  {/* Key metadata as pills */}
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                    <Pill icon="calendar_today" title={`Created ${fmtDate(key.createdAt)}`}>
+                      {fmtDate(key.createdAt)}
+                    </Pill>
+                    <Pill
+                      icon={key.usage ? "query_stats" : "hourglass_empty"}
+                      tone={key.usage ? "info" : "neutral"}
+                      title={key.usage ? "requests · total tokens · last used" : "No requests recorded yet"}
+                    >
+                      {key.usage
+                        ? `${key.usage.requests} req · ${fmtTokens((key.usage.promptTokens || 0) + (key.usage.completionTokens || 0))} tok · ${fmtRelative(key.usage.lastUsed)}`
+                        : "No usage yet"}
+                    </Pill>
                     {keyExpiry && (
-                      <>
-                        {" · "}
-                        <span className={keyExpiry.variant === "error" ? "text-red-500" : keyExpiry.variant === "warn" ? "text-amber-500" : "text-text-muted"}>
-                          {keyExpiry.text}
-                        </span>
-                      </>
-                    )}
-                  </p>
-                  <p className="text-xs text-text-muted mt-0.5">
-                    {key.usage
-                      ? `${key.usage.requests} request${key.usage.requests === 1 ? "" : "s"} · ${fmtTokens((key.usage.promptTokens || 0) + (key.usage.completionTokens || 0))} tokens · last used ${fmtRelative(key.usage.lastUsed)}`
-                      : "No usage yet"}
-                  </p>
-                  {isKeyStale(key) && key.isActive !== false && (
-                    <div className="mt-1 flex flex-wrap items-center gap-2">
-                      <span
-                        className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-500"
-                        title={key.usage ? "Unused for over 90 days" : "Created over 90 days ago and never used"}
+                      <Pill
+                        icon={keyExpiry.variant === "error" ? "timer_off" : "schedule"}
+                        tone={keyExpiry.variant === "error" ? "error" : keyExpiry.variant === "warn" ? "warn" : "neutral"}
+                        title={`Expires ${key.expiresAt ? new Date(key.expiresAt).toLocaleString() : ""}`}
                       >
-                        Stale
-                      </span>
+                        {keyExpiry.text}
+                      </Pill>
+                    )}
+                    {key.isActive === false && (
+                      <Pill tone="paused" icon="pause_circle">Paused</Pill>
+                    )}
+                    {isKeyStale(key) && key.isActive !== false && (
                       <button
                         onClick={() => handleToggleKey(key.id, false)}
-                        className="text-xs text-text-muted underline hover:text-amber-500 transition-colors"
+                        title={key.usage ? "Unused for over 90 days — click to pause" : "Created over 90 days ago and never used — click to pause"}
+                        className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-500 transition-colors hover:bg-amber-500/20"
                       >
-                        Pause
+                        <span className="material-symbols-outlined text-[13px] leading-none">warning</span>
+                        Stale · pause
                       </button>
-                    </div>
-                  )}
-                  {key.isActive === false && (
-                    <p className="text-xs text-orange-500 mt-1">Paused</p>
-                  )}
+                    )}
+                    {/* Quota always visible: Unlimited by default, click to set */}
+                    {key.quotaLimit ? (
+                      <Pill
+                        icon={(key.quotaUsed || 0) >= key.quotaLimit ? "block" : "donut_small"}
+                        tone={(key.quotaUsed || 0) >= key.quotaLimit ? "error" : "success"}
+                        title="Quota used this window"
+                      >
+                        {key.quotaUsed || 0}/{key.quotaLimit} {key.quotaWindow === "monthly" ? "per month" : "per day"}
+                      </Pill>
+                    ) : (
+                      <button
+                        onClick={() => setQuotaEditing({ id: key.id, limit: "", window: "daily" })}
+                        title="Unlimited requests — click to set a quota"
+                        className="inline-flex items-center gap-1 rounded-full border border-border bg-surface-2 px-2 py-0.5 text-xs font-medium text-text-muted transition-colors hover:border-primary/40 hover:text-primary"
+                      >
+                        <span className="material-symbols-outlined text-[13px] leading-none">all_inclusive</span>
+                        Unlimited
+                      </button>
+                    )}
+                  </div>
                   <KeyAccessControls
                     apiKey={key}
                     onChange={(access) => handleUpdateKeyAccess(key.id, access)}
@@ -1279,7 +1322,7 @@ export default function APIPageClient({ machineId }) {
                     })}
                   />
 
-                  {/* Per-key quota */}
+                  {/* Quota controls (pill lives in the metadata row above) */}
                   {quotaEditing?.id === key.id ? (
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       <Input
@@ -1326,9 +1369,6 @@ export default function APIPageClient({ machineId }) {
                           style={{ width: `${Math.min(100, ((key.quotaUsed || 0) / key.quotaLimit) * 100)}%` }}
                         />
                       </div>
-                      <span className={`text-xs font-medium ${(key.quotaUsed || 0) >= key.quotaLimit ? "text-red-500" : "text-text-muted"}`}>
-                        {key.quotaUsed || 0}/{key.quotaLimit} {key.quotaWindow === "monthly" ? "per month" : "per day"}
-                      </span>
                       <button
                         onClick={() => resetQuota(key.id)}
                         className="text-xs text-text-muted underline hover:text-primary"
@@ -1343,14 +1383,7 @@ export default function APIPageClient({ machineId }) {
                         Edit
                       </button>
                     </div>
-                  ) : (
-                    <button
-                      onClick={() => setQuotaEditing({ id: key.id, limit: "", window: "daily" })}
-                      className="mt-2 text-xs text-text-muted underline hover:text-primary transition-colors"
-                    >
-                      + Quota
-                    </button>
-                  )}
+                  ) : null}
                 </div>
                 <div className="flex items-center gap-2 shrink-0 pt-0.5 sm:ml-auto">
                   <Toggle
