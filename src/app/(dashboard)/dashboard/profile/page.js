@@ -20,6 +20,10 @@ function getLocaleFromCookie() {
   return normalizeLocale(value);
 }
 
+// Select placeholder uses value="" (disabled), so "Browser default" needs a
+// non-empty sentinel to stay selectable.
+const TZ_BROWSER = "browser";
+
 export default function ProfilePage() {
   const { theme, setTheme, isDark } = useTheme();
   const { timeZone, setTimeZone } = useTimezone();
@@ -92,24 +96,31 @@ export default function ProfilePage() {
   // Timezone options + live preview clock (tick state so preview recomputes each second)
   const tzOptions = useMemo(
     () => [
-      { value: "", label: "Browser default" },
+      { value: TZ_BROWSER, label: "Browser default" },
       ...listTimeZones().map((z) => ({ value: z, label: z.replace(/_/g, " ") })),
     ],
     []
   );
   const [tzTick, setTzTick] = useState(0);
   useEffect(() => {
-    const id = setInterval(() => setTzTick((t) => t + 1), 1000);
-    return () => clearInterval(id);
+    // Async callbacks (not sync setState in effect body) → no cascading render,
+    // and SSR/hydration both see tzTick=0 so the preview renders "—" identically.
+    const t = setTimeout(() => setTzTick(1), 0);
+    const id = setInterval(() => setTzTick((n) => n + 1), 1000);
+    return () => {
+      clearTimeout(t);
+      clearInterval(id);
+    };
   }, []);
   const tzPreview = useMemo(
     () =>
-      new Date().toLocaleString("en-GB", {
-        dateStyle: "medium",
-        timeStyle: "medium",
-        ...(timeZone ? { timeZone } : {}),
-      }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+      tzTick === 0
+        ? "" // server + first client render: stable placeholder, avoids hydration mismatch
+        : new Date().toLocaleString("en-GB", {
+            dateStyle: "medium",
+            timeStyle: "medium",
+            ...(timeZone ? { timeZone } : {}),
+          }),
     [timeZone, tzTick]
   );
 
@@ -901,8 +912,8 @@ export default function ProfilePage() {
           <div className="flex flex-col gap-3">
             <Select
               label="Display time zone"
-              value={timeZone}
-              onChange={(e) => setTimeZone(e.target.value)}
+              value={timeZone || TZ_BROWSER}
+              onChange={(e) => setTimeZone(e.target.value === TZ_BROWSER ? "" : e.target.value)}
               options={tzOptions}
               hint="Browser default follows this device's time zone."
             />
