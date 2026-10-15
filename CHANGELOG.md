@@ -1,3 +1,8 @@
+# v0.7.0 (2026-10-15)
+
+## Features
+- **API Keys**: optional key expiry — set an expiration date at creation, expired keys are rejected at the API layer, rows show an expiring/expired badge, and Created dates follow the display timezone
+
 # v0.6.2 (2026-10-15)
 
 ## Features

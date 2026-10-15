@@ -10,8 +10,8 @@ session (or agent) picks up exact state.
 | # | Step | Version | Status |
 |---|------|---------|--------|
 | 1 | Usage per key + stale badge | 0.6.1 | DONE (pushed) |
-| 2 | Inline rename + search | 0.6.2 | DONE (unpushed, in this branch) |
-| 3 | Key expiry | 0.7.0 | TODO |
+| 2 | Inline rename + search | 0.6.2 | DONE (pushed) |
+| 3 | Key expiry | 0.7.0 | DONE (unpushed, in this branch) |
 | 4 | Per-key quota | 0.8.0 | TODO |
 | 5 | This handoff doc | — | started |
 
@@ -47,16 +47,25 @@ session (or agent) picks up exact state.
 - Note: browser.evaluate cannot type into React inputs correctly (needs native
   value setter); use the `fill` browser tool for typing in future verification.
 
-## Step 3 notes (todo)
+## Step 3 notes (done)
 
-- Add `expiresAt TEXT` (nullable) to `apiKeys` in `src/lib/db/schema.js`
-  (`syncSchemaFromTables()` picks it up on boot; NULL = never expires).
-- Thread through `rowToKey` / `createApiKey` / `updateApiKey`; `POST` accepts
-  optional future-dated ISO; `PUT` sets/clears.
-- Enforcement in `isValidApiKey()` (`src/sse/services/auth.js`): expired → false.
-  All 6+ `/v1` handlers inherit this. Compare server-side (ISO UTC), never client time.
-- UI: expiry input in create modal + badge ("expires in 12d" amber / "expired" red);
-  format with `useFormatTime()` (replaces hard-coded `toLocaleDateString()` in row).
+- `SCHEMA_VERSION` 2 → 3 (`src/lib/db/schema.js`); `expiresAt TEXT` added to
+  `apiKeys`. Server must see it at boot — also applied directly to the local DB
+  via `ALTER TABLE` (no restart needed this time).
+- Threaded through `rowToKey` / `createApiKey(name, machineId, expiresAt)` /
+  `updateApiKey`. `POST /api/keys` accepts optional future-dated ISO (date input
+  anchored to end-of-day so timezone-UTC-midnight can't land in the past);
+  `PUT /api/keys/[id]` accepts `expiresAt`, `null`/`""` clears it.
+- Enforcement in `isValidApiKey()` (`src/sse/services/auth.js`): resolves full row
+  via `getApiKeyByKey`, rejects `expiresAt <= now`. All `/v1` handlers inherit.
+  Verified: expired key → 401 on `/v1/chat/completions`; active key → 404
+  (auth passed). Past-date PUT → 400.
+- UI (`EndpointPageClient.js`): optional `type="date"` input in create modal;
+  row shows `· expires in Nd` (amber ≤7d, muted otherwise, full date >30d) or
+  `expired … ago` (red). `Created` line now uses `useTimezone()` instead of
+  hard-coded `toLocaleDateString()`. Create-modal buttons stack on mobile.
+- Lint: `react/no-unescaped-entities` in the new no-match string fixed; rest
+  pre-existing.
 
 ## Step 4 notes (todo)
 

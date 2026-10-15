@@ -22,7 +22,7 @@ export async function PUT(request, { params }) {
   try {
     const { id } = await params;
     const body = await request.json();
-    const { isActive, access, name } = body;
+    const { isActive, access, name, expiresAt } = body;
 
     const existing = await getApiKeyById(id);
     if (!existing) {
@@ -41,6 +41,18 @@ export async function PUT(request, { params }) {
       const checked = validateKeyAccessInput(access);
       if (!checked.ok) return NextResponse.json({ error: checked.error }, { status: 400 });
       updateData.access = checked.value;
+    }
+    // Expiry: null/"" clears it, a future ISO sets it.
+    if (expiresAt !== undefined) {
+      if (expiresAt === null || expiresAt === "") {
+        updateData.expiresAt = null;
+      } else {
+        const t = new Date(expiresAt);
+        if (Number.isNaN(t.getTime()) || t.getTime() <= Date.now()) {
+          return NextResponse.json({ error: "Expiry must be a future date" }, { status: 400 });
+        }
+        updateData.expiresAt = t.toISOString();
+      }
     }
 
     const updated = await updateApiKey(id, updateData);

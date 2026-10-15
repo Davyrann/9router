@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import PropTypes from "prop-types";
 import { Card, Button, Input, Modal, CardSkeleton, Toggle, ConfirmModal } from "@/shared/components";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
+import { useTimezone } from "@/shared/hooks/useTimezone";
 import {
   TUNNEL_BENEFITS,
   TUNNEL_PING_INTERVAL_MS,
@@ -54,7 +55,21 @@ function isKeyStale(key) {
   return Date.now() - new Date(ref).getTime() > STALE_AFTER_MS;
 }
 
+// "expires in 12d" / "expired Nd ago" / null (no expiry set).
+function expiryLabel(key) {
+  if (!key.expiresAt) return null;
+  const ms = new Date(key.expiresAt).getTime() - Date.now();
+  if (ms <= 0) return { text: `expired ${fmtRelative(key.expiresAt).replace(" ago", "")} ago`, variant: "error" };
+  const d = Math.ceil(ms / 86400000);
+  if (d > 30) return { text: `expires ${new Date(key.expiresAt).toLocaleDateString()}`, variant: "muted" };
+  return { text: `expires in ${d}d`, variant: d <= 7 ? "warn" : "muted" };
+}
+
 export default function APIPageClient({ machineId }) {
+  const { timeZone } = useTimezone();
+  // Date-only in the user's display timezone (replaces hard-coded toLocaleDateString).
+  const fmtDate = (iso) =>
+    new Date(iso).toLocaleDateString(undefined, timeZone ? { timeZone } : undefined);
   const [keys, setKeys] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -63,6 +78,7 @@ export default function APIPageClient({ machineId }) {
   const [confirmState, setConfirmState] = useState(null);
   const [renaming, setRenaming] = useState({ id: null, name: "" });
   const [keySearch, setKeySearch] = useState("");
+  const [newKeyExpiry, setNewKeyExpiry] = useState("");
 
   const [requireApiKey, setRequireApiKey] = useState(false);
   const [requireLogin, setRequireLogin] = useState(true);
@@ -659,7 +675,12 @@ export default function APIPageClient({ machineId }) {
       const res = await fetch("/api/keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newKeyName }),
+        // A date input yields "YYYY-MM-DD" — Date parses it as UTC midnight,
+        // which is in the past for most timezones, so anchor to end-of-day.
+        body: JSON.stringify({
+          name: newKeyName,
+          ...(newKeyExpiry ? { expiresAt: `${newKeyExpiry}T23:59:59.999Z` } : {}),
+        }),
       });
       const data = await res.json();
 
@@ -667,6 +688,7 @@ export default function APIPageClient({ machineId }) {
         setCreatedKey(data.key);
         await fetchData();
         setNewKeyName("");
+        setNewKeyExpiry("");
         setShowAddModal(false);
       }
     } catch (error) {
@@ -1092,14 +1114,16 @@ export default function APIPageClient({ machineId }) {
           </div>
         ) : visibleKeysList.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-sm text-text-muted">No keys match "{keySearch}"</p>
+            <p className="text-sm text-text-muted">No keys match &quot;{keySearch}&quot;</p>
             <Button variant="ghost" size="sm" className="mt-2" onClick={() => setKeySearch("")}>
               Clear search
             </Button>
           </div>
         ) : (
           <div className="flex flex-col">
-            {visibleKeysList.map((key) => (
+            {visibleKeysList.map((key) => {
+              const keyExpiry = expiryLabel(key);
+              return (
               <div
                 key={key.id}
                 className={`group flex flex-col gap-3 py-3 border-b border-black/[0.03] dark:border-white/[0.03] last:border-b-0 sm:flex-row sm:items-start sm:justify-between ${key.isActive === false ? "opacity-60" : ""}`}
@@ -1162,7 +1186,15 @@ export default function APIPageClient({ machineId }) {
                     </div>
                   </div>
                   <p className="text-xs text-text-muted mt-1">
-                    Created {new Date(key.createdAt).toLocaleDateString()}
+                    Created {fmtDate(key.createdAt)}
+                    {keyExpiry && (
+                      <>
+                        {" · "}
+                        <span className={keyExpiry.variant === "error" ? "text-red-500" : keyExpiry.variant === "warn" ? "text-amber-500" : "text-text-muted"}>
+                          {keyExpiry.text}
+                        </span>
+                      </>
+                    )}
                   </p>
                   <p className="text-xs text-text-muted mt-0.5">
                     {key.usage
@@ -1229,7 +1261,8 @@ export default function APIPageClient({ machineId }) {
                   </button>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </Card>
@@ -1241,6 +1274,7 @@ export default function APIPageClient({ machineId }) {
         onClose={() => {
           setShowAddModal(false);
           setNewKeyName("");
+          setNewKeyExpiry("");
         }}
       >
         <div className="flex flex-col gap-4">
@@ -1250,7 +1284,14 @@ export default function APIPageClient({ machineId }) {
             onChange={(e) => setNewKeyName(e.target.value)}
             placeholder="Production Key"
           />
-          <div className="flex gap-2">
+          <Input
+            type="date"
+            label="Expires (optional)"
+            value={newKeyExpiry}
+            onChange={(e) => setNewKeyExpiry(e.target.value)}
+            hint="Leave empty for a key that never expires."
+          />
+          <div className="flex flex-col gap-2 sm:flex-row">
             <Button onClick={handleCreateKey} fullWidth disabled={!newKeyName.trim()}>
               Create
             </Button>
@@ -1258,6 +1299,7 @@ export default function APIPageClient({ machineId }) {
               onClick={() => {
                 setShowAddModal(false);
                 setNewKeyName("");
+                setNewKeyExpiry("");
               }}
               variant="ghost"
               fullWidth

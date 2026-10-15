@@ -1,4 +1,4 @@
-import { getProviderConnections, validateApiKey, updateProviderConnection, getSettings, getProxyPools } from "@/lib/localDb";
+import { getProviderConnections, getApiKeyByKey, updateProviderConnection, getSettings, getProxyPools } from "@/lib/localDb";
 import { resolveConnectionProxyConfig, pickProxyPoolId } from "@/lib/network/connectionProxy";
 import { formatRetryAfter, checkFallbackError, isModelLockActive, buildModelLockUpdate, getEarliestModelLockUntil } from "open-sse/services/accountFallback.js";
 import { MAX_RATE_LIMIT_COOLDOWN_MS } from "open-sse/config/errorConfig.js";
@@ -362,9 +362,14 @@ export function extractApiKey(request) {
 }
 
 /**
- * Validate API key (optional - for local use can skip)
+ * Validate API key.
+ * A key that has passed its expiresAt (ISO, server clock) is rejected —
+ * NULL expiry means the key never expires.
  */
 export async function isValidApiKey(apiKey) {
   if (!apiKey) return false;
-  return await validateApiKey(apiKey);
+  const key = await getApiKeyByKey(apiKey);
+  if (!key) return false;
+  if (key.expiresAt && new Date(key.expiresAt).getTime() <= Date.now()) return false;
+  return key.isActive === true;
 }
