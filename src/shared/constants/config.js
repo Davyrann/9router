@@ -38,6 +38,13 @@ export const THEME_CONFIG = {
   defaultTheme: "system", // "light" | "dark" | "system"
 };
 
+// Time zone configuration (display override; "" = follow browser)
+export const TIMEZONE_CONFIG = {
+  storageKey: "timezone",
+  defaultTimeZone: "",
+  fallbackZones: ["UTC", "Asia/Jakarta", "Asia/Makassar", "Asia/Jayapura", "Europe/London", "America/New_York", "America/Los_Angeles", "Asia/Tokyo", "Asia/Singapore", "Australia/Sydney"],
+};
+
 // Subscription
 export const SUBSCRIPTION_CONFIG = {
   price: 1.0,

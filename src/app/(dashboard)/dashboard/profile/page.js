@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { Card, Button, Toggle, Input } from "@/shared/components";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { Card, Button, Toggle, Input, Select } from "@/shared/components";
 import Modal, { ConfirmModal } from "@/shared/components/Modal";
 import LanguageSwitcher from "@/shared/components/LanguageSwitcher";
 import { useTheme } from "@/shared/hooks/useTheme";
+import { useTimezone, listTimeZones } from "@/shared/hooks/useTimezone";
 import { cn } from "@/shared/utils/cn";
 import { APP_CONFIG } from "@/shared/constants/config";
 import { LOCALE_COOKIE, normalizeLocale } from "@/i18n/config";
@@ -21,6 +22,7 @@ function getLocaleFromCookie() {
 
 export default function ProfilePage() {
   const { theme, setTheme, isDark } = useTheme();
+  const { timeZone, setTimeZone } = useTimezone();
   const [locale, setLocale] = useState(() => getLocaleFromCookie());
   const [langOpen, setLangOpen] = useState(false);
   const [shutdownOpen, setShutdownOpen] = useState(false);
@@ -86,6 +88,30 @@ export default function ProfilePage() {
     if (typeof window !== "undefined")
       setIsRemoteHost(!["localhost", "127.0.0.1", "::1"].includes(window.location.hostname));
   }, []);
+
+  // Timezone options + live preview clock (tick state so preview recomputes each second)
+  const tzOptions = useMemo(
+    () => [
+      { value: "", label: "Browser default" },
+      ...listTimeZones().map((z) => ({ value: z, label: z.replace(/_/g, " ") })),
+    ],
+    []
+  );
+  const [tzTick, setTzTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTzTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const tzPreview = useMemo(
+    () =>
+      new Date().toLocaleString("en-GB", {
+        dateStyle: "medium",
+        timeStyle: "medium",
+        ...(timeZone ? { timeZone } : {}),
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [timeZone, tzTick]
+  );
 
   useEffect(() => {
     fetch("/api/settings")
@@ -857,6 +883,34 @@ export default function ProfilePage() {
             <span className="text-sm text-text-muted">Display language</span>
             <span className="text-2xl">{LOCALE_FLAGS[locale] || "🌐"}</span>
           </button>
+        </Card>
+
+        {/* Time Zone */}
+        <Card>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="size-10 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined text-[20px]">schedule</span>
+            </div>
+            <div>
+              <h3 className="text-base sm:text-lg font-semibold">Time Zone</h3>
+              <p className="text-xs text-text-muted">
+                Overrides timestamps (logs, usage, quotas) when server time differs from yours.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col gap-3">
+            <Select
+              label="Display time zone"
+              value={timeZone}
+              onChange={(e) => setTimeZone(e.target.value)}
+              options={tzOptions}
+              hint="Browser default follows this device's time zone."
+            />
+            <div className="flex items-center justify-between p-3 rounded-lg bg-bg border border-border">
+              <span className="text-xs sm:text-sm text-text-muted">Current time here</span>
+              <span className="text-xs sm:text-sm font-mono">{tzPreview || "—"}</span>
+            </div>
+          </div>
         </Card>
 
         {/* Security */}
