@@ -41,7 +41,7 @@ function scheduleFlush() {
   state.flushTimer?.unref?.();
 }
 
-function toLogLine(level, args) {
+function toLogText(args) {
   return args.map(formatArg).join(" ");
 }
 
@@ -62,13 +62,15 @@ function formatArg(arg) {
   }
 }
 
-function appendLine(line) {
-  state.logs.push(line);
+// Store { level, t, text } so the UI colors by real console level, not guesses.
+function appendLine(level, text) {
+  const entry = { level, t: Date.now(), text };
+  state.logs.push(entry);
   const maxLines = CONSOLE_LOG_CONFIG.maxLines;
   if (state.logs.length > maxLines) {
     state.logs = state.logs.slice(-maxLines);
   }
-  state.pendingLines.push(line);
+  state.pendingLines.push(entry);
   if (state.pendingLines.length >= MAX_BATCH_LINES) {
     if (state.flushTimer) {
       clearTimeout(state.flushTimer);
@@ -86,7 +88,7 @@ export function initConsoleLogCapture() {
   for (const level of consoleLevels) {
     state.originals[level] = console[level];
     console[level] = (...args) => {
-      appendLine(toLogLine(level, args));
+      appendLine(level, toLogText(args));
       state.originals[level](...args);
     };
   }
@@ -95,7 +97,8 @@ export function initConsoleLogCapture() {
 }
 
 export function getConsoleLogs() {
-  return state.logs;
+  // Hot-reload can leave old string entries in the global buffer — normalize them.
+  return state.logs.map((l) => (typeof l === "string" ? { level: "log", t: Date.now(), text: l } : l));
 }
 
 export function clearConsoleLogs() {
