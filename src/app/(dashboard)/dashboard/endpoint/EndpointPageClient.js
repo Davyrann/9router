@@ -19,6 +19,41 @@ import StatusAlert from "./components/StatusAlert";
 import Tooltip from "./components/Tooltip";
 import SecurityWarning from "./components/SecurityWarning";
 import KeyAccessControls from "./components/KeyAccessControls";
+
+// Compact token counts (2.1K / 3.4M) for the per-key usage line.
+function fmtTokens(n) {
+  if (!n) return "0";
+  if (n < 1000) return String(n);
+  if (n < 1_000_000) return `${(n / 1000).toFixed(1).replace(/\.0$/, "")}K`;
+  return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+}
+
+// Relative timestamps for "last used" (3h ago / 35d ago).
+function fmtRelative(iso) {
+  if (!iso) return "never";
+  const diff = Date.now() - new Date(iso).getTime();
+  if (diff < 0) return "just now";
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `${d}d ago`;
+  const mo = Math.floor(d / 30);
+  if (mo < 12) return `${mo}mo ago`;
+  return `${Math.floor(mo / 12)}y ago`;
+}
+
+const STALE_AFTER_MS = 90 * 24 * 60 * 60 * 1000;
+
+// A key is stale when it has been unused (or never used) for 90+ days.
+function isKeyStale(key) {
+  const ref = key.usage?.lastUsed || key.createdAt;
+  if (!ref) return false;
+  return Date.now() - new Date(ref).getTime() > STALE_AFTER_MS;
+}
+
 export default function APIPageClient({ machineId }) {
   const [keys, setKeys] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1022,7 +1057,7 @@ export default function APIPageClient({ machineId }) {
             {keys.map((key) => (
               <div
                 key={key.id}
-                className={`group flex items-start justify-between gap-3 py-3 border-b border-black/[0.03] dark:border-white/[0.03] last:border-b-0 ${key.isActive === false ? "opacity-60" : ""}`}
+                className={`group flex flex-col gap-3 py-3 border-b border-black/[0.03] dark:border-white/[0.03] last:border-b-0 sm:flex-row sm:items-start sm:justify-between ${key.isActive === false ? "opacity-60" : ""}`}
               >
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium">{key.name}</p>
@@ -1053,6 +1088,27 @@ export default function APIPageClient({ machineId }) {
                   <p className="text-xs text-text-muted mt-1">
                     Created {new Date(key.createdAt).toLocaleDateString()}
                   </p>
+                  <p className="text-xs text-text-muted mt-0.5">
+                    {key.usage
+                      ? `${key.usage.requests} request${key.usage.requests === 1 ? "" : "s"} · ${fmtTokens((key.usage.promptTokens || 0) + (key.usage.completionTokens || 0))} tokens · last used ${fmtRelative(key.usage.lastUsed)}`
+                      : "No usage yet"}
+                  </p>
+                  {isKeyStale(key) && key.isActive !== false && (
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <span
+                        className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-500"
+                        title={key.usage ? "Unused for over 90 days" : "Created over 90 days ago and never used"}
+                      >
+                        Stale
+                      </span>
+                      <button
+                        onClick={() => handleToggleKey(key.id, false)}
+                        className="text-xs text-text-muted underline hover:text-amber-500 transition-colors"
+                      >
+                        Pause
+                      </button>
+                    </div>
+                  )}
                   {key.isActive === false && (
                     <p className="text-xs text-orange-500 mt-1">Paused</p>
                   )}
@@ -1069,7 +1125,7 @@ export default function APIPageClient({ machineId }) {
                     })}
                   />
                 </div>
-                <div className="flex items-center gap-2 shrink-0 pt-0.5">
+                <div className="flex items-center gap-2 shrink-0 pt-0.5 sm:ml-auto">
                   <Toggle
                     size="sm"
                     checked={key.isActive ?? true}

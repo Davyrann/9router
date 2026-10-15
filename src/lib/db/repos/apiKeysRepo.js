@@ -81,6 +81,31 @@ export async function deleteApiKey(id) {
   return (res?.changes ?? 0) > 0;
 }
 
+// Per-key usage summary straight from usageHistory (full apiKey column).
+// Used by the endpoint card to show requests/tokens/last-used per key.
+export async function getApiKeyUsageSummary() {
+  const db = await getAdapter();
+  const rows = db.all(
+    `SELECT apiKey, COUNT(*) AS requests,
+            SUM(promptTokens) AS promptTokens,
+            SUM(completionTokens) AS completionTokens,
+            MAX(timestamp) AS lastUsed
+     FROM usageHistory
+     WHERE apiKey IS NOT NULL AND apiKey != ''
+     GROUP BY apiKey`
+  );
+  const summary = {};
+  for (const r of rows) {
+    summary[r.apiKey] = {
+      requests: r.requests || 0,
+      promptTokens: r.promptTokens || 0,
+      completionTokens: r.completionTokens || 0,
+      lastUsed: r.lastUsed || null,
+    };
+  }
+  return summary;
+}
+
 export async function validateApiKey(key) {
   const db = await getAdapter();
   const row = db.get(`SELECT isActive FROM apiKeys WHERE key = ?`, [key]);

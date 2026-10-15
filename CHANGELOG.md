@@ -1,3 +1,8 @@
+# v0.6.1 (2026-10-15)
+
+## Features
+- **API Keys**: per-key usage stats — each key shows requests, tokens, and last-used time, with a Stale badge and quick-pause for keys idle over 90 days
+
 # v0.5.99 (2026-10-08)
 
 ## Features
