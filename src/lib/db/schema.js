@@ -3,7 +3,7 @@
 // pre-change safety backup in migrate.js: when the stored version is lower,
 // one lightweight DB backup is taken before applying schema changes. Forgetting
 // to bump only skips that backup — it does NOT break the additive auto-sync.
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 export const PRAGMA_SQL = `
 PRAGMA journal_mode = WAL;
@@ -90,6 +90,12 @@ export const TABLES = {
       // Optional expiry (ISO string, NULL = never expires). Additive column;
       // syncSchemaFromTables() backfills existing rows as NULL on boot.
       expiresAt: "TEXT",
+      // Per-key quota (requests per window). NULL limit = unlimited. Additive
+      // columns; existing rows read as unlimited with zero usage.
+      quotaLimit: "INTEGER",
+      quotaWindow: "TEXT",
+      quotaUsed: "INTEGER DEFAULT 0",
+      quotaResetAt: "TEXT",
     },
     indexes: ["CREATE INDEX IF NOT EXISTS idx_ak_key ON apiKeys(key)"],
   },

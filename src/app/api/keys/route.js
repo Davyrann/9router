@@ -4,6 +4,17 @@ import { getConsistentMachineId } from "@/shared/utils/machineId";
 
 export const dynamic = "force-dynamic";
 
+// Normalize optional quota input: positive int limit + allowed window.
+function parseQuota(quotaLimit, quotaWindow) {
+  if (quotaLimit === undefined || quotaLimit === null || quotaLimit === "") {
+    return { limit: null, window: null, error: null };
+  }
+  const limit = Number(quotaLimit);
+  if (!Number.isInteger(limit) || limit <= 0) return { error: "Quota limit must be a positive number of requests" };
+  const win = quotaWindow === "monthly" ? "monthly" : "daily";
+  return { limit, window: win, error: null };
+}
+
 // GET /api/keys - List API keys (each with usage summary)
 export async function GET() {
   try {
@@ -21,11 +32,15 @@ export async function GET() {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { name, expiresAt } = body;
+    const { name, expiresAt, quotaLimit, quotaWindow } = body;
 
     if (!name) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
     }
+
+    // Optional quota
+    const quota = parseQuota(quotaLimit, quotaWindow);
+    if (quota.error) return NextResponse.json({ error: quota.error }, { status: 400 });
 
     // Optional expiry: must be a parseable, future timestamp.
     let normalizedExpiry = null;
@@ -39,7 +54,7 @@ export async function POST(request) {
 
     // Always get machineId from server
     const machineId = await getConsistentMachineId();
-    const apiKey = await createApiKey(name, machineId, normalizedExpiry);
+    const apiKey = await createApiKey(name, machineId, normalizedExpiry, quota.limit, quota.window);
 
     return NextResponse.json({
       key: apiKey.key,
@@ -47,6 +62,8 @@ export async function POST(request) {
       id: apiKey.id,
       machineId: apiKey.machineId,
       expiresAt: apiKey.expiresAt,
+      quotaLimit: apiKey.quotaLimit,
+      quotaWindow: apiKey.quotaWindow,
     }, { status: 201 });
   } catch (error) {
     console.log("Error creating key:", error);

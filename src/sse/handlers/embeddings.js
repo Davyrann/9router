@@ -3,7 +3,7 @@ import {
   markAccountUnavailable,
   clearAccountError,
   extractApiKey,
-  isValidApiKey,
+  getKeyRejection,
 } from "../services/auth.js";
 import { getSettings } from "@/lib/localDb";
 import { getModelInfo } from "../services/model.js";
@@ -59,10 +59,10 @@ export async function handleEmbeddings(request) {
       log.warn("AUTH", "Missing API key (requireApiKey=true)");
       return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Missing API key");
     }
-    const valid = await isValidApiKey(apiKey);
-    if (!valid) {
-      log.warn("AUTH", "Invalid API key (requireApiKey=true)");
-      return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key");
+    const rejection = await getKeyRejection(apiKey);
+    if (rejection) {
+      log.warn("AUTH", `Rejected API key (requireApiKey=true): ${rejection.status} - ${rejection.message}`);
+      return errorResponse(rejection.status, rejection.message);
     }
   }
 

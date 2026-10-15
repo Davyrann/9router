@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { deleteApiKey, getApiKeyById, updateApiKey } from "@/lib/localDb";
+import { deleteApiKey, getApiKeyById, updateApiKey, resetKeyQuota } from "@/lib/localDb";
 import { validateKeyAccessInput } from "@/shared/utils/keyAccess.js";
 
 // GET /api/keys/[id] - Get single key
@@ -22,7 +22,7 @@ export async function PUT(request, { params }) {
   try {
     const { id } = await params;
     const body = await request.json();
-    const { isActive, access, name, expiresAt } = body;
+    const { isActive, access, name, expiresAt, quotaLimit, quotaWindow, quotaReset } = body;
 
     const existing = await getApiKeyById(id);
     if (!existing) {
@@ -55,9 +55,24 @@ export async function PUT(request, { params }) {
       }
     }
 
+    // Quota: null limit clears it (unlimited), positive int sets it.
+    if (quotaLimit !== undefined || quotaWindow !== undefined) {
+      const limit = quotaLimit === undefined ? existing.quotaLimit : (quotaLimit === null || quotaLimit === "" ? null : Number(quotaLimit));
+      if (limit !== null && (!Number.isInteger(limit) || limit <= 0)) {
+        return NextResponse.json({ error: "Quota limit must be a positive number of requests" }, { status: 400 });
+      }
+      let win = existing.quotaWindow;
+      if (quotaWindow !== undefined) win = quotaWindow === "monthly" ? "monthly" : "daily";
+      updateData.quotaLimit = limit;
+      updateData.quotaWindow = limit ? win : null;
+    }
+
     const updated = await updateApiKey(id, updateData);
 
-    return NextResponse.json({ key: updated });
+    // "reset now": zero the counter; the next request opens a fresh window.
+    if (quotaReset === true) await resetKeyQuota(id);
+
+    return NextResponse.json({ key: await getApiKeyById(id) || updated });
   } catch (error) {
     console.log("Error updating key:", error);
     return NextResponse.json({ error: "Failed to update key" }, { status: 500 });

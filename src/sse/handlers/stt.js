@@ -1,5 +1,5 @@
 import {
-  extractApiKey, isValidApiKey,
+  extractApiKey, getKeyRejection,
   getProviderCredentials, markAccountUnavailable,
 } from "../services/auth.js";
 import { getSettings, getCustomModels } from "@/lib/localDb";
@@ -50,8 +50,8 @@ export async function handleStt(request) {
   if (settings.requireApiKey) {
     const apiKey = extractApiKey(request);
     if (!apiKey) return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Missing API key");
-    const valid = await isValidApiKey(apiKey);
-    if (!valid) return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key");
+    const rejection = await getKeyRejection(apiKey);
+    if (rejection) return errorResponse(rejection.status, rejection.message);
   }
 
   if (!modelStr) return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing model");

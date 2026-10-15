@@ -9,11 +9,11 @@ session (or agent) picks up exact state.
 
 | # | Step | Version | Status |
 |---|------|---------|--------|
-| 1 | Usage per key + stale badge | 0.6.1 | DONE (pushed) |
-| 2 | Inline rename + search | 0.6.2 | DONE (pushed) |
-| 3 | Key expiry | 0.7.0 | DONE (unpushed, in this branch) |
-| 4 | Per-key quota | 0.8.0 | TODO |
-| 5 | This handoff doc | — | started |
+| 1 | Usage per key + stale badge | 0.6.1 | DONE (local, unpushed) |
+| 2 | Inline rename + search | 0.6.2 | DONE (local, unpushed) |
+| 3 | Key expiry | 0.7.0 | DONE (local, unpushed) |
+| 4 | Per-key quota | 0.8.0 | DONE (local, unpushed) |
+| 5 | Pill-style info + handoff | — | TODO |
 
 ## Step 1 notes (done)
 
@@ -67,17 +67,41 @@ session (or agent) picks up exact state.
 - Lint: `react/no-unescaped-entities` in the new no-match string fixed; rest
   pre-existing.
 
-## Step 4 notes (todo)
+## Step 4 notes (done)
 
-- Columns: `quotaLimit INTEGER NULL`, `quotaWindow TEXT NULL`
-  ('daily'|'monthly'), `quotaUsed INTEGER DEFAULT 0`, `quotaResetAt TEXT NULL`.
-- Increment atomically per successful request (better-sqlite3 transaction, same
-  pattern as `usageRepo` daily counters). Lazy reset: if `now > quotaResetAt`,
-  zero `quotaUsed` and compute next boundary — no cron.
-- Over quota → 429. Decide: quota counts requests (cheap) or tokens (needs token
-  totals at check time). Recommended default: requests.
-- UI: limit + window inputs, thin progress bar, "reset now" button.
-- Needs tests: increment, lazy reset at boundary, 429 path.
+- Schema v4: `quotaLimit/quotaWindow/quotaUsed/quotaResetAt` on `apiKeys`
+  (NULL limit = unlimited). Applied to the running DB via ALTER (no restart).
+- `apiKeysRepo`: `bumpKeyQuota(db, key)` — called inside the `saveRequestUsage`
+  transaction right after the history insert, so counting + usage write are one
+  atomic commit (deduped rows return before the bump → no double count).
+  `checkKeyQuota(key)` — transactional read + lazy window reset (daily/monthly,
+  UTC boundaries via `nextWindowBoundaryIso`). `resetKeyQuota(id)`.
+- Auth: new `getKeyRejection(apiKey)` in `sse/services/auth.js` returns
+  `{ status, message } | null`: 401 unknown/paused/expired, 429 quota spent
+  (message carries used/limit + reset time). All 9 `/v1` handlers switched from
+  `isValidApiKey` to it (one-shot batch patch script, not committed).
+  `isValidApiKey` stays as a boolean wrapper for other callers.
+- Routes: `POST /api/keys` accepts `quotaLimit` + `quotaWindow`; `PUT` accepts
+  them (null limit clears) plus `quotaReset: true` to zero the counter.
+- UI: "+ Quota" action under KeyAccessControls → inline limit+window+Set form;
+  active quota shows progress bar + `N/M per day|month` + Reset/Edit.
+- Verified live: used==limit → 429 with message; stale `quotaResetAt` → lazy
+  reset passes auth; UI set 5/daily wrote DB and rendered the bar. Test quota
+  cleared afterwards. bump path only exercised indirectly (needs a successful
+  request with an active provider — none in the fresh DB); watch the counter on
+  first real traffic.
+- Known ceiling: quota + expiry checks run only while `requireApiKey` is on
+  (blocks live inside that condition in every handler). ponytail: lift both
+  checks out of the block if keyless mode should still honor per-key limits.
+
+## Step 5 notes (todo — final polish)
+
+- Convert the key-row info into pill/badge style so it stands out: usage line,
+  Stale, expiry, quota, paused — currently plain text + one-off badges.
+  Idea: bordered rounded-full chips with subtle tinted backgrounds in one
+  wrap row under the key name; icons from `material-symbols-outlined`.
+- Keep mobile stacking (`flex-wrap`); verify at ~390px.
+- Update this table + push everything at the end.
 
 ## Shared conventions
 

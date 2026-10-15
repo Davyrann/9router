@@ -1,4 +1,4 @@
-import { getProviderConnections, getApiKeyByKey, updateProviderConnection, getSettings, getProxyPools } from "@/lib/localDb";
+import { getProviderConnections, getApiKeyByKey, checkKeyQuota, updateProviderConnection, getSettings, getProxyPools } from "@/lib/localDb";
 import { resolveConnectionProxyConfig, pickProxyPoolId } from "@/lib/network/connectionProxy";
 import { formatRetryAfter, checkFallbackError, isModelLockActive, buildModelLockUpdate, getEarliestModelLockUntil } from "open-sse/services/accountFallback.js";
 import { MAX_RATE_LIMIT_COOLDOWN_MS } from "open-sse/config/errorConfig.js";
@@ -362,14 +362,38 @@ export function extractApiKey(request) {
 }
 
 /**
- * Validate API key.
- * A key that has passed its expiresAt (ISO, server clock) is rejected —
- * NULL expiry means the key never expires.
+ * Validate API key (optional - for local use can skip).
+ * Boolean wrapper kept for existing callers; prefer getKeyRejection() when
+ * the HTTP status matters (quota exhaustion must answer 429, not 401).
  */
 export async function isValidApiKey(apiKey) {
-  if (!apiKey) return false;
+  return (await getKeyRejection(apiKey)) === null;
+}
+
+/**
+ * Full API-key gate for /v1 handlers.
+ * Returns null when the key may proceed, or { status, message } when the
+ * request must be rejected:
+ *   401 — unknown / paused / expired key
+ *   429 — per-key quota spent for the current window (message carries reset time)
+ * Expiry is compared against the server clock; NULL expiry never expires.
+ */
+export async function getKeyRejection(apiKey) {
+  if (!apiKey) return { status: 401, message: "Invalid API key" };
   const key = await getApiKeyByKey(apiKey);
-  if (!key) return false;
-  if (key.expiresAt && new Date(key.expiresAt).getTime() <= Date.now()) return false;
-  return key.isActive === true;
+  if (!key) return { status: 401, message: "Invalid API key" };
+  if (key.expiresAt && new Date(key.expiresAt).getTime() <= Date.now()) {
+    return { status: 401, message: "API key expired" };
+  }
+  if (key.isActive !== true) return { status: 401, message: "API key is paused" };
+
+  const quota = await checkKeyQuota(apiKey);
+  if (quota) {
+    const reset = quota.resetAt ? ` Quota resets ${quota.resetAt}.` : "";
+    return {
+      status: 429,
+      message: `API key quota exceeded (${quota.used}/${quota.limit} requests this window).${reset}`,
+    };
+  }
+  return null;
 }

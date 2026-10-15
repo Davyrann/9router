@@ -79,6 +79,9 @@ export default function APIPageClient({ machineId }) {
   const [renaming, setRenaming] = useState({ id: null, name: "" });
   const [keySearch, setKeySearch] = useState("");
   const [newKeyExpiry, setNewKeyExpiry] = useState("");
+  const [newKeyQuota, setNewKeyQuota] = useState("");
+  const [newKeyQuotaWindow, setNewKeyQuotaWindow] = useState("daily");
+  const [quotaEditing, setQuotaEditing] = useState(null); // { id, limit, window }
 
   const [requireApiKey, setRequireApiKey] = useState(false);
   const [requireLogin, setRequireLogin] = useState(true);
@@ -680,6 +683,9 @@ export default function APIPageClient({ machineId }) {
         body: JSON.stringify({
           name: newKeyName,
           ...(newKeyExpiry ? { expiresAt: `${newKeyExpiry}T23:59:59.999Z` } : {}),
+          ...(newKeyQuota.trim()
+            ? { quotaLimit: Number(newKeyQuota), quotaWindow: newKeyQuotaWindow === "monthly" ? "monthly" : "daily" }
+            : {}),
         }),
       });
       const data = await res.json();
@@ -689,6 +695,8 @@ export default function APIPageClient({ machineId }) {
         await fetchData();
         setNewKeyName("");
         setNewKeyExpiry("");
+        setNewKeyQuota("");
+        setNewKeyQuotaWindow("daily");
         setShowAddModal(false);
       }
     } catch (error) {
@@ -752,6 +760,44 @@ export default function APIPageClient({ machineId }) {
       }
     } catch (error) {
       console.log("Error renaming key:", error);
+    }
+  };
+
+  // Per-key quota: save (empty limit = unlimited) or reset the counter now.
+  const saveQuota = async (id) => {
+    const raw = (quotaEditing?.limit || "").trim();
+    const body = raw
+      ? { quotaLimit: Number(raw), quotaWindow: quotaEditing.window === "monthly" ? "monthly" : "daily" }
+      : { quotaLimit: null, quotaWindow: null };
+    try {
+      const res = await fetch(`/api/keys/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setKeys(prev => prev.map(k => (k.id === id ? { ...k, ...data.key } : k)));
+        setQuotaEditing(null);
+      }
+    } catch (error) {
+      console.log("Error saving quota:", error);
+    }
+  };
+
+  const resetQuota = async (id) => {
+    try {
+      const res = await fetch(`/api/keys/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quotaReset: true }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setKeys(prev => prev.map(k => (k.id === id ? { ...k, ...data.key } : k)));
+      }
+    } catch (error) {
+      console.log("Error resetting quota:", error);
     }
   };
 
@@ -1232,6 +1278,79 @@ export default function APIPageClient({ machineId }) {
                       }
                     })}
                   />
+
+                  {/* Per-key quota */}
+                  {quotaEditing?.id === key.id ? (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <Input
+                        type="number"
+                        min={1}
+                        placeholder="e.g. 100"
+                        value={quotaEditing.limit}
+                        onChange={(e) => setQuotaEditing({ ...quotaEditing, limit: e.target.value })}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") saveQuota(key.id);
+                          if (e.key === "Escape") setQuotaEditing(null);
+                        }}
+                        autoFocus
+                        className="w-28"
+                      />
+                      <select
+                        value={quotaEditing.window}
+                        onChange={(e) => setQuotaEditing({ ...quotaEditing, window: e.target.value })}
+                        className="rounded-lg border border-border bg-surface px-2 py-2 text-xs text-text-main"
+                      >
+                        <option value="daily">per day</option>
+                        <option value="monthly">per month</option>
+                      </select>
+                      <Button size="sm" onClick={() => saveQuota(key.id)} disabled={!quotaEditing.limit.trim()}>
+                        Set
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setQuotaEditing(null)}>
+                        Cancel
+                      </Button>
+                      {key.quotaLimit && (
+                        <button
+                          onClick={() => setQuotaEditing({ id: key.id, limit: "", window: key.quotaWindow || "daily" })}
+                          className="text-xs text-text-muted underline hover:text-red-500"
+                        >
+                          Remove quota
+                        </button>
+                      )}
+                    </div>
+                  ) : key.quotaLimit ? (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <div className="h-1.5 w-32 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
+                        <div
+                          className={`h-full rounded-full ${(key.quotaUsed || 0) >= key.quotaLimit ? "bg-red-500" : "bg-primary"}`}
+                          style={{ width: `${Math.min(100, ((key.quotaUsed || 0) / key.quotaLimit) * 100)}%` }}
+                        />
+                      </div>
+                      <span className={`text-xs font-medium ${(key.quotaUsed || 0) >= key.quotaLimit ? "text-red-500" : "text-text-muted"}`}>
+                        {key.quotaUsed || 0}/{key.quotaLimit} {key.quotaWindow === "monthly" ? "per month" : "per day"}
+                      </span>
+                      <button
+                        onClick={() => resetQuota(key.id)}
+                        className="text-xs text-text-muted underline hover:text-primary"
+                        title="Zero the counter and start a fresh window"
+                      >
+                        Reset
+                      </button>
+                      <button
+                        onClick={() => setQuotaEditing({ id: key.id, limit: String(key.quotaLimit), window: key.quotaWindow || "daily" })}
+                        className="text-xs text-text-muted underline hover:text-primary"
+                      >
+                        Edit
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setQuotaEditing({ id: key.id, limit: "", window: "daily" })}
+                      className="mt-2 text-xs text-text-muted underline hover:text-primary transition-colors"
+                    >
+                      + Quota
+                    </button>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 shrink-0 pt-0.5 sm:ml-auto">
                   <Toggle
@@ -1275,6 +1394,8 @@ export default function APIPageClient({ machineId }) {
           setShowAddModal(false);
           setNewKeyName("");
           setNewKeyExpiry("");
+          setNewKeyQuota("");
+          setNewKeyQuotaWindow("daily");
         }}
       >
         <div className="flex flex-col gap-4">
@@ -1291,6 +1412,29 @@ export default function APIPageClient({ machineId }) {
             onChange={(e) => setNewKeyExpiry(e.target.value)}
             hint="Leave empty for a key that never expires."
           />
+          <div className="flex flex-wrap items-end gap-2">
+            <Input
+              type="number"
+              min={1}
+              label="Quota (optional)"
+              placeholder="e.g. 100"
+              value={newKeyQuota}
+              onChange={(e) => setNewKeyQuota(e.target.value)}
+              className="w-32"
+              hint="Requests allowed per window."
+            />
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-text-main">Window</label>
+              <select
+                value={newKeyQuotaWindow}
+                onChange={(e) => setNewKeyQuotaWindow(e.target.value)}
+                className="rounded-[10px] border border-transparent bg-surface-2 px-3 py-2.5 text-sm text-text-main"
+              >
+                <option value="daily">per day</option>
+                <option value="monthly">per month</option>
+              </select>
+            </div>
+          </div>
           <div className="flex flex-col gap-2 sm:flex-row">
             <Button onClick={handleCreateKey} fullWidth disabled={!newKeyName.trim()}>
               Create
@@ -1300,6 +1444,8 @@ export default function APIPageClient({ machineId }) {
                 setShowAddModal(false);
                 setNewKeyName("");
                 setNewKeyExpiry("");
+                setNewKeyQuota("");
+                setNewKeyQuotaWindow("daily");
               }}
               variant="ghost"
               fullWidth
