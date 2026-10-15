@@ -27,6 +27,9 @@ import CustomConfigCard from "./CustomConfigCard";
 
 const ONE_BY_ONE_DELAY_MS = 1000;
 
+// Render connections in pages — a 1000-row list made this page sluggish.
+const CONNECTIONS_PAGE_SIZE = 20;
+
 const AUTO_PING_SETTINGS_KEYS = {
   claude: "claudeAutoPing",
   codex: "codexAutoPing",
@@ -64,6 +67,7 @@ export default function ProviderDetailPage() {
   const [testingModelIds, setTestingModelIds] = useState(() => new Set());
   const [showAddCustomModel, setShowAddCustomModel] = useState(false);
   const [selectedConnectionIds, setSelectedConnectionIds] = useState([]);
+  const [connPage, setConnPage] = useState(0);
   const [bulkProxyPoolId, setBulkProxyPoolId] = useState("__none__");
   const [bulkUpdatingProxy, setBulkUpdatingProxy] = useState(false);
   const [providerStrategy, setProviderStrategy] = useState(null);
@@ -1018,63 +1022,91 @@ export default function ProviderDetailPage() {
 
   const isSelected = (connectionId) => selectedConnectionIds.includes(connectionId);
 
+  const connPageCount = Math.max(1, Math.ceil(connections.length / CONNECTIONS_PAGE_SIZE));
+  const connSafePage = Math.min(connPage, connPageCount - 1);
+  const connPageStart = connSafePage * CONNECTIONS_PAGE_SIZE;
+  const pageConnections = connections.slice(connPageStart, connPageStart + CONNECTIONS_PAGE_SIZE);
+
   const connectionsList = (
-    <div className="flex min-w-0 flex-col divide-y divide-black/[0.03] dark:divide-white/[0.03] max-h-[500px] overflow-y-auto pr-1">
-      {connections
-        .map((conn, index) => (
-          <div key={conn.id} className="flex min-w-0 items-stretch">
-            <div className="flex shrink-0 items-center pl-1 sm:pl-2">
-              <input
-                type="checkbox"
-                checked={isSelected(conn.id)}
-                onChange={() => toggleSelectConnection(conn.id)}
-                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-              />
-            </div>
-            <div className="flex-1 min-w-0">
-              <ConnectionRow
-                connection={conn}
-                proxyPools={proxyPools}
-                isOAuth={isOAuth}
-                isFirst={index === 0}
-                isLast={index === connections.length - 1}
-                onMoveUp={() => handleSwapPriority(index, index - 1)}
-                onMoveDown={() => handleSwapPriority(index, index + 1)}
-                onToggleActive={(isActive) => handleUpdateConnectionStatus(conn.id, isActive)}
-                autoPing={AUTO_PING_SETTINGS_KEYS[providerId] && conn.authType === "oauth" ? {
-                  on: autoPing.connections[conn.id] === true,
-                  onToggle: (on) => handleAutoPingConnection(conn.id, on),
-                  provider: providerId,
-                } : null}
-                onUpdateProxy={async (proxyPoolId) => {
-                  try {
-                    const res = await fetch(`/api/providers/${conn.id}`, {
-                      method: "PUT",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ proxyPoolId: proxyPoolId || null }),
-                    });
-                    if (res.ok) {
-                      setConnections(prev => prev.map(c =>
-                        c.id === conn.id
-                          ? { ...c, providerSpecificData: { ...c.providerSpecificData, proxyPoolId: proxyPoolId || null } }
-                          : c
-                      ));
+    <>
+      <div className="flex min-w-0 flex-col divide-y divide-black/[0.03] dark:divide-white/[0.03]">
+        {pageConnections
+          .map((conn, i) => {
+            const index = connPageStart + i;
+            return (
+            <div key={conn.id} className="flex min-w-0 items-stretch">
+              <div className="flex shrink-0 items-center pl-1 sm:pl-2">
+                <input
+                  type="checkbox"
+                  checked={isSelected(conn.id)}
+                  onChange={() => toggleSelectConnection(conn.id)}
+                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                />
+              </div>
+              <div className="flex-1 min-w-0">
+                <ConnectionRow
+                  connection={conn}
+                  proxyPools={proxyPools}
+                  isOAuth={isOAuth}
+                  isFirst={index === 0}
+                  isLast={index === connections.length - 1}
+                  onMoveUp={() => handleSwapPriority(index, index - 1)}
+                  onMoveDown={() => handleSwapPriority(index, index + 1)}
+                  onToggleActive={(isActive) => handleUpdateConnectionStatus(conn.id, isActive)}
+                  autoPing={AUTO_PING_SETTINGS_KEYS[providerId] && conn.authType === "oauth" ? {
+                    on: autoPing.connections[conn.id] === true,
+                    onToggle: (on) => handleAutoPingConnection(conn.id, on),
+                    provider: providerId,
+                  } : null}
+                  onUpdateProxy={async (proxyPoolId) => {
+                    try {
+                      const res = await fetch(`/api/providers/${conn.id}`, {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ proxyPoolId: proxyPoolId || null }),
+                      });
+                      if (res.ok) {
+                        setConnections(prev => prev.map(c =>
+                          c.id === conn.id
+                            ? { ...c, providerSpecificData: { ...c.providerSpecificData, proxyPoolId: proxyPoolId || null } }
+                            : c
+                        ));
+                      }
+                    } catch (error) {
+                      console.log("Error updating proxy:", error);
                     }
-                  } catch (error) {
-                    console.log("Error updating proxy:", error);
-                  }
-                }}
-                onEdit={() => {
-                  setSelectedConnection(conn);
-                  setShowEditModal(true);
-                }}
-                onDelete={() => handleDelete(conn.id)}
-                oneByOneStatus={oneByOneResults[conn.id] || null}
-              />
+                  }}
+                  onEdit={() => {
+                    setSelectedConnection(conn);
+                    setShowEditModal(true);
+                  }}
+                  onDelete={() => handleDelete(conn.id)}
+                  oneByOneStatus={oneByOneResults[conn.id] || null}
+                />
+              </div>
             </div>
+            );
+          })}
+      </div>
+      {connPageCount > 1 && (
+        <div className="mt-3 flex items-center justify-between gap-2">
+          <span className="text-xs text-text-muted tabular-nums">
+            {connPageStart + 1}–{Math.min(connPageStart + CONNECTIONS_PAGE_SIZE, connections.length)} of {connections.length}
+          </span>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" disabled={connSafePage === 0} onClick={() => setConnPage(connSafePage - 1)}>
+              Prev
+            </Button>
+            <span className="text-xs text-text-muted tabular-nums">
+              {connSafePage + 1} / {connPageCount}
+            </span>
+            <Button size="sm" variant="outline" disabled={connSafePage >= connPageCount - 1} onClick={() => setConnPage(connSafePage + 1)}>
+              Next
+            </Button>
           </div>
-        ))}
-    </div>
+        </div>
+      )}
+    </>
   );
 
   const activePools = proxyPools.filter((p) => p.isActive === true);

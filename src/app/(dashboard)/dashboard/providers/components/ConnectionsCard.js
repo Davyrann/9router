@@ -295,10 +295,13 @@ AddApiKeyModal.propTypes = {
 
 // ── ConnectionsCard ────────────────────────────────────────────
 // Self-contained card: fetches, displays and manages all connections for a provider.
+const PAGE_SIZE = 20;
+
 export default function ConnectionsCard({ providerId, isOAuth }) {
   const [connections, setConnections] = useState([]);
   const [proxyPools, setProxyPools] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedConnection, setSelectedConnection] = useState(null);
@@ -398,6 +401,12 @@ export default function ConnectionsCard({ providerId, isOAuth }) {
 
   if (loading) return <Card><div className="h-20 animate-pulse bg-black/5 rounded-lg" /></Card>;
 
+  // Render one page at a time — hundreds of rows made this card slow.
+  const pageCount = Math.max(1, Math.ceil(connections.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const pageStart = safePage * PAGE_SIZE;
+  const pageItems = connections.slice(pageStart, pageStart + PAGE_SIZE);
+
   return (
     <>
       <Card>
@@ -434,26 +443,42 @@ export default function ConnectionsCard({ providerId, isOAuth }) {
           </div>
         ) : (
           <>
-            <div className="flex flex-col divide-y divide-black/[0.03] dark:divide-white/[0.03] max-h-[500px] overflow-y-auto pr-1">
-              {connections.map((conn, idx) => (
-                <ConnectionRow
-                  key={conn.id}
-                  connection={conn}
-                  proxyPools={proxyPools}
-                  isOAuth={isOAuth}
-                  isFirst={idx === 0}
-                  isLast={idx === connections.length - 1}
-                  onMoveUp={() => handleSwapPriority(idx, idx - 1)}
-                  onMoveDown={() => handleSwapPriority(idx, idx + 1)}
-                  onToggleActive={(isActive) => handleToggleActive(conn.id, isActive)}
-                  onUpdateProxy={(poolId) => handleUpdateProxy(conn.id, poolId)}
-                  onEdit={() => { setSelectedConnection(conn); setShowEditModal(true); }}
-                  onDelete={() => handleDelete(conn.id)}
-                />
-              ))}
+            <div className="flex flex-col divide-y divide-black/[0.03] dark:divide-white/[0.03]">
+              {pageItems.map((conn, i) => {
+                const idx = pageStart + i;
+                return (
+                  <ConnectionRow
+                    key={conn.id}
+                    connection={conn}
+                    proxyPools={proxyPools}
+                    isOAuth={isOAuth}
+                    isFirst={idx === 0}
+                    isLast={idx === connections.length - 1}
+                    onMoveUp={() => handleSwapPriority(idx, idx - 1)}
+                    onMoveDown={() => handleSwapPriority(idx, idx + 1)}
+                    onToggleActive={(isActive) => handleToggleActive(conn.id, isActive)}
+                    onUpdateProxy={(poolId) => handleUpdateProxy(conn.id, poolId)}
+                    onEdit={() => { setSelectedConnection(conn); setShowEditModal(true); }}
+                    onDelete={() => handleDelete(conn.id)}
+                  />
+                );
+              })}
             </div>
-            <div className="mt-4 flex justify-stretch sm:justify-start">
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
               <Button size="sm" icon="add" onClick={() => setShowAddModal(true)}>Add</Button>
+              {pageCount > 1 && (
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="outline" disabled={safePage === 0} onClick={() => setPage(safePage - 1)}>
+                    Prev
+                  </Button>
+                  <span className="text-xs text-text-muted tabular-nums">
+                    {safePage + 1} / {pageCount}
+                  </span>
+                  <Button size="sm" variant="outline" disabled={safePage >= pageCount - 1} onClick={() => setPage(safePage + 1)}>
+                    Next
+                  </Button>
+                </div>
+              )}
             </div>
           </>
         )}
