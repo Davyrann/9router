@@ -61,6 +61,8 @@ export default function APIPageClient({ machineId }) {
   const [newKeyName, setNewKeyName] = useState("");
   const [createdKey, setCreatedKey] = useState(null);
   const [confirmState, setConfirmState] = useState(null);
+  const [renaming, setRenaming] = useState({ id: null, name: "" });
+  const [keySearch, setKeySearch] = useState("");
 
   const [requireApiKey, setRequireApiKey] = useState(false);
   const [requireLogin, setRequireLogin] = useState(true);
@@ -710,6 +712,27 @@ export default function APIPageClient({ machineId }) {
     }
   };
 
+  // Inline rename: Enter saves, Esc cancels, empty name rejected.
+  const startRename = (key) => setRenaming({ id: key.id, name: key.name });
+  const cancelRename = () => setRenaming({ id: null, name: "" });
+  const saveRename = async (id) => {
+    const name = renaming.name.trim();
+    if (!name) return;
+    try {
+      const res = await fetch(`/api/keys/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      if (res.ok) {
+        setKeys(prev => prev.map(k => k.id === id ? { ...k, name } : k));
+        cancelRename();
+      }
+    } catch (error) {
+      console.log("Error renaming key:", error);
+    }
+  };
+
   // Save a key's access (restricted flag + allow list).
   const handleUpdateKeyAccess = async (id, access) => {
     try {
@@ -762,6 +785,10 @@ export default function APIPageClient({ machineId }) {
   }
 
   const currentEndpoint = baseUrl;
+
+  // Client-side name filter (search box above the key list).
+  const search = keySearch.trim().toLowerCase();
+  const visibleKeysList = search ? keys.filter((k) => k.name.toLowerCase().includes(search)) : keys;
 
   return (
     <div className="flex flex-col gap-8">
@@ -1022,6 +1049,17 @@ export default function APIPageClient({ machineId }) {
           </Button>
         </div>
 
+        {keys.length > 1 && (
+          <div className="mb-4">
+            <Input
+              value={keySearch}
+              onChange={(e) => setKeySearch(e.target.value)}
+              placeholder="Search keys by name…"
+              className="w-full sm:max-w-xs"
+            />
+          </div>
+        )}
+
         <div className="flex items-center justify-between pb-4 mb-4 border-b border-border">
           <div>
             <p className="font-medium">Require API key</p>
@@ -1052,15 +1090,53 @@ export default function APIPageClient({ machineId }) {
               Create Key
             </Button>
           </div>
+        ) : visibleKeysList.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-sm text-text-muted">No keys match "{keySearch}"</p>
+            <Button variant="ghost" size="sm" className="mt-2" onClick={() => setKeySearch("")}>
+              Clear search
+            </Button>
+          </div>
         ) : (
           <div className="flex flex-col">
-            {keys.map((key) => (
+            {visibleKeysList.map((key) => (
               <div
                 key={key.id}
                 className={`group flex flex-col gap-3 py-3 border-b border-black/[0.03] dark:border-white/[0.03] last:border-b-0 sm:flex-row sm:items-start sm:justify-between ${key.isActive === false ? "opacity-60" : ""}`}
               >
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium">{key.name}</p>
+                  {renaming.id === key.id ? (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={renaming.name}
+                        onChange={(e) => setRenaming({ id: key.id, name: e.target.value })}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") saveRename(key.id);
+                          if (e.key === "Escape") cancelRename();
+                        }}
+                        autoFocus
+                        placeholder="Key name"
+                        className="flex-1 min-w-0"
+                      />
+                      <Button size="sm" onClick={() => saveRename(key.id)} disabled={!renaming.name.trim()}>
+                        Save
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={cancelRename}>
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5 group/name">
+                      <p className="text-sm font-medium min-w-0 truncate">{key.name}</p>
+                      <button
+                        onClick={() => startRename(key)}
+                        className="p-0.5 rounded text-text-muted opacity-100 sm:opacity-0 sm:group-hover/name:opacity-100 hover:bg-black/5 dark:hover:bg-white/5 hover:text-primary transition-all"
+                        title="Rename key"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">edit</span>
+                      </button>
+                    </div>
+                  )}
                   <div className="flex items-center gap-2 mt-1 min-w-0 flex-wrap">
                     <code className="text-xs text-text-muted font-mono break-all min-w-0">
                       {visibleKeys.has(key.id) ? key.key : maskKey(key.key)}

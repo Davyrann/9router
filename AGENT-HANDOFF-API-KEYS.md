@@ -9,8 +9,8 @@ session (or agent) picks up exact state.
 
 | # | Step | Version | Status |
 |---|------|---------|--------|
-| 1 | Usage per key + stale badge | 0.6.1 | DONE (unpushed, in this branch) |
-| 2 | Inline rename + search | 0.6.2 | TODO |
+| 1 | Usage per key + stale badge | 0.6.1 | DONE (pushed) |
+| 2 | Inline rename + search | 0.6.2 | DONE (unpushed, in this branch) |
 | 3 | Key expiry | 0.7.0 | TODO |
 | 4 | Per-key quota | 0.8.0 | TODO |
 | 5 | This handoff doc | — | started |
@@ -30,14 +30,22 @@ session (or agent) picks up exact state.
   (`usageHistory` back to 0). Screenshot taken during verification.
 - Lint: only pre-existing errors in this file (verified via `git stash`).
 
-## Step 2 notes (todo)
+## Step 2 notes (done)
 
-- Extend `PUT /api/keys/[id]` (`src/app/api/keys/[id]/route.js`) to accept `name`
-  (trim, non-empty, max 64). `updateApiKey` already merges `name` — no repo change.
-- UI: edit icon in key name row → inline input (Enter saves, Esc cancels);
-  search box in card header, client-side filter by name.
-- Mobile: modal + search full width; keep touch targets ≥ 44px.
-- Changelog entry under next version `## Features`.
+- `PUT /api/keys/[id]` accepts `name` (trim, non-empty, max 64) — validated in the
+  route; `updateApiKey` already merged `name`, no repo change.
+- UI (`EndpointPageClient.js`): `renaming` state `{ id, name }`; pencil icon next
+  to the key name → inline Input with Save/Cancel (Enter saves, Esc cancels).
+  Name row truncates; edit icon is hover-reveal on desktop (`sm:`), always visible
+  on mobile.
+- Search box in card header, only rendered when `keys.length > 1`; filters
+  client-side by name (case-insensitive). No-match state shows
+  `No keys match "<query>"` + Clear search button.
+- Verified in browser: rename persisted to DB ("Production Key" seen in
+  `apiKeys` table + UI), filtering hid non-matching keys, no-match state shown.
+  Test key removed, name restored to "Default Key" afterwards.
+- Note: browser.evaluate cannot type into React inputs correctly (needs native
+  value setter); use the `fill` browser tool for typing in future verification.
 
 ## Step 3 notes (todo)
 

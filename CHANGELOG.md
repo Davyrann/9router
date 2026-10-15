@@ -1,3 +1,8 @@
+# v0.6.2 (2026-10-15)
+
+## Features
+- **API Keys**: inline rename (pencil icon, Enter saves, Esc cancels) and header search box filtering keys by name
+
 # v0.6.1 (2026-10-15)
 
 ## Features
