@@ -1,3 +1,8 @@
+# v0.8.1 (2026-10-16)
+
+## Fixes
+- **OpenCode**: stop aliasing caller tools that reuse the `read`/`shell` fingerprint names — a client can only dispatch the tool names it declared, so `shell_client` failed client-side with "No tool named …" while the model called the injected fingerprint instead of the caller's real tool. Caller tools now keep their name; one matching OpenCode's argument shape adopts the exact definition (so the free-tier gate still passes), and a genuinely different schema travels verbatim with the fingerprint appended only for names the caller never declared
+
 # v0.8.0 (2026-10-15)
 
 ## Features

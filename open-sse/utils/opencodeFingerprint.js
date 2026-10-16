@@ -4,10 +4,17 @@
  * Live upstream probes (OpenCode v2, /inference/v1) show that free-tier
  * requests must declare OpenCode's own `read` and `shell` tools with their exact
  * descriptions and parameter schemas; stubbed descriptions, renamed schemas or
- * tool_choice "none" are answered with 403 FreeTierError. Caller tools are sent
- * untouched, except one that already uses an exact fingerprint name with a
- * different definition: it travels under an alias and the response side
- * restores the caller's original name.
+ * tool_choice "none" are answered with 403 FreeTierError.
+ *
+ * The caller's tool always keeps its own name: the client dispatches only the
+ * names it declared, so an alias such as `shell_client` fails client-side with
+ * "No tool named ...". Only the definition is reconciled — a tool whose
+ * arguments match OpenCode's (the usual case — only the wording is
+ * platform-specific) adopts OpenCode's exact definition; a caller tool whose
+ * schema really differs travels verbatim so the model sees the very tool the
+ * client will run.
+ * ponytail: if upstream starts 403ing caller definitions, re-alias and use the
+ * response-side restore below to map names back.
  */
 
 /** Names required by the upstream free-tier gate. */
@@ -80,16 +87,39 @@ function isFingerprintDefinition(tool, key) {
     && JSON.stringify(def.parameters) === JSON.stringify(want.parameters);
 }
 
-function withToolName(tool, name) {
+/** The schema parts that change what a call means: argument names + required. */
+function parameterShape(params) {
+  if (!params || typeof params !== "object" || Array.isArray(params)) return "";
+  const names = Object.keys(params.properties || {}).sort().join(",");
+  const required = [...(params.required || [])].sort().join(",");
+  return `${names}|${required}`;
+}
+
+/** True when `tool` takes the same arguments as OpenCode's `key` tool. */
+function isFingerprintCompatible(tool, key) {
+  const def = tool && (chatFunctionOf(tool) || tool);
+  if (!def) return false;
+  return parameterShape(def.parameters) === parameterShape(FINGERPRINT_TOOL_DEFINITIONS[key].parameters);
+}
+
+/** Swap in OpenCode's exact description/parameters, keeping the caller's name. */
+function adoptFingerprintDefinition(tool, key) {
+  const { description, parameters } = FINGERPRINT_TOOL_DEFINITIONS[key];
   const fn = chatFunctionOf(tool);
-  return fn ? { ...tool, function: { ...fn, name } } : { ...tool, name };
+  return fn
+    ? { ...tool, function: { ...fn, description, parameters } }
+    : { ...tool, description, parameters };
 }
 
 /**
- * Move caller tools off the fingerprint names when their definition differs
- * from OpenCode's, so the exact definitions can be appended without a
- * duplicate name. Everything else, including case variants such as `Read`, is
- * preserved verbatim; upstream accepts them alongside `read`.
+ * Reconcile caller tools with the fingerprint names.
+ *
+ * A tool that already carries OpenCode's exact definition is kept. One that
+ * takes the same arguments but words them differently keeps its name and adopts
+ * OpenCode's definition. A caller tool whose schema really differs keeps its own
+ * name AND definition — never alias: the client has no `shell_client` to
+ * dispatch. Other tools, including case variants such as `Read`, pass through
+ * untouched; upstream accepts them alongside `read`.
  *
  * @param {Array} tools
  * @returns {{ tools: Array, map: Map<string,string> }} map: sent name -> original name
@@ -98,7 +128,6 @@ export function concealFingerprintToolNames(tools) {
   const map = new Map();
   if (!Array.isArray(tools) || tools.length === 0) return { tools, map };
 
-  const taken = new Set(tools.map(toolNameOf));
   const seen = new Set();
   const out = [];
   for (const tool of tools) {
@@ -122,11 +151,12 @@ export function concealFingerprintToolNames(tools) {
       continue;
     }
 
-    let alias = `${key}_client`;
-    for (let i = 2; taken.has(alias); i++) alias = `${key}_client${i}`;
-    taken.add(alias);
-    map.set(alias, key);
-    out.push(withToolName(tool, alias));
+    if (isFingerprintCompatible(tool, key)) {
+      out.push(adoptFingerprintDefinition(tool, key));
+      continue;
+    }
+
+    out.push(tool);
   }
   return { tools: out, map };
 }
