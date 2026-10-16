@@ -24,6 +24,33 @@ function getLocaleFromCookie() {
 // non-empty sentinel to stay selectable.
 const TZ_BROWSER = "browser";
 
+// Telegram backup interval is stored as minutes; show the largest whole unit.
+function minutesToUnit(minutes) {
+  const m = Math.max(1, Number(minutes) || 1440);
+  if (m % 1440 === 0) return { intervalValue: m / 1440, intervalUnit: "days" };
+  if (m % 60 === 0) return { intervalValue: m / 60, intervalUnit: "hours" };
+  return { intervalValue: m, intervalUnit: "minutes" };
+}
+
+const INTERVAL_UNIT_MINUTES = { minutes: 1, hours: 60, days: 1440 };
+
+// Next scheduled run, derived from the last run + the configured interval.
+function nextRunFrom(data) {
+  const lastRun = data?.telegramBackupLastRunAt ? Date.parse(data.telegramBackupLastRunAt) : 0;
+  if (!lastRun) return "";
+  const intervalMs = Math.max(1, Number(data?.telegramBackupIntervalMinutes) || 1440) * 60000;
+  return new Date(lastRun + intervalMs).toISOString();
+}
+
+function telegramFormFromSettings(data) {
+  return {
+    enabled: data?.telegramBackupEnabled === true,
+    botToken: "",
+    chatId: data?.telegramBackupChatId || "",
+    ...minutesToUnit(data?.telegramBackupIntervalMinutes),
+  };
+}
+
 export default function ProfilePage() {
   const { theme, setTheme, isDark } = useTheme();
   const { timeZone, setTimeZone } = useTimezone();
@@ -40,6 +67,10 @@ export default function ProfilePage() {
   const [dbStatus, setDbStatus] = useState({ type: "", message: "" });
   const [dbAuth, setDbAuth] = useState({ open: false, mode: "", password: "" });
   const pendingImportRef = useRef(null);
+  const [tgForm, setTgForm] = useState({ enabled: false, botToken: "", chatId: "", intervalValue: 1, intervalUnit: "days" });
+  const [tgStatus, setTgStatus] = useState({ type: "", message: "" });
+  const [tgLoading, setTgLoading] = useState(false);
+  const [tgInfo, setTgInfo] = useState({ configured: false, hasToken: false, lastRunAt: "", lastStatus: "", nextRunAt: "" });
   const [oidcForm, setOidcForm] = useState({
     authMode: "password",
     oidcIssuerUrl: "",
@@ -159,6 +190,15 @@ export default function ProfilePage() {
           outboundProxyUrl: data?.outboundProxyUrl || "",
           outboundNoProxy: data?.outboundNoProxy || "",
         });
+        setTgForm(telegramFormFromSettings(data));
+        setTgInfo((prev) => ({
+          ...prev,
+          hasToken: data?.telegramBackupBotTokenConfigured === true,
+          configured: data?.telegramBackupBotTokenConfigured === true && !!data?.telegramBackupChatId,
+          lastRunAt: data?.telegramBackupLastRunAt || "",
+          lastStatus: data?.telegramBackupLastStatus || "",
+          nextRunAt: nextRunFrom(data),
+        }));
         setLoading(false);
       })
       .catch((err) => {
@@ -697,6 +737,79 @@ export default function ProfilePage() {
     }
   };
 
+  const refreshTelegramStatus = async () => {
+    try {
+      const res = await fetch("/api/settings/backup");
+      if (!res.ok) return;
+      const data = await res.json();
+      setTgInfo((prev) => ({
+        ...prev,
+        configured: data?.configured === true,
+        hasToken: data?.hasToken === true,
+        lastRunAt: data?.lastRunAt || "",
+        lastStatus: data?.lastStatus || "",
+        nextRunAt: data?.nextRunAt || "",
+      }));
+    } catch (err) {
+      console.error("Failed to load backup status:", err);
+    }
+  };
+
+  const saveTelegramBackup = async (e) => {
+    e.preventDefault();
+    setTgLoading(true);
+    setTgStatus({ type: "", message: "" });
+    try {
+      const factor = INTERVAL_UNIT_MINUTES[tgForm.intervalUnit] || 1440;
+      const intervalMinutes = Math.max(1, Math.round((Number(tgForm.intervalValue) || 1) * factor));
+      const body = {
+        telegramBackupEnabled: tgForm.enabled === true,
+        telegramBackupChatId: tgForm.chatId.trim(),
+        telegramBackupIntervalMinutes: intervalMinutes,
+      };
+      if (tgForm.botToken.trim()) body.telegramBackupBotToken = tgForm.botToken.trim();
+
+      const res = await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSettings((prev) => ({ ...prev, ...data }));
+        setTgForm((prev) => ({ ...prev, botToken: "" }));
+        setTgStatus({ type: "success", message: "Telegram backup settings saved" });
+        refreshTelegramStatus();
+      } else {
+        setTgStatus({ type: "error", message: data.error || "Failed to save Telegram backup settings" });
+      }
+    } catch (err) {
+      setTgStatus({ type: "error", message: "An error occurred" });
+    } finally {
+      setTgLoading(false);
+    }
+  };
+
+  const runTelegramAction = async (action, password) => {
+    setTgLoading(true);
+    setTgStatus({ type: "", message: "" });
+    try {
+      const res = await fetch("/api/settings/backup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-9r-password": password },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Failed to send backup");
+      setTgStatus({ type: "success", message: action === "test" ? "Test message sent" : "Backup sent to Telegram" });
+      refreshTelegramStatus();
+    } catch (err) {
+      setTgStatus({ type: "error", message: err.message || "Failed to send backup" });
+    } finally {
+      setTgLoading(false);
+    }
+  };
+
   const handleExportDatabase = async (password) => {
     setDbLoading(true);
     setDbStatus({ type: "", message: "" });
@@ -774,6 +887,8 @@ export default function ProfilePage() {
     setDbAuth({ open: false, mode: "", password: "" });
     if (mode === "export") await handleExportDatabase(password);
     else if (mode === "import") await runImportDatabase(password);
+    else if (mode === "telegram") await runTelegramAction("backup", password);
+    else if (mode === "telegram-test") await runTelegramAction("test", password);
   };
 
   const observabilityEnabled = settings.enableObservability === true;
@@ -876,6 +991,127 @@ export default function ProfilePage() {
               </p>
             )}
           </div>
+        </Card>
+
+        {/* Telegram Auto Backup */}
+        <Card>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="size-10 sm:size-12 rounded-lg bg-sky-500/10 text-sky-500 flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined text-xl sm:text-2xl">send</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-base sm:text-lg font-semibold">Telegram Auto Backup</h3>
+              <p className="text-xs text-text-muted">
+                Send a config + usage-totals backup to a Telegram chat on a custom interval.
+              </p>
+            </div>
+            <Toggle
+              checked={tgForm.enabled === true}
+              onChange={() => setTgForm((prev) => ({ ...prev, enabled: !prev.enabled }))}
+              disabled={loading || tgLoading}
+            />
+          </div>
+
+          <form onSubmit={saveTelegramBackup} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <label className="text-xs sm:text-sm font-medium">Bot Token</label>
+              <Input
+                type="password"
+                placeholder={tgInfo.hasToken ? "Leave blank to keep existing token" : "123456:ABC-DEF..."}
+                value={tgForm.botToken}
+                onChange={(e) => setTgForm((prev) => ({ ...prev, botToken: e.target.value }))}
+                disabled={loading || tgLoading}
+              />
+              <p className="text-xs text-text-muted">Write-only after saving. Create a bot with @BotFather.</p>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-xs sm:text-sm font-medium">Chat ID</label>
+              <Input
+                placeholder="123456789 or -1001234567890"
+                value={tgForm.chatId}
+                onChange={(e) => setTgForm((prev) => ({ ...prev, chatId: e.target.value }))}
+                disabled={loading || tgLoading}
+              />
+              <p className="text-xs text-text-muted">Message @userinfobot to get your chat ID.</p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="flex flex-col gap-2">
+                <label className="text-xs sm:text-sm font-medium">Interval</label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={tgForm.intervalValue}
+                  onChange={(e) => setTgForm((prev) => ({ ...prev, intervalValue: e.target.value }))}
+                  disabled={loading || tgLoading}
+                />
+              </div>
+              <Select
+                label="Unit"
+                value={tgForm.intervalUnit}
+                onChange={(e) => setTgForm((prev) => ({ ...prev, intervalUnit: e.target.value }))}
+                options={[
+                  { value: "minutes", label: "Minutes" },
+                  { value: "hours", label: "Hours" },
+                  { value: "days", label: "Days" },
+                ]}
+                disabled={loading || tgLoading}
+              />
+            </div>
+
+            <p className="text-xs text-text-muted">
+              Backup includes settings, providers, keys, combos, aliases, pricing, and usage totals
+              (daily rollups + lifetime counters). Per-request history is not included.
+            </p>
+            <p className="text-xs text-amber-600 dark:text-amber-400">
+              ⚠️ The backup contains provider credentials (OAuth tokens, API keys) and is uploaded to
+              Telegram — a third party. Dashboard password, OIDC secret, and the bot token itself are
+              stripped before sending. Use a private chat.
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-border/50">
+              <Button type="submit" variant="primary" loading={tgLoading} className="w-full sm:w-auto">
+                Save
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={loading || tgLoading || !tgInfo.configured}
+                onClick={() => setDbAuth({ open: true, mode: "telegram-test", password: "" })}
+                className="w-full sm:w-auto"
+              >
+                Send test
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={loading || tgLoading || !tgInfo.configured}
+                onClick={() => setDbAuth({ open: true, mode: "telegram", password: "" })}
+                className="w-full sm:w-auto"
+              >
+                Send backup now
+              </Button>
+            </div>
+
+            {(tgStatus.message || tgInfo.lastRunAt) && (
+              <div className="flex flex-col gap-1 pt-2 border-t border-border/50 text-xs sm:text-sm">
+                {tgStatus.message && (
+                  <p className={tgStatus.type === "error" ? "text-red-500" : "text-green-600 dark:text-green-400"}>
+                    {tgStatus.message}
+                  </p>
+                )}
+                {tgInfo.lastRunAt && (
+                  <p className="text-text-muted">
+                    Last run: {new Date(tgInfo.lastRunAt).toLocaleString()} — {tgInfo.lastStatus || "—"}
+                  </p>
+                )}
+                {tgInfo.nextRunAt && (
+                  <p className="text-text-muted">Next run: {new Date(tgInfo.nextRunAt).toLocaleString()}</p>
+                )}
+              </div>
+            )}
+          </form>
         </Card>
 
         {/* Language */}
@@ -1751,7 +1987,15 @@ export default function ProfilePage() {
         }
       >
         <p className="text-text-muted mb-3 text-sm">
-          Enter your current password to {dbAuth.mode === "export" ? "export" : "import"} the database.
+          Enter your current password to{" "}
+          {dbAuth.mode === "export"
+            ? "export the database"
+            : dbAuth.mode === "import"
+              ? "import the database"
+              : dbAuth.mode === "telegram-test"
+                ? "send a Telegram test message"
+                : "send the backup to Telegram"}
+          .
         </p>
         <Input
           type="password"

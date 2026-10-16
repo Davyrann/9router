@@ -13,16 +13,25 @@ const SETTINGS_RESPONSE_HEADERS = {
 
 // Secrets must never be mass-assigned from request body (CWE-915)
 const PROTECTED_SETTING_KEYS = ["password", "mitmSudoEncrypted"];
+// Server-managed fields: a client PATCH must never set these directly.
+const SERVER_MANAGED_SETTING_KEYS = ["telegramBackupLastRunAt", "telegramBackupLastStatus"];
+// Keys whose change should (re)configure the Telegram auto-backup scheduler.
+const TELEGRAM_BACKUP_KEYS = [
+  "telegramBackupEnabled", "telegramBackupIntervalMinutes",
+  "telegramBackupBotToken", "telegramBackupChatId",
+];
 
 export async function GET() {
   try {
     const settings = await getSettings();
-    const { password, oidcClientSecret, ...safeSettings } = settings;
+    // mitmSudoEncrypted is a machine-bound encrypted secret — never return it.
+    const { password, oidcClientSecret, telegramBackupBotToken, mitmSudoEncrypted, ...safeSettings } = settings;
     safeSettings.oidcConfigured = !!(safeSettings.oidcIssuerUrl && safeSettings.oidcClientId && oidcClientSecret);
-    
+    safeSettings.telegramBackupBotTokenConfigured = !!telegramBackupBotToken;
+
     const enableRequestLogs = process.env.ENABLE_REQUEST_LOGS === "true";
     const enableTranslator = process.env.ENABLE_TRANSLATOR === "true";
-    
+
     return NextResponse.json({ 
       ...safeSettings, 
       enableRequestLogs,
@@ -41,6 +50,8 @@ export async function PATCH(request) {
 
     // Strip protected secrets before any internal handling sets them
     for (const key of PROTECTED_SETTING_KEYS) delete body[key];
+    // Server-managed backup status — never client-settable.
+    for (const key of SERVER_MANAGED_SETTING_KEYS) delete body[key];
 
     // If updating password, hash it
     if (body.newPassword) {
@@ -76,6 +87,13 @@ export async function PATCH(request) {
       }
     }
 
+    // Telegram bot token is write-only: an empty value means "keep existing".
+    if (Object.prototype.hasOwnProperty.call(body, "telegramBackupBotToken")) {
+      if (!body.telegramBackupBotToken || !String(body.telegramBackupBotToken).trim()) {
+        delete body.telegramBackupBotToken;
+      }
+    }
+
     const settings = await updateSettings(body);
 
     // Apply outbound proxy settings immediately (no restart required)
@@ -108,8 +126,15 @@ export async function PATCH(request) {
         .catch((error) => console.warn("[AutoPing] settings update failed:", error.message));
     }
 
-    const { password, oidcClientSecret, ...safeSettings } = settings;
+    if (TELEGRAM_BACKUP_KEYS.some((key) => Object.prototype.hasOwnProperty.call(body, key))) {
+      import("@/lib/backup/autoBackup")
+        .then(({ configureTelegramAutoBackup }) => configureTelegramAutoBackup(settings))
+        .catch((error) => console.warn("[TelegramBackup] settings update failed:", error.message));
+    }
+
+    const { password, oidcClientSecret, telegramBackupBotToken, mitmSudoEncrypted, ...safeSettings } = settings;
     safeSettings.oidcConfigured = !!(safeSettings.oidcIssuerUrl && safeSettings.oidcClientId && oidcClientSecret);
+    safeSettings.telegramBackupBotTokenConfigured = !!telegramBackupBotToken;
     return NextResponse.json(safeSettings, { headers: SETTINGS_RESPONSE_HEADERS });
   } catch (error) {
     console.log("Error updating settings:", error);

@@ -64,6 +64,15 @@ const DEFAULT_SETTINGS = {
   pxpipeTimeoutMs: 15000,
   // Per-provider user header overrides applied at dispatch: { [providerId]: { headers: {..} } }
   providerOverrides: {},
+  // Telegram auto-backup. `telegramBackupBotToken` is a secret (write-only from
+  // the dashboard, never returned by GET /api/settings). Last-run fields are
+  // server-managed and rejected if a client tries to PATCH them.
+  telegramBackupEnabled: false,
+  telegramBackupIntervalMinutes: 1440,
+  telegramBackupBotToken: "",
+  telegramBackupChatId: "",
+  telegramBackupLastRunAt: "",
+  telegramBackupLastStatus: "",
 };
 
 async function readRaw() {

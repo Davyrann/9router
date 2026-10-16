@@ -1,3 +1,12 @@
+# v0.9.0 (2026-10-16)
+
+## Features
+- **Backup**: Telegram auto-backup — send a config + usage-totals JSON backup to a Telegram chat on a custom interval (minutes/hours/days), with manual "Send test"/"Send backup now" actions, last/next-run status, and a scheduler that starts on save or at boot when configured; the bot token is write-only in the dashboard and never returned by the settings API
+- **Backup**: versioned export format (v2) — exports carry `formatVersion`/`appVersion`/`schemaVersion`/`exportedAt` plus usage aggregates (daily rollups + lifetime counter); imports normalize and version-check the file before touching the DB, keep non-portable secrets (dashboard password, OIDC secret, bot token, MITM sudo password) on this instance, and preserve local usage rollups when the file carries none
+
+## Fixes
+- **Security**: replace the `x-9r-cli-token` presence check on DB export/import with real machine-token validation (shared `cliToken` module), so a forged header from any dashboard session can no longer bypass password re-auth (CWE-290); `GET /api/settings` additionally stops returning `mitmSudoEncrypted`
+
 # v0.8.1 (2026-10-16)
 
 ## Fixes

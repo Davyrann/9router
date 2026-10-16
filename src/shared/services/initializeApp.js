@@ -118,6 +118,13 @@ async function runHeavyStartup() {
   import("@/sse/services/backgroundTokenRefresh.js")
     .then(({ startBackgroundTokenRefresh }) => startBackgroundTokenRefresh())
     .catch((e) => console.log("[BackgroundTokenRefresh] scheduler start failed:", e.message));
+
+  // Telegram auto-backup (only when fully configured).
+  if (settings.telegramBackupEnabled && settings.telegramBackupBotToken && settings.telegramBackupChatId) {
+    import("@/lib/backup/autoBackup")
+      .then(({ startTelegramAutoBackup }) => startTelegramAutoBackup())
+      .catch((e) => console.log("[TelegramBackup] scheduler start failed:", e.message));
+  }
 }
 
 // Cheap local check: keeps the scheduler module (and its provider graph) unloaded
