@@ -7,9 +7,17 @@
 // undici keeps the token out of the server log. Trade-off: Telegram calls do not
 // traverse the app's outbound proxy.
 
-import { fetch as undiciFetch } from "undici";
+import { fetch as undiciFetch, FormData as UndiciFormData } from "undici";
 
 const API_BASE = "https://api.telegram.org";
+
+// Build the form with undici's OWN FormData, never the global one. Node's global
+// FormData comes from Node's bundled undici — a different class than the
+// `undici` package this file imports. undici's fetch body extractor identifies
+// FormData by `instanceof` (webidl.is.FormData), so a global FormData falls
+// through and the request body is sent as the literal string "[object FormData]"
+// with Content-Type: text/plain. Telegram then parses no fields at all and
+// answers "Bad Request: message text is empty".
 
 function apiUrl(botToken, method) {
   return `${API_BASE}/bot${botToken}/${method}`;
@@ -42,7 +50,7 @@ async function callTelegram(botToken, method, init, timeoutMs) {
 
 export async function sendTelegramDocument({ botToken, chatId, filename, content, caption = "", timeoutMs = 30000 }) {
   if (!chatId) return { ok: false, error: "Missing chat ID" };
-  const form = new FormData();
+  const form = new UndiciFormData();
   form.append("chat_id", String(chatId));
   if (caption) form.append("caption", caption.slice(0, 1024));
   form.append("document", new Blob([content], { type: "application/json" }), filename);
@@ -51,7 +59,8 @@ export async function sendTelegramDocument({ botToken, chatId, filename, content
 
 export async function sendTelegramMessage({ botToken, chatId, text, timeoutMs = 15000 }) {
   if (!chatId) return { ok: false, error: "Missing chat ID" };
-  const form = new FormData();
+  if (!String(text ?? "").trim()) return { ok: false, error: "Message text is empty" };
+  const form = new UndiciFormData();
   form.append("chat_id", String(chatId));
   form.append("text", text);
   return callTelegram(botToken, "sendMessage", { method: "POST", body: form }, timeoutMs);

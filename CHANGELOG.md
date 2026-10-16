@@ -5,6 +5,7 @@
 - **Backup**: versioned export format (v2) — exports carry `formatVersion`/`appVersion`/`schemaVersion`/`exportedAt` plus usage aggregates (daily rollups + lifetime counter); imports normalize and version-check the file before touching the DB, keep non-portable secrets (dashboard password, OIDC secret, bot token, MITM sudo password) on this instance, and preserve local usage rollups when the file carries none
 
 ## Fixes
+- **Backup**: Telegram sends now actually reach the API — the form was built with the global `FormData` (Node's bundled undici) but sent through `node_modules/undici`'s `fetch`, which identifies FormData by `instanceof`, so the body went out as the literal `[object FormData]` with `Content-Type: text/plain` and Telegram answered "Bad Request: message text is empty". Forms are now built with undici's own `FormData`, and `sendTelegramMessage` rejects empty text before calling the API
 - **Security**: replace the `x-9r-cli-token` presence check on DB export/import with real machine-token validation (shared `cliToken` module), so a forged header from any dashboard session can no longer bypass password re-auth (CWE-290); `GET /api/settings` additionally stops returning `mitmSudoEncrypted`
 
 # v0.8.1 (2026-10-16)
