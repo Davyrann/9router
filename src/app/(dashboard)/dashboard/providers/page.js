@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
+import { cn } from "@/shared/utils/cn";
 import {
   Card,
   CardSkeleton,
@@ -47,7 +48,7 @@ function getStatusDisplay(connected, error, errorCode) {
     );
   }
   if (parts.length === 0) {
-    return <span className="text-text-muted">No connections</span>;
+    return <span className="text-[var(--color-ash)] font-mono text-[12px]">[-] No connections</span>;
   }
   return parts;
 }
@@ -107,6 +108,7 @@ export default function ProvidersPage() {
   const [testingMode, setTestingMode] = useState(null);
   const [testResults, setTestResults] = useState(null);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [selectedCategory, setSelectedCategory] = useState("all");
   const notify = useNotificationStore();
   const searchQuery = useHeaderSearchStore((s) => s.query);
   const registerSearch = useHeaderSearchStore((s) => s.register);
@@ -376,71 +378,113 @@ export default function ProvidersPage() {
     );
   }
 
-  const hasAnyResult =
-    oauthEntries.length > 0 ||
-    freeEntries.length > 0 ||
-    freeTierEntries.length > 0 ||
-    apikeyEntries.length > 0 ||
-    compatibleProviders.length > 0 ||
-    anthropicCompatibleProviders.length > 0;
+  const hasCustomResult = compatibleProviders.length > 0 || anthropicCompatibleProviders.length > 0;
+  const hasOAuthResult = oauthEntries.length > 0;
+  const hasFreeResult = freeEntries.length > 0 || freeTierEntries.length > 0;
+  const hasApikeyResult = apikeyEntries.length > 0;
+
+  const hasCategoryResult =
+    selectedCategory === "all"
+      ? (hasCustomResult || hasOAuthResult || hasFreeResult || hasApikeyResult)
+      : selectedCategory === "custom"
+        ? true
+        : selectedCategory === "oauth"
+          ? hasOAuthResult
+          : selectedCategory === "free"
+            ? hasFreeResult
+            : selectedCategory === "apikey"
+              ? hasApikeyResult
+              : false;
+
+  const CATEGORIES = [
+    { id: "all", label: "All" },
+    { id: "custom", label: "Custom" },
+    { id: "oauth", label: "OAuth" },
+    { id: "free", label: "Free Tier" },
+    { id: "apikey", label: "API Key" },
+  ];
 
   return (
     <div className="flex min-w-0 flex-col gap-6 px-1 sm:px-0">
-      <div className="flex items-center justify-end">
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="h-8 rounded-lg border border-black/10 bg-black/[0.02] px-2 text-xs text-text-primary outline-none transition-colors hover:bg-black/5 dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/10"
-          aria-label="Filter providers by connection status"
-        >
-          {STATUS_FILTER_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+      {/* Category Tabs + Status Filter Header */}
+      <div className="border-b border-[var(--color-hairline)] pb-0">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center overflow-x-auto scroll-thin-x -mb-[1px] flex-1 min-w-0">
+            {CATEGORIES.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setSelectedCategory(cat.id)}
+                className={cn(
+                  "px-3 sm:px-4 py-2 font-mono text-[13px] sm:text-[14px] font-medium transition-colors border-b-2 whitespace-nowrap cursor-pointer",
+                  selectedCategory === cat.id
+                    ? "border-[var(--color-ink)] text-[var(--color-ink)] font-bold"
+                    : "border-transparent text-[var(--color-mute)] hover:text-[var(--color-ink)]"
+                )}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
+          <div className="shrink-0 pb-1 sm:pb-1.5">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="h-8 rounded border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] px-2 sm:px-2.5 text-[12px] sm:text-[13px] text-[var(--color-ink)] font-mono outline-none transition-colors hover:border-[var(--color-hairline-strong)]"
+              aria-label="Filter providers by connection status"
+            >
+              {STATUS_FILTER_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
       </div>
 
-      {!hasAnyResult && (
-        <div className="text-center py-8 border border-dashed border-border rounded-xl">
-          <span className="material-symbols-outlined text-[32px] text-text-muted mb-2">
+      {!hasCategoryResult && (
+        <div className="text-center py-12 px-6 border border-[var(--color-hairline)] bg-[var(--color-canvas)] text-[var(--color-mute)] text-[14px]">
+          <span className="material-symbols-outlined text-[32px] text-[var(--color-mute)] mb-2">
             search_off
           </span>
-          <p className="text-text-muted text-sm">
+          <p>
             No providers match your search or filters
           </p>
         </div>
       )}
 
       {/* Custom Providers (OpenAI/Anthropic Compatible) — dynamic */}
+      {(selectedCategory === "all" || selectedCategory === "custom") && (
       <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2 leading-tight">
-            Custom Providers (OpenAI/Anthropic Compatible){" "}
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-[15px] sm:text-lg font-bold flex items-center gap-2 leading-tight">
+            Custom Providers (OpenAI/Anthropic Compatible)
           </h2>
-          <div className="grid grid-cols-1 gap-2 sm:flex sm:w-auto">
+          <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 shrink-0">
             <Button
               size="sm"
               icon="add"
               onClick={() => setShowAddAnthropicCompatibleModal(true)}
               className="w-full sm:w-auto"
             >
-              Add Anthropic Compatible
+              <span className="inline sm:hidden">+ Anthropic</span>
+              <span className="hidden sm:inline">Add Anthropic Compatible</span>
             </Button>
             <Button
               size="sm"
               variant="secondary"
               icon="add"
               onClick={() => setShowAddCompatibleModal(true)}
-              className="w-full !bg-white !text-black hover:!bg-gray-100 sm:w-auto"
+              className="w-full sm:w-auto"
             >
-              Add OpenAI Compatible
+              <span className="inline sm:hidden">+ OpenAI</span>
+              <span className="hidden sm:inline">Add OpenAI Compatible</span>
             </Button>
           </div>
         </div>
         {compatibleProviders.length === 0 &&
         anthropicCompatibleProviders.length === 0 ? (
-          <div className="flex items-center justify-center gap-2 py-2 border border-dashed border-border rounded-xl text-text-muted text-sm">
+          <div className="flex items-center justify-center gap-2 py-8 px-6 border border-[var(--color-hairline)] bg-[var(--color-canvas)] text-[var(--color-mute)] text-[14px]">
             <span className="material-symbols-outlined text-[18px]">extension</span>
             <span>No custom providers — use buttons above to add OpenAI/Anthropic compatible endpoints</span>
           </div>
@@ -463,23 +507,24 @@ export default function ProvidersPage() {
           </div>
         )}
       </div>
+      )}
 
       {/* OAuth Providers */}
-      {oauthEntries.length > 0 && (
+      {(selectedCategory === "all" || selectedCategory === "oauth") && oauthEntries.length > 0 && (
       <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2 leading-tight">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-[15px] sm:text-xl font-bold flex items-center gap-2 leading-tight">
             OAuth Providers
           </h2>
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+          <div className="flex items-center gap-2 shrink-0">
             <ModelAvailabilityBadge />
             <button
               onClick={() => handleBatchTest("oauth")}
               disabled={!!testingMode}
-              className={`flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors sm:w-auto sm:py-1.5 ${
+              className={`flex items-center justify-center gap-1.5 h-8 px-2.5 sm:px-3 rounded border text-[12px] font-mono transition-colors ${
                 testingMode === "oauth"
                   ? "bg-primary/20 border-primary/40 text-primary animate-pulse"
-                  : "bg-bg border-border text-text-muted hover:text-text-main hover:border-primary/40"
+                  : "bg-[var(--color-canvas)] border-[var(--color-hairline)] text-[var(--color-mute)] hover:text-[var(--color-ink)] hover:border-[var(--color-hairline-strong)]"
               }`}
               title="Test all OAuth connections"
               aria-label="Test all OAuth connections"
@@ -489,7 +534,7 @@ export default function ProvidersPage() {
               >
                 play_arrow
               </span>
-              {testingMode === "oauth" ? "Testing..." : "Test All"}
+              <span>{testingMode === "oauth" ? "Testing..." : "Test All"}</span>
             </button>
           </div>
         </div>
@@ -512,19 +557,19 @@ export default function ProvidersPage() {
       )}
 
       {/* Free Tier Providers */}
-      {(freeEntries.length > 0 || freeTierEntries.length > 0) && (
+      {(selectedCategory === "all" || selectedCategory === "free") && (freeEntries.length > 0 || freeTierEntries.length > 0) && (
       <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2 leading-tight">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-[15px] sm:text-xl font-bold flex items-center gap-2 leading-tight">
             Free Tier Providers
           </h2>
           <button
             onClick={() => handleBatchTest("free")}
             disabled={!!testingMode}
-            className={`flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors sm:w-auto sm:py-1.5 ${
+            className={`flex items-center justify-center gap-1.5 h-8 px-2.5 sm:px-3 rounded border text-[12px] font-mono transition-colors ${
               testingMode === "free"
                 ? "bg-primary/20 border-primary/40 text-primary animate-pulse"
-                : "bg-bg border-border text-text-muted hover:text-text-main hover:border-primary/40"
+                : "bg-[var(--color-canvas)] border-[var(--color-hairline)] text-[var(--color-mute)] hover:text-[var(--color-ink)] hover:border-[var(--color-hairline-strong)]"
             }`}
             title="Test all Free connections"
             aria-label="Test all Free provider connections"
@@ -534,7 +579,7 @@ export default function ProvidersPage() {
             >
               play_arrow
             </span>
-            {testingMode === "free" ? "Testing..." : "Test All"}
+            <span>{testingMode === "free" ? "Testing..." : "Test All"}</span>
           </button>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
@@ -573,19 +618,19 @@ export default function ProvidersPage() {
       )}
 
       {/* API Key Providers — fixed list */}
-      {apikeyEntries.length > 0 && (
+      {(selectedCategory === "all" || selectedCategory === "apikey") && apikeyEntries.length > 0 && (
       <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2 leading-tight">
-            API Key Providers{" "}
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-[15px] sm:text-xl font-bold flex items-center gap-2 leading-tight">
+            API Key Providers
           </h2>
           <button
             onClick={() => handleBatchTest("apikey")}
             disabled={!!testingMode}
-            className={`flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors sm:w-auto sm:py-1.5 ${
+            className={`flex items-center justify-center gap-1.5 h-8 px-2.5 sm:px-3 rounded border text-[12px] font-mono transition-colors ${
               testingMode === "apikey"
                 ? "bg-primary/20 border-primary/40 text-primary animate-pulse"
-                : "bg-bg border-border text-text-muted hover:text-text-main hover:border-primary/40"
+                : "bg-[var(--color-canvas)] border-[var(--color-hairline)] text-[var(--color-mute)] hover:text-[var(--color-ink)] hover:border-[var(--color-hairline-strong)]"
             }`}
             title="Test all API Key connections"
             aria-label="Test all API Key connections"
@@ -595,7 +640,7 @@ export default function ProvidersPage() {
             >
               play_arrow
             </span>
-            {testingMode === "apikey" ? "Testing..." : "Test All"}
+            <span>{testingMode === "apikey" ? "Testing..." : "Test All"}</span>
           </button>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">

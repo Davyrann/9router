@@ -884,195 +884,309 @@ export default function APIPageClient({ machineId }) {
     <div className="flex flex-col gap-8">
       {/* Endpoint Card */}
       <Card>
-        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <span className="material-symbols-outlined text-primary">api</span>
-          API Endpoint
-        </h2>
-
-        {/* Endpoint rows */}
-        <div className="flex flex-col gap-2">
-          {/* Local */}
-          <EndpointRow
-            label="Local"
-            url={currentEndpoint}
-            copyId="local_url"
-            copied={copied}
-            onCopy={copy}
-          />
-          {/* Cloudflare Tunnel */}
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <span className={`text-xs font-mono px-1.5 py-0.5 rounded shrink-0 min-w-[88px] text-center ${
-              tunnelEnabled ? "bg-primary/10 text-primary" : "bg-surface-2 text-text-muted"
-            }`}>Tunnel</span>
+            <span className="material-symbols-outlined text-[20px] text-[var(--color-ink)]">api</span>
+            <h2 className="text-[16px] font-bold text-[var(--color-ink)] font-mono">
+              API Endpoint
+            </h2>
+          </div>
+          <span className="text-[12px] text-[var(--color-mute)] font-mono hidden sm:inline">
+            OpenAI-Compatible (/v1/*)
+          </span>
+        </div>
+
+        {/* Endpoint Channels — Mobile-First Stack */}
+        <div className="flex flex-col gap-3">
+          {/* 1. Local Gateway */}
+          <div className="p-3.5 sm:p-4 border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] rounded">
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-[14px] font-bold text-[var(--color-ink)] font-mono">
+                  Local Gateway
+                </span>
+                <span className="px-1.5 py-0.2 text-[10px] font-mono text-[var(--color-success)] border border-[rgba(48,209,88,0.4)] rounded">
+                  ONLINE
+                </span>
+              </div>
+              <span className="text-[12px] text-[var(--color-mute)] font-mono hidden sm:inline">
+                Loopback
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between gap-2 px-3 py-2 bg-[var(--color-canvas)] border border-[var(--color-hairline)] rounded">
+              <div className="min-w-0 flex-1 overflow-x-auto scroll-thin-x py-0.5">
+                <code className="text-[13px] text-[var(--color-ink)] font-mono whitespace-nowrap select-all block">
+                  {currentEndpoint}
+                </code>
+              </div>
+              <button
+                onClick={() => copy(currentEndpoint, "local_url")}
+                className="flex items-center justify-center h-7 px-2.5 border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] text-[var(--color-mute)] hover:text-[var(--color-ink)] rounded text-[12px] font-mono transition-colors shrink-0 cursor-pointer"
+                title="Copy local endpoint URL"
+              >
+                <span className="material-symbols-outlined text-[14px] mr-1">
+                  {copied === "local_url" ? "check" : "content_copy"}
+                </span>
+                {copied === "local_url" ? "Copied" : "Copy"}
+              </button>
+            </div>
+          </div>
+
+          {/* 2. Cloudflare Tunnel */}
+          <div className="p-3.5 sm:p-4 border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] rounded">
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-[14px] font-bold text-[var(--color-ink)] font-mono">
+                  Cloudflare Tunnel
+                </span>
+                {tunnelEnabled && tunnelReachable && (
+                  <span className="px-1.5 py-0.2 text-[10px] font-mono text-[var(--color-success)] border border-[rgba(48,209,88,0.4)] rounded">
+                    ONLINE
+                  </span>
+                )}
+                {tunnelEnabled && !tunnelReachable && !tunnelLoading && (
+                  <span className="px-1.5 py-0.2 text-[10px] font-mono text-[var(--color-warning)] border border-[var(--color-warning)]/40 rounded">
+                    CONNECTING
+                  </span>
+                )}
+                {!tunnelEnabled && (
+                  <span className="px-1.5 py-0.2 text-[10px] font-mono text-[var(--color-mute)] border border-[var(--color-hairline)] rounded">
+                    OFF
+                  </span>
+                )}
+              </div>
+            </div>
+
             {tunnelEnabled && !tunnelLoading && tunnelReachable ? (
-              <>
-                <Input value={`${tunnelPublicUrl || tunnelUrl}/v1`} readOnly className="flex-1 font-mono text-sm" />
-                <button
-                  onClick={() => copy(`${tunnelPublicUrl || tunnelUrl}/v1`, "tunnel_url")}
-                  className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition-colors shrink-0"
-                >
-                  <span className="material-symbols-outlined text-[18px]">{copied === "tunnel_url" ? "check" : "content_copy"}</span>
-                </button>
-                <button
-                  onClick={() => setShowDisableTunnelModal(true)}
-                  className="p-2 hover:bg-red-500/10 rounded text-red-500 transition-colors shrink-0"
-                  title="Disable Tunnel"
-                >
-                  <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
-                </button>
-              </>
+              <div className="flex items-center justify-between gap-2 px-3 py-2 bg-[var(--color-canvas)] border border-[var(--color-hairline)] rounded">
+                <div className="min-w-0 flex-1 overflow-x-auto scroll-thin-x py-0.5">
+                  <code className="text-[13px] text-[var(--color-ink)] font-mono whitespace-nowrap select-all block">
+                    {`${tunnelPublicUrl || tunnelUrl}/v1`}
+                  </code>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    onClick={() => copy(`${tunnelPublicUrl || tunnelUrl}/v1`, "tunnel_url")}
+                    className="flex items-center justify-center h-7 px-2.5 border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] text-[var(--color-mute)] hover:text-[var(--color-ink)] rounded text-[12px] font-mono transition-colors cursor-pointer"
+                    title="Copy tunnel URL"
+                  >
+                    <span className="material-symbols-outlined text-[14px] mr-1">
+                      {copied === "tunnel_url" ? "check" : "content_copy"}
+                    </span>
+                    {copied === "tunnel_url" ? "Copied" : "Copy"}
+                  </button>
+                  <button
+                    onClick={() => setShowDisableTunnelModal(true)}
+                    className="flex items-center justify-center h-7 px-2 border border-red-500/20 text-red-500 hover:bg-red-500/10 rounded text-[12px] font-mono transition-colors cursor-pointer"
+                    title="Disable Tunnel"
+                  >
+                    <span className="material-symbols-outlined text-[14px] mr-1">power_settings_new</span>
+                    Stop
+                  </button>
+                </div>
+              </div>
             ) : tunnelEnabled && !tunnelLoading && !tunnelReachable ? (
-              <>
-                <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded border border-amber-300 dark:border-amber-800 bg-amber-500/5 text-sm text-amber-600 dark:text-amber-400">
+              <div className="flex items-center justify-between gap-2 p-3 rounded border border-amber-300 dark:border-amber-800 bg-amber-500/5 text-sm text-amber-600 dark:text-amber-400 font-mono">
+                <div className="flex items-center gap-2">
                   <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
-                  {tunnelEverReachable ? "Tunnel reconnecting..." : "Tunnel checking..."}
+                  <span>{tunnelEverReachable ? "Tunnel reconnecting..." : "Tunnel checking..."}</span>
                 </div>
                 <button
                   onClick={() => setShowDisableTunnelModal(true)}
-                  className="p-2 hover:bg-red-500/10 rounded text-red-500 transition-colors shrink-0"
+                  className="p-1 hover:bg-red-500/10 rounded text-red-500 transition-colors"
                   title="Disable Tunnel"
                 >
                   <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
                 </button>
-              </>
+              </div>
             ) : tunnelLoading ? (
-              <>
-                <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded border border-border bg-input text-sm text-text-muted">
+              <div className="flex items-center justify-between gap-2 p-3 rounded border border-[var(--color-hairline)] bg-[var(--color-canvas)] text-sm text-[var(--color-mute)] font-mono">
+                <div className="flex items-center gap-2">
                   <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
-                  {tunnelProgress || "Creating tunnel..."}
+                  <span>{tunnelProgress || "Creating tunnel..."}</span>
                 </div>
                 <button
                   onClick={() => { setTunnelLoading(false); setTunnelProgress(""); }}
-                  className="p-2 hover:bg-red-500/10 rounded text-red-500 transition-colors shrink-0"
+                  className="p-1 hover:bg-red-500/10 rounded text-red-500 transition-colors"
                   title="Stop"
                 >
                   <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
                 </button>
-              </>
+              </div>
             ) : tunnelStatus?.type === "error" ? (
-              <>
-                <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded border border-red-300 dark:border-red-800 bg-red-500/5 text-sm text-red-600 dark:text-red-400">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2 px-3 py-2 rounded border border-red-300 dark:border-red-800 bg-red-500/5 text-sm text-red-600 dark:text-red-400 font-mono">
                   <span className="material-symbols-outlined text-sm">error</span>
-                  {tunnelStatus.message}
+                  <span>{tunnelStatus.message}</span>
                 </div>
-                <Button size="sm" icon="cloud_upload" onClick={() => setShowEnableTunnelModal(true)}>Enable</Button>
-              </>
+                <Button size="sm" icon="cloud_upload" onClick={() => setShowEnableTunnelModal(true)} className="w-full sm:w-auto">
+                  Enable Tunnel
+                </Button>
+              </div>
             ) : tunnelChecking ? (
-              <>
-                <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded border border-border bg-input text-sm text-text-muted">
+              <div className="flex items-center justify-between gap-2 p-3 rounded border border-[var(--color-hairline)] bg-[var(--color-canvas)] text-sm text-[var(--color-mute)] font-mono">
+                <div className="flex items-center gap-2">
                   <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
-                  Checking...
+                  <span>Checking tunnel...</span>
                 </div>
                 <button
                   onClick={() => setTunnelChecking(false)}
-                  className="p-2 hover:bg-red-500/10 rounded text-red-500 transition-colors shrink-0"
+                  className="p-1 hover:bg-red-500/10 rounded text-red-500 transition-colors"
                   title="Stop"
                 >
                   <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
                 </button>
-              </>
+              </div>
             ) : (
-              <Button
-                size="sm"
-                icon="cloud_upload"
-                onClick={() => {
-                  if (isLoginUnsafe) {
-                    setTunnelStatus({ type: "error", message: `Security required: ${unsafeReason}` });
-                    return;
-                  }
-                  if (!requireApiKey) {
-                    setTunnelStatus({ type: "error", message: "Security required: Enable \"Require API key\" before activating the tunnel." });
-                    return;
-                  }
-                  setShowEnableTunnelModal(true);
-                }}
-              >
-                Enable
-              </Button>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <p className="text-[13px] text-[var(--color-mute)] font-mono">
+                  Public HTTPS URL via Cloudflare. No port forwarding needed.
+                </p>
+                <Button
+                  size="sm"
+                  icon="cloud_upload"
+                  className="w-full sm:w-auto shrink-0"
+                  onClick={() => {
+                    if (isLoginUnsafe) {
+                      setTunnelStatus({ type: "error", message: `Security required: ${unsafeReason}` });
+                      return;
+                    }
+                    if (!requireApiKey) {
+                      setTunnelStatus({ type: "error", message: "Security required: Enable \"Require API key\" before activating the tunnel." });
+                      return;
+                    }
+                    setShowEnableTunnelModal(true);
+                  }}
+                >
+                  Enable Tunnel
+                </Button>
+              </div>
             )}
           </div>
-          {/* Tailscale */}
-          <div className="flex items-center gap-2">
-            <span className={`text-xs font-mono px-1.5 py-0.5 rounded shrink-0 min-w-[88px] text-center ${
-              tsEnabled ? "bg-primary/10 text-primary" : "bg-surface-2 text-text-muted"
-            }`}>Tailscale</span>
-            {tsEnabled && !tsLoading && tsReachable ? (
-              <>
-                <Input value={`${tsUrl}/v1`} readOnly className="flex-1 font-mono text-sm" />
-                <button
-                  onClick={() => copy(`${tsUrl}/v1`, "ts_url")}
-                  className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition-colors shrink-0"
-                >
-                  <span className="material-symbols-outlined text-[18px]">{copied === "ts_url" ? "check" : "content_copy"}</span>
-                </button>
-                <button
-                  onClick={() => setShowDisableTsModal(true)}
-                  className="p-2 hover:bg-red-500/10 rounded text-red-500 transition-colors shrink-0"
-                  title="Disable Tailscale"
-                >
-                  <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
-                </button>
-              </>
-            ) : tsEnabled && !tsLoading && !tsReachable ? (
-              <>
-                <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded border border-amber-300 dark:border-amber-800 bg-amber-500/5 text-sm text-amber-600 dark:text-amber-400">
-                  <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
-                  {tsEverReachable ? "Tailscale reconnecting..." : "Tailscale checking..."}
-                </div>
-                <button
-                  onClick={() => setShowDisableTsModal(true)}
-                  className="p-2 hover:bg-red-500/10 rounded text-red-500 transition-colors shrink-0"
-                  title="Disable Tailscale"
-                >
-                  <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
-                </button>
-              </>
-            ) : (tsLoading || tsConnecting) ? (
-              <>
-                <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded border border-border bg-input text-sm text-text-muted">
-                  <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
-                  {tsProgress || "Connecting..."}
-                </div>
-                {tsAuthUrl && (
-                  <Button
-                    size="sm"
-                    icon="open_in_new"
-                    onClick={() => window.open(tsAuthUrl, "tailscale_auth", "width=600,height=700,noopener,noreferrer")}
-                  >
-                    {tsAuthLabel || "Open"}
-                  </Button>
+
+          {/* 3. Tailscale Funnel */}
+          <div className="p-3.5 sm:p-4 border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] rounded">
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-[14px] font-bold text-[var(--color-ink)] font-mono">
+                  Tailscale Funnel
+                </span>
+                {tsEnabled && tsReachable && (
+                  <span className="px-1.5 py-0.2 text-[10px] font-mono text-[var(--color-success)] border border-[rgba(48,209,88,0.4)] rounded">
+                    ONLINE
+                  </span>
                 )}
+                {tsEnabled && !tsReachable && !tsLoading && (
+                  <span className="px-1.5 py-0.2 text-[10px] font-mono text-[var(--color-warning)] border border-[var(--color-warning)]/40 rounded">
+                    CONNECTING
+                  </span>
+                )}
+                {!tsEnabled && (
+                  <span className="px-1.5 py-0.2 text-[10px] font-mono text-[var(--color-mute)] border border-[var(--color-hairline)] rounded">
+                    OFF
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {tsEnabled && !tsLoading && tsReachable ? (
+              <div className="flex items-center justify-between gap-2 px-3 py-2 bg-[var(--color-canvas)] border border-[var(--color-hairline)] rounded">
+                <div className="min-w-0 flex-1 overflow-x-auto scroll-thin-x py-0.5">
+                  <code className="text-[13px] text-[var(--color-ink)] font-mono whitespace-nowrap select-all block">
+                    {`${tsUrl}/v1`}
+                  </code>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    onClick={() => copy(`${tsUrl}/v1`, "ts_url")}
+                    className="flex items-center justify-center h-7 px-2.5 border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] text-[var(--color-mute)] hover:text-[var(--color-ink)] rounded text-[12px] font-mono transition-colors cursor-pointer"
+                    title="Copy tailscale URL"
+                  >
+                    <span className="material-symbols-outlined text-[14px] mr-1">
+                      {copied === "ts_url" ? "check" : "content_copy"}
+                    </span>
+                    {copied === "ts_url" ? "Copied" : "Copy"}
+                  </button>
+                  <button
+                    onClick={() => setShowDisableTsModal(true)}
+                    className="flex items-center justify-center h-7 px-2 border border-red-500/20 text-red-500 hover:bg-red-500/10 rounded text-[12px] font-mono transition-colors cursor-pointer"
+                    title="Disable Tailscale"
+                  >
+                    <span className="material-symbols-outlined text-[14px] mr-1">power_settings_new</span>
+                    Stop
+                  </button>
+                </div>
+              </div>
+            ) : tsEnabled && !tsLoading && !tsReachable ? (
+              <div className="flex items-center justify-between gap-2 p-3 rounded border border-amber-300 dark:border-amber-800 bg-amber-500/5 text-sm text-amber-600 dark:text-amber-400 font-mono">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
+                  <span>{tsEverReachable ? "Tailscale reconnecting..." : "Tailscale checking..."}</span>
+                </div>
                 <button
-                  onClick={() => { setTsLoading(false); setTsConnecting(false); setTsProgress(""); clearUserAuth(); }}
-                  className="p-2 hover:bg-red-500/10 rounded text-red-500 transition-colors shrink-0"
-                  title="Stop"
+                  onClick={() => setShowDisableTsModal(true)}
+                  className="p-1 hover:bg-red-500/10 rounded text-red-500 transition-colors"
+                  title="Disable Tailscale"
                 >
                   <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
                 </button>
-              </>
-            ) : tsStatus?.type === "error" ? (
-              <>
-                <div className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded border border-red-300 dark:border-red-800 bg-red-500/5 text-sm text-red-600 dark:text-red-400">
-                  <span className="material-symbols-outlined text-sm">error</span>
-                  {tsStatus.message}
+              </div>
+            ) : (tsLoading || tsConnecting) ? (
+              <div className="flex items-center justify-between gap-2 p-3 rounded border border-[var(--color-hairline)] bg-[var(--color-canvas)] text-sm text-[var(--color-mute)] font-mono">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
+                  <span>{tsProgress || "Connecting..."}</span>
                 </div>
-                <Button size="sm" icon="vpn_lock" onClick={handleOpenTsModal}>Enable</Button>
-              </>
+                <div className="flex items-center gap-2">
+                  {tsAuthUrl && (
+                    <Button
+                      size="sm"
+                      icon="open_in_new"
+                      onClick={() => window.open(tsAuthUrl, "tailscale_auth", "width=600,height=700,noopener,noreferrer")}
+                    >
+                      {tsAuthLabel || "Open"}
+                    </Button>
+                  )}
+                  <button
+                    onClick={() => { setTsLoading(false); setTsConnecting(false); setTsProgress(""); clearUserAuth(); }}
+                    className="p-1 hover:bg-red-500/10 rounded text-red-500 transition-colors"
+                    title="Stop"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">power_settings_new</span>
+                  </button>
+                </div>
+              </div>
+            ) : tsStatus?.type === "error" ? (
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2 px-3 py-2 rounded border border-red-300 dark:border-red-800 bg-red-500/5 text-sm text-red-600 dark:text-red-400 font-mono">
+                  <span className="material-symbols-outlined text-sm">error</span>
+                  <span>{tsStatus.message}</span>
+                </div>
+                <Button size="sm" icon="vpn_lock" onClick={handleOpenTsModal} className="w-full sm:w-auto">
+                  Enable Tailscale
+                </Button>
+              </div>
             ) : (
-              <Button
-                size="sm"
-                icon="vpn_lock"
-                onClick={() => {
-                  if (isLoginUnsafe) {
-                    setTsStatus({ type: "error", message: `Security required: ${unsafeReason}` });
-                    return;
-                  }
-                  handleOpenTsModal();
-                }}
-                className="bg-linear-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white!"
-              >
-                Enable
-              </Button>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <p className="text-[13px] text-[var(--color-mute)] font-mono">
+                  Secure mesh network URL via Tailscale Funnel.
+                </p>
+                <Button
+                  size="sm"
+                  icon="vpn_lock"
+                  className="w-full sm:w-auto shrink-0"
+                  onClick={() => {
+                    if (isLoginUnsafe) {
+                      setTsStatus({ type: "error", message: `Security required: ${unsafeReason}` });
+                      return;
+                    }
+                    handleOpenTsModal();
+                  }}
+                >
+                  Enable Tailscale
+                </Button>
+              </div>
             )}
           </div>
         </div>
@@ -1129,12 +1243,14 @@ export default function APIPageClient({ machineId }) {
 
       {/* API Keys */}
       <Card id="require-api-key">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary">vpn_key</span>
-            API Keys
-          </h2>
-          <Button icon="add" onClick={() => setShowAddModal(true)}>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-[20px] text-[var(--color-ink)]">vpn_key</span>
+            <h2 className="text-[16px] font-bold text-[var(--color-ink)] font-mono">
+              API Keys
+            </h2>
+          </div>
+          <Button size="sm" icon="add" onClick={() => setShowAddModal(true)} className="w-full sm:w-auto">
             Create Key
           </Button>
         </div>
@@ -1150,10 +1266,12 @@ export default function APIPageClient({ machineId }) {
           </div>
         )}
 
-        <div className="flex items-center justify-between pb-4 mb-4 border-b border-border">
-          <div>
-            <p className="font-medium">Require API key</p>
-            <p className="text-sm text-text-muted">
+        <div className="flex items-center justify-between gap-3 pb-3.5 mb-4 border-b border-[var(--color-hairline)]">
+          <div className="min-w-0 pr-2">
+            <p className="text-[14px] font-bold text-[var(--color-ink)] font-mono">
+              Require API key
+            </p>
+            <p className="text-[12px] text-[var(--color-mute)] font-mono leading-tight mt-0.5">
               Requests without a valid key will be rejected
             </p>
           </div>
@@ -1188,127 +1306,243 @@ export default function APIPageClient({ machineId }) {
             </Button>
           </div>
         ) : (
-          <div className="flex flex-col">
+          <div className="flex flex-col gap-3">
             {visibleKeysList.map((key) => {
               const keyExpiry = expiryLabel(key);
               return (
               <div
                 key={key.id}
-                className={`group flex flex-col gap-3 py-3 border-b border-black/[0.03] dark:border-white/[0.03] last:border-b-0 sm:flex-row sm:items-start sm:justify-between ${key.isActive === false ? "opacity-60" : ""}`}
+                className={cn(
+                  "p-4 border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] transition-colors",
+                  key.isActive === false && "opacity-70"
+                )}
+                style={{ borderRadius: "4px" }}
               >
-                <div className="flex-1 min-w-0">
-                  {renaming.id === key.id ? (
-                    <div className="flex items-center gap-2">
-                      <Input
-                        value={renaming.name}
-                        onChange={(e) => setRenaming({ id: key.id, name: e.target.value })}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") saveRename(key.id);
-                          if (e.key === "Escape") cancelRename();
-                        }}
-                        autoFocus
-                        placeholder="Key name"
-                        className="flex-1 min-w-0"
-                      />
-                      <Button size="sm" onClick={() => saveRename(key.id)} disabled={!renaming.name.trim()}>
-                        Save
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={cancelRename}>
-                        Cancel
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1.5 group/name">
-                      <p className="text-sm font-medium min-w-0 truncate">{key.name}</p>
-                      <button
-                        onClick={() => startRename(key)}
-                        className="p-0.5 rounded text-text-muted opacity-100 sm:opacity-0 sm:group-hover/name:opacity-100 hover:bg-black/5 dark:hover:bg-white/5 hover:text-primary transition-all"
-                        title="Rename key"
-                      >
-                        <span className="material-symbols-outlined text-[14px]">edit</span>
-                      </button>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2 mt-1 min-w-0 flex-wrap">
-                    <code className="text-xs text-text-muted font-mono break-all min-w-0">
+                {/* Header: Name, Rename, Pause indicator, Active toggle, Delete */}
+                <div className="flex items-center justify-between gap-3 pb-3 border-b border-[var(--color-hairline)]">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {renaming.id === key.id ? (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={renaming.name}
+                          onChange={(e) => setRenaming({ id: key.id, name: e.target.value })}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") saveRename(key.id);
+                            if (e.key === "Escape") cancelRename();
+                          }}
+                          autoFocus
+                          placeholder="Key name"
+                          className="w-48"
+                        />
+                        <Button size="xs" onClick={() => saveRename(key.id)} disabled={!renaming.name.trim()}>
+                          Save
+                        </Button>
+                        <Button size="xs" variant="ghost" onClick={cancelRename}>
+                          Cancel
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 group/name">
+                        <span className="text-[15px] font-bold text-[var(--color-ink)] truncate font-mono">
+                          {key.name}
+                        </span>
+                        <button
+                          onClick={() => startRename(key)}
+                          className="p-1 rounded text-[var(--color-mute)] hover:text-[var(--color-ink)] hover:bg-[var(--color-surface-card)] transition-colors"
+                          title="Rename key"
+                        >
+                          <span className="material-symbols-outlined text-[14px]">edit</span>
+                        </button>
+                        {key.isActive === false && (
+                          <span className="px-1.5 py-0.2 text-[10px] font-mono text-[var(--color-warning)] border border-[var(--color-warning)]/40 rounded">
+                            PAUSED
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Toggle
+                      size="sm"
+                      checked={key.isActive ?? true}
+                      onChange={(checked) => {
+                        if (key.isActive && !checked) {
+                          setConfirmState({
+                            title: "Pause API Key",
+                            message: `Pause API key "${key.name}"?\n\nThis key will stop working immediately but can be resumed later.`,
+                            onConfirm: async () => {
+                              setConfirmState(null);
+                              handleToggleKey(key.id, checked);
+                            }
+                          });
+                        } else {
+                          handleToggleKey(key.id, checked);
+                        }
+                      }}
+                      title={key.isActive ? "Pause key" : "Resume key"}
+                    />
+                    <button
+                      onClick={() => handleDeleteKey(key.id)}
+                      className="flex items-center justify-center size-7 rounded text-[var(--color-mute)] hover:text-[var(--color-danger)] hover:bg-[var(--color-surface-card)] transition-colors cursor-pointer"
+                      title="Delete key"
+                      aria-label="Delete key"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">delete</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Secret Key Snippet */}
+                <div className="my-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 sm:px-3 sm:py-2 bg-[var(--color-surface-card)] border border-[var(--color-hairline)] rounded">
+                  <div className="min-w-0 flex-1 overflow-x-auto scroll-thin-x py-0.5">
+                    <code className="text-[13px] text-[var(--color-ink)] font-mono whitespace-nowrap select-all block">
                       {visibleKeys.has(key.id) ? key.key : maskKey(key.key)}
                     </code>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        onClick={() => toggleKeyVisibility(key.id)}
-                        className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition-all"
-                        title={visibleKeys.has(key.id) ? "Hide key" : "Show key"}
-                      >
-                        <span className="material-symbols-outlined text-[14px]">
-                          {visibleKeys.has(key.id) ? "visibility_off" : "visibility"}
-                        </span>
-                      </button>
-                      <button
-                        onClick={() => copy(key.key, key.id)}
-                        className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition-all"
-                      >
-                        <span className="material-symbols-outlined text-[14px]">
-                          {copied === key.id ? "check" : "content_copy"}
-                        </span>
-                      </button>
-                    </div>
                   </div>
-                  {/* Key metadata as pills */}
-                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                    <Pill icon="calendar_today" title={`Created ${fmtDate(key.createdAt)}`}>
-                      {fmtDate(key.createdAt)}
-                    </Pill>
-                    <Pill
-                      icon={key.usage ? "query_stats" : "hourglass_empty"}
-                      tone={key.usage ? "info" : "neutral"}
-                      title={key.usage ? "requests · total tokens · last used" : "No requests recorded yet"}
+                  <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto pt-1 sm:pt-0 border-t sm:border-t-0 border-[var(--color-hairline)] w-full sm:w-auto justify-end">
+                    <button
+                      onClick={() => toggleKeyVisibility(key.id)}
+                      className="flex items-center justify-center h-7 px-2 border border-[var(--color-hairline)] bg-[var(--color-canvas)] text-[var(--color-mute)] hover:text-[var(--color-ink)] rounded text-[12px] font-mono transition-colors cursor-pointer"
+                      title={visibleKeys.has(key.id) ? "Hide key" : "Show key"}
                     >
+                      <span className="material-symbols-outlined text-[14px] mr-1">
+                        {visibleKeys.has(key.id) ? "visibility_off" : "visibility"}
+                      </span>
+                      {visibleKeys.has(key.id) ? "Hide" : "Show"}
+                    </button>
+                    <button
+                      onClick={() => copy(key.key, key.id)}
+                      className="flex items-center justify-center h-7 px-2 border border-[var(--color-hairline)] bg-[var(--color-canvas)] text-[var(--color-mute)] hover:text-[var(--color-ink)] rounded text-[12px] font-mono transition-colors cursor-pointer"
+                      title="Copy key"
+                    >
+                      <span className="material-symbols-outlined text-[14px] mr-1">
+                        {copied === key.id ? "check" : "content_copy"}
+                      </span>
+                      {copied === key.id ? "Copied" : "Copy"}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Specs / Details */}
+                <div className="grid grid-cols-2 sm:flex sm:flex-wrap sm:items-center gap-2 sm:gap-x-4 sm:gap-y-1.5 text-[12px] font-mono text-[var(--color-mute)]">
+                  <div className="flex items-center gap-1">
+                    <span className="text-[var(--color-ash)]">Created:</span>
+                    <span className="text-[var(--color-ink)]">{fmtDate(key.createdAt)}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[var(--color-ash)]">Usage:</span>
+                    <span className="text-[var(--color-ink)] truncate">
                       {key.usage
-                        ? `${key.usage.requests} req · ${fmtTokens((key.usage.promptTokens || 0) + (key.usage.completionTokens || 0))} tok · ${fmtRelative(key.usage.lastUsed)}`
-                        : "No usage yet"}
-                    </Pill>
-                    {keyExpiry && (
-                      <Pill
-                        icon={keyExpiry.variant === "error" ? "timer_off" : "schedule"}
-                        tone={keyExpiry.variant === "error" ? "error" : keyExpiry.variant === "warn" ? "warn" : "neutral"}
-                        title={`Expires ${key.expiresAt ? new Date(key.expiresAt).toLocaleString() : ""}`}
-                      >
-                        {keyExpiry.text}
-                      </Pill>
-                    )}
-                    {key.isActive === false && (
-                      <Pill tone="paused" icon="pause_circle">Paused</Pill>
-                    )}
-                    {isKeyStale(key) && key.isActive !== false && (
-                      <button
-                        onClick={() => handleToggleKey(key.id, false)}
-                        title={key.usage ? "Unused for over 90 days — click to pause" : "Created over 90 days ago and never used — click to pause"}
-                        className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-500 transition-colors hover:bg-amber-500/20"
-                      >
-                        <span className="material-symbols-outlined text-[13px] leading-none">warning</span>
-                        Stale · pause
-                      </button>
-                    )}
-                    {/* Quota always visible: Unlimited by default, click to set */}
+                        ? `${key.usage.requests} reqs (${fmtTokens((key.usage.promptTokens || 0) + (key.usage.completionTokens || 0))} tok)`
+                        : "0 reqs"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[var(--color-ash)]">Quota:</span>
                     {key.quotaLimit ? (
-                      <Pill
-                        icon={(key.quotaUsed || 0) >= key.quotaLimit ? "block" : "donut_small"}
-                        tone={(key.quotaUsed || 0) >= key.quotaLimit ? "error" : "success"}
-                        title="Quota used this window"
-                      >
-                        {key.quotaUsed || 0}/{key.quotaLimit} {key.quotaWindow === "monthly" ? "per month" : "per day"}
-                      </Pill>
+                      <span className="text-[var(--color-ink)]">
+                        {key.quotaUsed || 0}/{key.quotaLimit} {key.quotaWindow === "monthly" ? "mo" : "day"}
+                      </span>
                     ) : (
                       <button
                         onClick={() => setQuotaEditing({ id: key.id, limit: "", window: "daily" })}
-                        title="Unlimited requests — click to set a quota"
-                        className="inline-flex items-center gap-1 rounded-full border border-border bg-surface-2 px-2 py-0.5 text-xs font-medium text-text-muted transition-colors hover:border-primary/40 hover:text-primary"
+                        className="text-[var(--color-ink)] underline hover:text-[var(--color-primary)] cursor-pointer"
+                        title="Click to set quota"
                       >
-                        <span className="material-symbols-outlined text-[13px] leading-none">all_inclusive</span>
                         Unlimited
                       </button>
                     )}
                   </div>
+                  {keyExpiry && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-[var(--color-ash)]">Expires:</span>
+                      <span className={keyExpiry.variant === "error" ? "text-[var(--color-danger)]" : "text-[var(--color-ink)]"}>
+                        {keyExpiry.text}
+                      </span>
+                    </div>
+                  )}
+                  {isKeyStale(key) && key.isActive !== false && (
+                    <button
+                      onClick={() => handleToggleKey(key.id, false)}
+                      title={key.usage ? "Unused for over 90 days — click to pause" : "Created over 90 days ago and never used — click to pause"}
+                      className="text-[var(--color-warning)] underline hover:opacity-80"
+                    >
+                      [!] Stale (pause)
+                    </button>
+                  )}
+                </div>
+
+                {/* Quota editing input */}
+                {quotaEditing?.id === key.id && (
+                  <div className="mt-3 p-3 bg-[var(--color-canvas)] border border-[var(--color-hairline)] rounded flex flex-wrap items-center gap-2">
+                    <span className="text-[12px] font-mono text-[var(--color-mute)] shrink-0">Set Quota:</span>
+                    <Input
+                      type="number"
+                      min={1}
+                      placeholder="e.g. 100"
+                      value={quotaEditing.limit}
+                      onChange={(e) => setQuotaEditing({ ...quotaEditing, limit: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") saveQuota(key.id);
+                        if (e.key === "Escape") setQuotaEditing(null);
+                      }}
+                      autoFocus
+                      className="w-28"
+                      inputClassName="h-8 text-[13px] py-1"
+                    />
+                    <select
+                      value={quotaEditing.window}
+                      onChange={(e) => setQuotaEditing({ ...quotaEditing, window: e.target.value })}
+                      className="h-8 rounded border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] px-2.5 text-[12px] font-mono text-[var(--color-ink)] outline-none transition-colors hover:border-[var(--color-hairline-strong)]"
+                    >
+                      <option value="daily">per day</option>
+                      <option value="monthly">per month</option>
+                    </select>
+                    <Button size="sm" onClick={() => saveQuota(key.id)} disabled={!quotaEditing.limit.trim()}>
+                      Save
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setQuotaEditing(null)}>
+                      Cancel
+                    </Button>
+                    {key.quotaLimit && (
+                      <button
+                        onClick={() => setQuotaEditing({ id: key.id, limit: "", window: key.quotaWindow || "daily" })}
+                        className="text-[12px] font-mono text-[var(--color-danger)] underline hover:opacity-80 ml-auto"
+                      >
+                        Remove quota
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Quota progress bar */}
+                {key.quotaLimit && !quotaEditing && (
+                  <div className="mt-3 flex items-center gap-2">
+                    <div className="h-1.5 flex-1 max-w-xs overflow-hidden rounded-full bg-[var(--color-surface-card)]">
+                      <div
+                        className={`h-full ${(key.quotaUsed || 0) >= key.quotaLimit ? "bg-[var(--color-danger)]" : "bg-[var(--color-primary)]"}`}
+                        style={{ width: `${Math.min(100, ((key.quotaUsed || 0) / key.quotaLimit) * 100)}%` }}
+                      />
+                    </div>
+                    <button
+                      onClick={() => resetQuota(key.id)}
+                      className="text-[11px] font-mono text-[var(--color-mute)] underline hover:text-[var(--color-ink)]"
+                      title="Zero the counter and start a fresh window"
+                    >
+                      Reset
+                    </button>
+                    <button
+                      onClick={() => setQuotaEditing({ id: key.id, limit: String(key.quotaLimit), window: key.quotaWindow || "daily" })}
+                      className="text-[11px] font-mono text-[var(--color-mute)] underline hover:text-[var(--color-ink)]"
+                    >
+                      Edit
+                    </button>
+                  </div>
+                )}
+
+                {/* Key Access Controls */}
+                <div className="mt-3 pt-3 border-t border-[var(--color-hairline)]">
                   <KeyAccessControls
                     apiKey={key}
                     onChange={(access) => handleUpdateKeyAccess(key.id, access)}
@@ -1321,96 +1555,6 @@ export default function APIPageClient({ machineId }) {
                       }
                     })}
                   />
-
-                  {/* Quota controls (pill lives in the metadata row above) */}
-                  {quotaEditing?.id === key.id ? (
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <Input
-                        type="number"
-                        min={1}
-                        placeholder="e.g. 100"
-                        value={quotaEditing.limit}
-                        onChange={(e) => setQuotaEditing({ ...quotaEditing, limit: e.target.value })}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") saveQuota(key.id);
-                          if (e.key === "Escape") setQuotaEditing(null);
-                        }}
-                        autoFocus
-                        className="w-28"
-                      />
-                      <select
-                        value={quotaEditing.window}
-                        onChange={(e) => setQuotaEditing({ ...quotaEditing, window: e.target.value })}
-                        className="rounded-lg border border-border bg-surface px-2 py-2 text-xs text-text-main"
-                      >
-                        <option value="daily">per day</option>
-                        <option value="monthly">per month</option>
-                      </select>
-                      <Button size="sm" onClick={() => saveQuota(key.id)} disabled={!quotaEditing.limit.trim()}>
-                        Set
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setQuotaEditing(null)}>
-                        Cancel
-                      </Button>
-                      {key.quotaLimit && (
-                        <button
-                          onClick={() => setQuotaEditing({ id: key.id, limit: "", window: key.quotaWindow || "daily" })}
-                          className="text-xs text-text-muted underline hover:text-red-500"
-                        >
-                          Remove quota
-                        </button>
-                      )}
-                    </div>
-                  ) : key.quotaLimit ? (
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <div className="h-1.5 w-32 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
-                        <div
-                          className={`h-full rounded-full ${(key.quotaUsed || 0) >= key.quotaLimit ? "bg-red-500" : "bg-primary"}`}
-                          style={{ width: `${Math.min(100, ((key.quotaUsed || 0) / key.quotaLimit) * 100)}%` }}
-                        />
-                      </div>
-                      <button
-                        onClick={() => resetQuota(key.id)}
-                        className="text-xs text-text-muted underline hover:text-primary"
-                        title="Zero the counter and start a fresh window"
-                      >
-                        Reset
-                      </button>
-                      <button
-                        onClick={() => setQuotaEditing({ id: key.id, limit: String(key.quotaLimit), window: key.quotaWindow || "daily" })}
-                        className="text-xs text-text-muted underline hover:text-primary"
-                      >
-                        Edit
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-                <div className="flex items-center gap-2 shrink-0 pt-0.5 sm:ml-auto">
-                  <Toggle
-                    size="sm"
-                    checked={key.isActive ?? true}
-                    onChange={(checked) => {
-                      if (key.isActive && !checked) {
-                        setConfirmState({
-                          title: "Pause API Key",
-                          message: `Pause API key "${key.name}"?\n\nThis key will stop working immediately but can be resumed later.`,
-                          onConfirm: async () => {
-                            setConfirmState(null);
-                            handleToggleKey(key.id, checked);
-                          }
-                        });
-                      } else {
-                        handleToggleKey(key.id, checked);
-                      }
-                    }}
-                    title={key.isActive ? "Pause key" : "Resume key"}
-                  />
-                  <button
-                    onClick={() => handleDeleteKey(key.id)}
-                    className="p-2 hover:bg-red-500/10 rounded text-red-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">delete</span>
-                  </button>
                 </div>
               </div>
               );
@@ -1430,13 +1574,38 @@ export default function APIPageClient({ machineId }) {
           setNewKeyQuota("");
           setNewKeyQuotaWindow("daily");
         }}
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setShowAddModal(false);
+                setNewKeyName("");
+                setNewKeyExpiry("");
+                setNewKeyQuota("");
+                setNewKeyQuotaWindow("daily");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateKey}
+              disabled={!newKeyName.trim()}
+            >
+              Create Key
+            </Button>
+          </>
+        }
       >
         <div className="flex flex-col gap-4">
           <Input
             label="Key Name"
             value={newKeyName}
             onChange={(e) => setNewKeyName(e.target.value)}
-            placeholder="Production Key"
+            placeholder="e.g. Production Backend"
+            hint="A friendly label to identify where this key is used."
+            required
+            autoFocus
           />
           <Input
             type="date"
@@ -1445,46 +1614,32 @@ export default function APIPageClient({ machineId }) {
             onChange={(e) => setNewKeyExpiry(e.target.value)}
             hint="Leave empty for a key that never expires."
           />
-          <div className="flex flex-wrap items-end gap-2">
-            <Input
-              type="number"
-              min={1}
-              label="Quota (optional)"
-              placeholder="e.g. 100"
-              value={newKeyQuota}
-              onChange={(e) => setNewKeyQuota(e.target.value)}
-              className="w-32"
-              hint="Requests allowed per window."
-            />
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-text-main">Window</label>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[14px] font-bold text-[var(--color-ink)]" style={{ fontFamily: "var(--font-mono)" }}>
+              Quota Limit (optional)
+            </label>
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                min={1}
+                placeholder="e.g. 500"
+                value={newKeyQuota}
+                onChange={(e) => setNewKeyQuota(e.target.value)}
+                className="flex-1 min-w-0"
+              />
               <select
                 value={newKeyQuotaWindow}
                 onChange={(e) => setNewKeyQuotaWindow(e.target.value)}
-                className="rounded-[10px] border border-transparent bg-surface-2 px-3 py-2.5 text-sm text-text-main"
+                className="h-10 px-3 border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] text-[14px] font-mono text-[var(--color-ink)] rounded shrink-0 outline-none focus:border-[var(--color-hairline-strong)] transition-colors"
+                style={{ borderRadius: "4px" }}
               >
-                <option value="daily">per day</option>
-                <option value="monthly">per month</option>
+                <option value="daily">requests per day</option>
+                <option value="monthly">requests per month</option>
               </select>
             </div>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Button onClick={handleCreateKey} fullWidth disabled={!newKeyName.trim()}>
-              Create
-            </Button>
-            <Button
-              onClick={() => {
-                setShowAddModal(false);
-                setNewKeyName("");
-                setNewKeyExpiry("");
-                setNewKeyQuota("");
-                setNewKeyQuotaWindow("daily");
-              }}
-              variant="ghost"
-              fullWidth
-            >
-              Cancel
-            </Button>
+            <p className="text-[13px] text-[var(--color-mute)]" style={{ fontFamily: "var(--font-mono)" }}>
+              Requests above this quota will receive HTTP 429.
+            </p>
           </div>
         </div>
       </Modal>

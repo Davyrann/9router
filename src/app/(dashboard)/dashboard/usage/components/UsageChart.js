@@ -12,6 +12,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import Card from "@/shared/components/Card";
+import { useTimezone } from "@/shared/hooks/useTimezone";
 
 const fmtTokens = (n) => {
   if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
@@ -38,11 +39,15 @@ export default function UsageChart({ period = "7d" }) {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState("tokens");
+  const { timeZone } = useTimezone();
+  // "" means "follow browser" — resolve it to an explicit IANA id, otherwise a
+  // remote server would bucket by ITS machine timezone instead.
+  const tz = timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/usage/chart?period=${period}`);
+      const res = await fetch(`/api/usage/chart?period=${period}&tz=${encodeURIComponent(tz)}`);
       if (res.ok) {
         const json = await res.json();
         setData(json);
@@ -52,7 +57,7 @@ export default function UsageChart({ period = "7d" }) {
     } finally {
       setLoading(false);
     }
-  }, [period]);
+  }, [period, tz]);
 
   useEffect(() => {
     fetchData();

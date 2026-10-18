@@ -140,36 +140,33 @@ export default function LoginPage() {
   // Show loading state while checking password
   if (hasPassword === null) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-bg p-4">
+      <div className="min-h-screen flex items-center justify-center p-4" style={{ background: "var(--color-canvas)", fontFamily: "var(--font-mono)" }}>
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          <p className="text-text-muted mt-4">Loading...</p>
+          <p className="text-[14px] text-[var(--color-mute)] animate-pulse">Loading...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-bg p-4 relative overflow-hidden">
-      {/* Faint grid background */}
-      <div className="landing-grid absolute inset-0 pointer-events-none" aria-hidden="true" />
-      <div className="relative z-10 w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-primary mb-2">9Router</h1>
-          <p className="text-text-muted">
+    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: "var(--color-canvas)", fontFamily: "var(--font-mono)" }}>
+      <div className="w-full max-w-md">
+        <div className="mb-8">
+          <h1 className="text-[16px] font-bold mb-1" style={{ color: "var(--color-ink)" }}>9Router</h1>
+          <p className="text-[14px]" style={{ color: "var(--color-mute)", lineHeight: 2 }}>
             {samlAvailable
-              ? "Sign in with SAML 2.0 Single Sign-On"
+              ? "[i] Sign in with SAML 2.0 Single Sign-On"
               : oidcAvailable
-              ? "Sign in with your OIDC provider to access the dashboard"
-              : "Enter your password to access the dashboard"}
+              ? "[i] Sign in with your OIDC provider"
+              : "[i] Enter your password to access the dashboard"}
           </p>
         </div>
 
         <Card>
           {mustChange ? (
             <form onSubmit={handleSetNewPassword} className="flex flex-col gap-4">
-              <p className="text-sm text-amber-600 dark:text-amber-400 text-center">
-                Set a new password before accessing the dashboard remotely.
+              <p className="text-[13px]" style={{ color: "var(--color-warning)", lineHeight: 1.5 }}>
+                [!] Set a new password before accessing the dashboard remotely.
               </p>
               <div className="flex flex-col gap-2">
                 <label className="text-sm font-medium">New password</label>
@@ -181,7 +178,7 @@ export default function LoginPage() {
                   required
                   autoFocus
                 />
-                {error && <p className="text-xs text-red-500">{error}</p>}
+                {error && <p className="text-[13px]" style={{ color: "var(--color-danger)", lineHeight: 1.5 }}>[x] {error}</p>}
               </div>
               <Button type="submit" variant="primary" className="w-full" loading={loading} disabled={!newPassword}>
                 Set password
@@ -201,24 +198,26 @@ export default function LoginPage() {
               </Button>
             )}
 
-            {ssoAvailable && passwordAvailable && <div className="h-px bg-border/60" />}
+            {ssoAvailable && passwordAvailable && (
+              <hr style={{ border: "none", borderTop: "1px solid var(--color-hairline)", margin: "4px 0" }} />
+            )}
 
             {passwordAvailable ? (
               <form onSubmit={handleLogin} className="flex flex-col gap-4">
                 {isSsoEnabled && !ssoAvailable && (
-                  <p className="text-xs text-amber-600 dark:text-amber-400 text-center">
-                    {activeSsoType === "saml" ? "SAML SSO" : "OIDC"} login is enabled, but configuration is incomplete. Password login is still available for recovery.
+                  <p className="text-[13px]" style={{ color: "var(--color-warning)", lineHeight: 1.5 }}>
+                    [!] {activeSsoType === "saml" ? "SAML SSO" : "OIDC"} login is enabled, but configuration is incomplete. Password login is still available for recovery.
                   </p>
                 )}
 
                 {authMode === "both" && ssoAvailable && (
-                  <p className="text-xs text-text-muted text-center">
-                    Password and {activeSsoType === "saml" ? "SAML SSO" : "OIDC"} login are both enabled.
+                  <p className="text-[13px]" style={{ color: "var(--color-mute)", lineHeight: 1.5 }}>
+                    [i] Password and {activeSsoType === "saml" ? "SAML SSO" : "OIDC"} login are both enabled.
                   </p>
                 )}
 
                 <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium">Password</label>
+                  <label className="text-[14px] font-bold" style={{ color: "var(--color-ink)" }}>Password</label>
                   <Input
                     type="password"
                     placeholder="Enter password"
@@ -227,15 +226,15 @@ export default function LoginPage() {
                     required
                     autoFocus={!oidcAvailable}
                   />
-                  {error && <p className="text-xs text-red-500">{error}</p>}
+                  {error && <p className="text-[13px]" style={{ color: "var(--color-danger)", lineHeight: 1.5 }}>[x] {error}</p>}
                   {retryAfter > 0 && (
-                    <p className="text-xs text-amber-600 dark:text-amber-400">
-                      Locked. Retry in <span className="font-mono">{retryAfter}s</span>.
+                    <p className="text-[13px]" style={{ color: "var(--color-warning)", lineHeight: 1.5 }}>
+                      [!] Locked. Retry in {retryAfter}s.
                     </p>
                   )}
                   {resetHint && (
-                    <p className="text-xs text-text-muted">
-                      Forgot password? Open <code className="bg-sidebar px-1 rounded">9router</code> CLI on the host → <b>Settings</b> → <b>Reset Password to Default</b>.
+                    <p className="text-[13px]" style={{ color: "var(--color-mute)", lineHeight: 1.5 }}>
+                      Forgot password? Open <code style={{ background: "var(--color-surface-card)", padding: "0 4px", borderRadius: "4px" }}>9router</code> CLI on the host → Settings → Reset Password to Default.
                     </p>
                   )}
                 </div>
@@ -250,17 +249,17 @@ export default function LoginPage() {
                   {retryAfter > 0 ? `Wait ${retryAfter}s` : "Login"}
                 </Button>
 
-                <p className="text-xs text-center text-text-muted mt-2">
-                  Default password is <code className="bg-sidebar px-1 rounded">123456</code>
+                <p className="text-[13px] text-center" style={{ color: "var(--color-mute)", lineHeight: 2 }}>
+                  Default password is <code style={{ background: "var(--color-surface-card)", padding: "0 4px", borderRadius: "4px" }}>123456</code>
                 </p>
                 {hasPassword === false && (
-                  <p className="text-xs text-center text-amber-600 dark:text-amber-400">
-                    Security risk: no password set. You will be asked to set one when logging in remotely.
+                  <p className="text-[13px] text-center" style={{ color: "var(--color-warning)", lineHeight: 1.5 }}>
+                    [!] Security risk: no password set. You will be asked to set one when logging in remotely.
                   </p>
                 )}
               </form>
             ) : (
-              error && <p className="text-xs text-red-500">{error}</p>
+              error && <p className="text-[13px]" style={{ color: "var(--color-danger)", lineHeight: 1.5 }}>[x] {error}</p>
             )}
           </div>
           )}

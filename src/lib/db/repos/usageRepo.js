@@ -53,6 +53,52 @@ function getLocalDateKey(timestamp) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+// --- Display-timezone bucketing -------------------------------------------------
+// usageHistory.timestamp is UTC ISO, so a day boundary is computable in ANY IANA
+// zone at read time. usageDaily.dateKey is baked in the SERVER's local zone at
+// rollup (getLocalDateKey above) and can never be re-zoned — so day buckets are
+// re-sliced from usageHistory instead of reading the daily rollup.
+function isValidTz(tz) {
+  if (!tz || typeof tz !== "string") return false;
+  try { new Intl.DateTimeFormat("en-US", { timeZone: tz }); return true; } catch { return false; }
+}
+
+function zonedParts(ms, tz) {
+  const parts = {};
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+  });
+  for (const p of fmt.formatToParts(new Date(ms))) {
+    if (p.type !== "literal") parts[p.type] = p.value;
+  }
+  return parts;
+}
+
+// Wall-clock offset of `tz` at instant `ms`.
+function zoneOffsetMs(ms, tz) {
+  // Truncate to whole seconds first: formatToParts has no sub-second field, so
+  // comparing a whole-second Date.UTC(...) against a fractional ms would skew
+  // the result by ms's own remainder — enough to push a bucket to the wrong index.
+  const whole = Math.floor(ms / 1000) * 1000;
+  const p = zonedParts(whole, tz);
+  // hour12:false can render midnight as "24" — fold it back to 0.
+  return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour % 24, +p.minute, +p.second) - whole;
+}
+
+// UTC instant of midnight for the wall-clock day containing `ms`, in `tz`.
+// Second pass covers DST, where the offset at midnight differs from `ms`'s.
+function startOfDayInTz(ms, tz) {
+  const p = zonedParts(ms, tz);
+  const midnight = Date.UTC(+p.year, +p.month - 1, +p.day);
+  return midnight - zoneOffsetMs(midnight - zoneOffsetMs(ms, tz), tz);
+}
+
+function dateKeyInTz(ms, tz) {
+  const p = zonedParts(ms, tz);
+  return `${p.year}-${p.month}-${p.day}`;
+}
+
 function addToCounter(target, key, values) {
   if (!target[key]) target[key] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0 };
   target[key].requests += values.requests || 1;
@@ -675,19 +721,21 @@ export async function getUsageStats(period = "all") {
   return stats;
 }
 
-export async function getChartData(period = "7d") {
+export async function getChartData(period = "7d", tz = "") {
   const db = await getAdapter();
   const now = Date.now();
+
+  // Absent/invalid tz → the server's own zone, i.e. the pre-timezone behaviour.
+  const zone = isValidTz(tz) ? tz : Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const hourLabel = (ts) => new Date(ts).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: zone });
+  const dayLabel = (ts) => new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: zone });
 
   if (period === "today") {
     const bucketCount = 24;
     const bucketMs = 3600000;
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
-    const startTime = startOfDay.getTime();
+    const startTime = startOfDayInTz(now, zone);
     const endTime = startTime + bucketCount * bucketMs;
-    const labelFn = (ts) => new Date(ts).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
-    const buckets = Array.from({ length: bucketCount }, (_, i) => ({ label: labelFn(startTime + i * bucketMs), tokens: 0, cost: 0, requests: 0 }));
+    const buckets = Array.from({ length: bucketCount }, (_, i) => ({ label: hourLabel(startTime + i * bucketMs), tokens: 0, cost: 0, requests: 0 }));
 
     const rows = db.all(
       `SELECT timestamp, promptTokens, completionTokens, cost FROM usageHistory WHERE timestamp >= ?`,
@@ -709,9 +757,8 @@ export async function getChartData(period = "7d") {
   if (period === "24h") {
     const bucketCount = 24;
     const bucketMs = 3600000;
-    const labelFn = (ts) => new Date(ts).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
     const startTime = now - bucketCount * bucketMs;
-    const buckets = Array.from({ length: bucketCount }, (_, i) => ({ label: labelFn(startTime + i * bucketMs), tokens: 0, cost: 0, requests: 0 }));
+    const buckets = Array.from({ length: bucketCount }, (_, i) => ({ label: hourLabel(startTime + i * bucketMs), tokens: 0, cost: 0, requests: 0 }));
 
     const rows = db.all(
       `SELECT timestamp, promptTokens, completionTokens, cost FROM usageHistory WHERE timestamp >= ?`,
@@ -728,53 +775,42 @@ export async function getChartData(period = "7d") {
     return buckets;
   }
 
-  const labelFn = (d) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  // Day periods re-slice raw history in the display zone: the usageDaily rollup
+  // is keyed by the SERVER's local day and cannot be re-zoned after the fact.
+  // ponytail: scans raw rows for long spans; if "all" ever gets slow on a big
+  // install, add an hourly rollup table and bucket from that instead.
+  const bucketCount = period === "7d" ? 7 : period === "30d" ? 30 : period === "60d" ? 60 : null;
+  const todayStart = startOfDayInTz(now, zone);
 
+  let count = bucketCount;
   if (period === "all") {
-    const dayRows = loadDaysInRange(db, null);
-    if (!dayRows.length) return [];
-    const dayMap = {};
-    for (const r of dayRows) dayMap[r.dateKey] = parseJson(r.data, {});
-
-    const earliest = new Date(dayRows[0].dateKey + "T00:00:00");
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const diffDays = Math.max(1, Math.round((today - earliest) / 86400000) + 1);
-
-    return Array.from({ length: diffDays }, (_, i) => {
-      const d = new Date(earliest);
-      d.setDate(d.getDate() + i);
-      const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      const dayData = dayMap[dateKey];
-      return {
-        label: labelFn(d),
-        tokens: dayData ? (dayData.promptTokens || 0) + (dayData.completionTokens || 0) : 0,
-        cost: dayData ? (dayData.cost || 0) : 0,
-        requests: dayData ? (dayData.requests || 0) : 0,
-      };
-    });
+    const first = db.get(`SELECT MIN(timestamp) AS ts FROM usageHistory`);
+    if (!first?.ts) return [];
+    // Round, not floor — DST makes a day != 86400000ms.
+    count = Math.max(1, Math.round((todayStart - startOfDayInTz(new Date(first.ts).getTime(), zone)) / 86400000) + 1);
   }
 
-  const bucketCount = period === "7d" ? 7 : period === "30d" ? 30 : 60;
-  const today = new Date();
+  // Walk day boundaries backwards. Each step lands ~2h inside the previous day
+  // (a day is never shorter than 22h), so DST shifts can't skip or repeat one.
+  const dayStarts = new Array(count);
+  dayStarts[count - 1] = todayStart;
+  for (let i = count - 2; i >= 0; i--) dayStarts[i] = startOfDayInTz(dayStarts[i + 1] - 2 * 3600000, zone);
 
-  // Build map of dateKey → day data
-  const dayRows = loadDaysInRange(db, bucketCount);
-  const dayMap = {};
-  for (const r of dayRows) dayMap[r.dateKey] = parseJson(r.data, {});
+  const dayIndex = new Map(dayStarts.map((s, i) => [dateKeyInTz(s, zone), i]));
+  const buckets = dayStarts.map((s) => ({ label: dayLabel(s), tokens: 0, cost: 0, requests: 0 }));
 
-  return Array.from({ length: bucketCount }, (_, i) => {
-    const d = new Date(today);
-    d.setDate(d.getDate() - (bucketCount - 1 - i));
-    const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    const dayData = dayMap[dateKey];
-    return {
-      label: labelFn(d),
-      tokens: dayData ? (dayData.promptTokens || 0) + (dayData.completionTokens || 0) : 0,
-      cost: dayData ? (dayData.cost || 0) : 0,
-      requests: dayData ? (dayData.requests || 0) : 0,
-    };
-  });
+  const rows = db.all(
+    `SELECT timestamp, promptTokens, completionTokens, cost FROM usageHistory WHERE timestamp >= ?`,
+    [new Date(dayStarts[0]).toISOString()]
+  );
+  for (const r of rows) {
+    const idx = dayIndex.get(dateKeyInTz(new Date(r.timestamp).getTime(), zone));
+    if (idx === undefined) continue;
+    buckets[idx].tokens += (r.promptTokens || 0) + (r.completionTokens || 0);
+    buckets[idx].cost += r.cost || 0;
+    buckets[idx].requests += 1;
+  }
+  return buckets;
 }
 
 function formatLogDate(date = new Date()) {

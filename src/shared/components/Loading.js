@@ -2,19 +2,18 @@
 
 import { cn } from "@/shared/utils/cn";
 
-// Spinner loading
 export function Spinner({ size = "md", className }) {
   const sizes = {
-    sm: "size-4",
-    md: "size-6",
-    lg: "size-8",
-    xl: "size-12",
+    sm: "text-[16px]",
+    md: "text-[20px]",
+    lg: "text-[24px]",
+    xl: "text-[32px]",
   };
 
   return (
     <span
       className={cn(
-        "material-symbols-outlined animate-spin text-brand-500",
+        "material-symbols-outlined animate-spin text-[var(--color-ink)]",
         sizes[size],
         className
       )}
@@ -24,36 +23,36 @@ export function Spinner({ size = "md", className }) {
   );
 }
 
-// Full page loading
 export function PageLoading({ message = "Loading..." }) {
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-bg">
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[var(--color-canvas)]">
       <Spinner size="xl" />
-      <p className="mt-4 text-text-muted">{message}</p>
+      <p className="mt-4 text-[14px] text-[var(--color-mute)]" style={{ fontFamily: "var(--font-mono)" }}>
+        {message}
+      </p>
     </div>
   );
 }
 
-// Skeleton loading
 export function Skeleton({ className, ...props }) {
   return (
     <div
       className={cn(
-        "animate-pulse rounded-[10px] bg-surface-2",
+        "animate-pulse bg-[var(--color-surface-card)]",
         className
       )}
+      style={{ borderRadius: "0" }}
       {...props}
     />
   );
 }
 
-// Card skeleton
 export function CardSkeleton() {
   return (
-    <div className="p-6 rounded-[14px] border border-border-subtle bg-surface shadow-[var(--shadow-soft)]">
+    <div className="p-6 border border-[var(--color-hairline)] bg-[var(--color-canvas)]">
       <div className="flex items-center justify-between mb-4">
         <Skeleton className="h-4 w-24" />
-        <Skeleton className="size-10 rounded-[10px]" />
+        <Skeleton className="h-8 w-8" />
       </div>
       <Skeleton className="h-8 w-16 mb-2" />
       <Skeleton className="h-3 w-20" />
@@ -63,13 +62,9 @@ export function CardSkeleton() {
 
 export default function Loading({ type = "spinner", ...props }) {
   switch (type) {
-    case "page":
-      return <PageLoading {...props} />;
-    case "skeleton":
-      return <Skeleton {...props} />;
-    case "card":
-      return <CardSkeleton {...props} />;
-    default:
-      return <Spinner {...props} />;
+    case "page":     return <PageLoading {...props} />;
+    case "skeleton": return <Skeleton {...props} />;
+    case "card":     return <CardSkeleton {...props} />;
+    default:         return <Spinner {...props} />;
   }
 }

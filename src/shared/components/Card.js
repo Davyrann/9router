@@ -16,18 +16,18 @@ export default function Card({
 }) {
   const paddings = {
     none: "",
-    xs: "p-3",
-    sm: "p-4",
-    md: "p-6",
-    lg: "p-8",
+    xs:   "p-2.5 sm:p-3",
+    sm:   "p-3.5 sm:p-4",
+    md:   "p-4 sm:p-6",
+    lg:   "p-5 sm:p-8",
   };
 
   return (
     <div
       className={cn(
-        "bg-surface border border-border-subtle",
-        elev ? "rounded-[14px] shadow-[var(--shadow-elev)]" : "rounded-[14px] shadow-[var(--shadow-soft)]",
-        hover && "hover:shadow-[var(--shadow-warm)] hover:border-brand-500/30 transition-all cursor-pointer",
+        "bg-[var(--color-canvas)] border border-[var(--color-hairline)]",
+        "rounded-none",
+        hover && "hover:border-[var(--color-hairline-strong)] hover:bg-[var(--color-surface-soft)] transition-colors cursor-pointer",
         paddings[padding],
         className
       )}
@@ -37,16 +37,14 @@ export default function Card({
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             {icon && (
-              <div className="p-2 rounded-[10px] bg-bg text-text-muted">
-                <span className="material-symbols-outlined text-[20px]">{icon}</span>
-              </div>
+              <span className="material-symbols-outlined text-[18px] text-[var(--color-mute)]">{icon}</span>
             )}
             <div>
               {title && (
-                <h3 className="text-text-main font-semibold">{title}</h3>
+                <h3 className="text-[16px] font-bold text-[var(--color-ink)] leading-tight">{title}</h3>
               )}
               {subtitle && (
-                <p className="text-sm text-text-muted">{subtitle}</p>
+                <p className="text-[14px] text-[var(--color-mute)] leading-snug mt-0.5">{subtitle}</p>
               )}
             </div>
           </div>
@@ -62,8 +60,8 @@ Card.Section = function CardSection({ children, className, ...props }) {
   return (
     <div
       className={cn(
-        "p-4 rounded-[10px]",
-        "bg-bg border border-border-subtle",
+        "p-4 border border-[var(--color-hairline)]",
+        "bg-[var(--color-surface-soft)]",
         className
       )}
       {...props}
@@ -77,9 +75,9 @@ Card.Row = function CardRow({ children, className, ...props }) {
   return (
     <div
       className={cn(
-        "p-3 -mx-3 px-3 transition-colors",
-        "border-b border-border-subtle last:border-b-0",
-        "hover:bg-surface-2/50",
+        "py-2 px-0",
+        "border-b border-[var(--color-hairline)] last:border-b-0",
+        "hover:bg-[var(--color-surface-soft)] transition-colors",
         className
       )}
       {...props}
@@ -89,18 +87,13 @@ Card.Row = function CardRow({ children, className, ...props }) {
   );
 };
 
-Card.ListItem = function CardListItem({
-  children,
-  actions,
-  className,
-  ...props
-}) {
+Card.ListItem = function CardListItem({ children, actions, className, ...props }) {
   return (
     <div
       className={cn(
-        "group flex items-center justify-between p-3 -mx-3 px-3",
-        "border-b border-border-subtle last:border-b-0",
-        "hover:bg-surface-2/50 transition-colors",
+        "group flex items-center justify-between py-2",
+        "border-b border-[var(--color-hairline)] last:border-b-0",
+        "hover:bg-[var(--color-surface-soft)] transition-colors",
         className
       )}
       {...props}
