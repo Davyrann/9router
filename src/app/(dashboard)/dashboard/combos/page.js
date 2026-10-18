@@ -9,6 +9,7 @@ import { Card, Button, Modal, Input, CardSkeleton, ModelSelectModal, ConfirmModa
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { useModelCaps } from "@/shared/hooks/useModelCaps";
 import { aggregateComboCapabilities } from "open-sse/providers/capabilities.js";
+import { cn } from "@/shared/utils/cn";
 
 // Validate combo name: only a-z, A-Z, 0-9, -, _
 const VALID_NAME_REGEX = /^[a-zA-Z0-9_.\-]+$/;
@@ -65,6 +66,7 @@ export default function CombosPage() {
   const [presetLoading, setPresetLoading] = useState(null); // "cursor" | "claude" | null
   const [selectedIds, setSelectedIds] = useState([]);
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
   const { copied, copy } = useCopyToClipboard();
 
   useEffect(() => {
@@ -361,73 +363,81 @@ export default function CombosPage() {
   }
 
   return (
-    <div className="flex min-w-0 flex-col gap-6 px-1 sm:px-0">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <div className="flex min-w-0 flex-col gap-5 px-1 sm:px-0" style={{ fontFamily: "var(--font-mono)" }}>
+      {/* Header — Mobile First */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-[var(--color-hairline)]">
         <div className="min-w-0">
-          <p className="text-sm text-text-muted mt-1">
-            Group models under one name, then pick a strategy per combo:
-          </p>
-          <ul className="text-sm text-text-muted mt-2 flex flex-col gap-1">
-            <li><span className="font-medium text-text-main">Fallback</span> — tries models in order (next on failure)</li>
-            <li><span className="font-medium text-text-main">Round Robin</span> — rotates models across requests to spread load</li>
-            <li><span className="font-medium text-text-main">Fusion</span> — queries all models in parallel, then a judge synthesizes one answer. Best quality, but costs the most: every request bills all panel models + the judge (N+1 calls)</li>
-          </ul>
-          <p className="hidden text-xs text-text-muted mt-3 max-w-2xl">
-            <span className="font-medium text-text-main">Cursor / Claude Default</span> create combos named exactly like those clients&apos; model IDs (e.g. <code className="font-mono">composer-2.5</code>, <code className="font-mono">opus</code>), seeded with the matching <code className="font-mono">cu/…</code> or <code className="font-mono">cc/…</code> route so traffic can hit 9router without the prefix.
-            {" "}Note: Cursor IDE itself often blocks built-in Composer / Grok from Override OpenAI Base URL (&quot;model does not support custom API&quot;); add them via Cursor&apos;s <span className="font-medium text-text-main">Add Custom Model</span> using the combo name, or pick a model Cursor allows through the custom endpoint.
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-[20px] text-[var(--color-ink)]">layers</span>
+            <h1 className="text-[16px] font-bold text-[var(--color-ink)]">Model Combos</h1>
+          </div>
+          <p className="text-[13px] text-[var(--color-mute)] mt-0.5 leading-tight">
+            Group models under a single route with fallback or load balancing.
           </p>
         </div>
-        <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-stretch">
-          <Button icon="add" onClick={() => setShowCreateModal(true)} className="w-full sm:w-auto whitespace-nowrap">
+
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <button
+            onClick={() => setShowGuide((v) => !v)}
+            className="flex-1 sm:flex-initial h-8 px-2.5 border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] text-[12px] font-mono text-[var(--color-mute)] hover:text-[var(--color-ink)] rounded transition-colors text-center cursor-pointer"
+            title="Toggle strategy explanation"
+          >
+            {showGuide ? "[x] Close Guide" : "[?] Strategy Guide"}
+          </button>
+          <Button
+            size="sm"
+            icon="add"
+            onClick={() => setShowCreateModal(true)}
+            className="flex-1 sm:flex-initial shrink-0"
+          >
             Create Combo
           </Button>
-          <div className="hidden">
-            <Button
-              variant="secondary"
-              size="sm"
-              icon="edit_note"
-              loading={presetLoading === "cursor"}
-              disabled={!!presetLoading}
-              onClick={() => handleGeneratePresets("cursor")}
-              className="w-full whitespace-nowrap"
-            >
-              Cursor Default
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              icon="smart_toy"
-              loading={presetLoading === "claude"}
-              disabled={!!presetLoading}
-              onClick={() => handleGeneratePresets("claude")}
-              className="w-full whitespace-nowrap"
-            >
-              Claude Default
-            </Button>
-          </div>
         </div>
       </div>
 
+      {/* Guide Drawer */}
+      {showGuide && (
+        <div className="p-3.5 border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] rounded font-mono text-[13px] text-[var(--color-body)] flex flex-col gap-2">
+          <div className="flex items-center justify-between pb-1.5 border-b border-[var(--color-hairline)] font-bold text-[var(--color-ink)]">
+            <span>Routing Strategies</span>
+            <button
+              onClick={() => setShowGuide(false)}
+              className="text-[var(--color-mute)] hover:text-[var(--color-ink)]"
+            >
+              [x]
+            </button>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <div>
+              <strong className="text-[var(--color-ink)]">[+] Fallback:</strong> Tries models in sequential order. Automatically hops to the next model upon rate limit or error.
+            </div>
+            <div>
+              <strong className="text-[var(--color-ink)]">[+] Round Robin:</strong> Distributes requests evenly across models in the combo to balance quota.
+            </div>
+            <div>
+              <strong className="text-[var(--color-ink)]">[+] Fusion:</strong> Queries models in parallel, then uses a judge model to synthesize the final answer (bills all models + judge).
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Combos List */}
       {combos.length === 0 ? (
-        <Card>
-          <div className="text-center py-12">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-4">
-              <span className="material-symbols-outlined text-[32px]">layers</span>
-            </div>
-            <p className="text-text-main font-medium mb-1">No combos yet</p>
-            <p className="text-sm text-text-muted mb-4">Create model combos with fallback support</p>
-            <Button icon="add" onClick={() => setShowCreateModal(true)} className="w-full sm:w-auto">
-              Create Combo
-            </Button>
-          </div>
-        </Card>
+        <div className="text-center py-12 px-6 border border-[var(--color-hairline)] bg-[var(--color-canvas)] text-[var(--color-mute)] font-mono text-[14px]">
+          <span className="material-symbols-outlined text-[32px] text-[var(--color-mute)] mb-2">layers</span>
+          <p className="font-bold text-[var(--color-ink)] text-[16px] mb-1">[-] No combos created yet</p>
+          <p className="text-[13px] text-[var(--color-mute)] mb-4">
+            Combine multiple providers or models into a single endpoint with automatic fallback.
+          </p>
+          <Button icon="add" onClick={() => setShowCreateModal(true)} className="w-full sm:w-auto">
+            Create First Combo
+          </Button>
+        </div>
       ) : (
         <div className="flex flex-col gap-3">
           {/* Selection toolbar */}
-          <div className="flex min-w-0 flex-col gap-2 rounded-lg border border-black/5 bg-black/[0.015] px-3 py-2 dark:border-white/5 dark:bg-white/[0.02] sm:flex-row sm:items-center sm:justify-between">
-            <label className="flex cursor-pointer items-center gap-2 text-xs text-text-muted hover:text-primary select-none">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 p-2.5 border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] rounded font-mono text-[13px]">
+            <label className="flex items-center gap-2 cursor-pointer select-none text-[var(--color-mute)] hover:text-[var(--color-ink)]">
               <input
                 type="checkbox"
                 checked={allSelected}
@@ -435,55 +445,54 @@ export default function CombosPage() {
                   if (el) el.indeterminate = someSelected && !allSelected;
                 }}
                 onChange={toggleSelectAll}
-                className="h-3.5 w-3.5 rounded border-gray-300 text-primary focus:ring-primary"
+                className="h-4 w-4 rounded border-[var(--color-hairline-strong)] text-[var(--color-primary)] focus:ring-0 cursor-pointer"
               />
               <span>
                 {someSelected
-                  ? `${selectedIds.length} selected`
+                  ? `${selectedIds.length} of ${combos.length} selected`
                   : `Select all (${combos.length})`}
               </span>
             </label>
 
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
-              {someSelected && (
-                <>
-                  <div className="w-full min-w-[160px] sm:w-[200px]">
-                    <Select
-                      options={STRATEGY_OPTIONS}
-                      value=""
-                      placeholder="Set strategy…"
-                      disabled={bulkBusy}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        if (v) handleBulkSetStrategy(v);
-                      }}
-                      selectClassName="py-1.5 text-xs"
-                    />
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="danger"
-                    icon="delete"
-                    disabled={bulkBusy}
-                    loading={bulkBusy}
-                    onClick={handleBulkDelete}
-                    className="whitespace-nowrap"
-                  >
-                    Delete ({selectedIds.length})
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={clearSelection}
-                    disabled={bulkBusy}
-                  >
-                    Clear
-                  </Button>
-                </>
-              )}
-            </div>
+            {someSelected && (
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value=""
+                  disabled={bulkBusy}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v) handleBulkSetStrategy(v);
+                  }}
+                  className="h-8 rounded border border-[var(--color-hairline)] bg-[var(--color-canvas)] px-2.5 text-[12px] font-mono text-[var(--color-ink)] outline-none"
+                >
+                  <option value="" disabled>Set strategy…</option>
+                  {STRATEGY_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+                <Button
+                  size="xs"
+                  variant="danger"
+                  icon="delete"
+                  disabled={bulkBusy}
+                  loading={bulkBusy}
+                  onClick={handleBulkDelete}
+                >
+                  Delete ({selectedIds.length})
+                </Button>
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  onClick={clearSelection}
+                  disabled={bulkBusy}
+                >
+                  Clear
+                </Button>
+              </div>
+            )}
           </div>
 
+          {/* Cards Grid / Stack */}
           <div className="flex flex-col gap-3">
             {(() => {
               const comboByName = Object.fromEntries(combos.map((c) => [c.name, c.models]));
@@ -517,7 +526,7 @@ export default function CombosPage() {
         getCaps={getCaps}
       />
 
-      {/* Create Modal - Use key to force remount and reset state */}
+      {/* Create Modal */}
       {showCreateModal && (
         <ComboFormModal
           key="create"
@@ -539,7 +548,7 @@ export default function CombosPage() {
         />
       )}
 
-      {/* Confirm (delete / generate presets) */}
+      {/* Confirm modal */}
       <ConfirmModal
         isOpen={!!confirmState}
         onClose={() => !confirmState?.loading && setConfirmState(null)}
@@ -563,158 +572,201 @@ const fmtK = (n) => {
   return `${Math.round(n / 1000)}k`;
 };
 
-function ComboCard({ combo, getCaps, comboByName = {}, activeProviders = [], copied, onCopy, onEdit, onDelete, strategy = {}, onSetStrategy, selected = false, onToggleSelect }) {
+function ComboCard({
+  combo,
+  getCaps,
+  comboByName = {},
+  activeProviders = [],
+  copied,
+  onCopy,
+  onEdit,
+  onDelete,
+  strategy = {},
+  onSetStrategy,
+  selected = false,
+  onToggleSelect,
+}) {
   const [showJudgeSelect, setShowJudgeSelect] = useState(false);
   const current = strategy.fallbackStrategy || "fallback";
   const judge = strategy.judgeModel || "";
   const isFusion = current === "fusion";
-  // The synced catalog is server-only, so resolving here would fall back to the
-  // generic patterns and under-report the limits. getCaps carries the server's
-  // answer for /api/models.
   const comboCaps = aggregateComboCapabilities(combo.models, comboByName, getCaps);
 
   return (
-    <Card padding="sm" className={`group ${selected ? "ring-1 ring-primary/40 bg-primary/[0.03]" : ""}`}>
-      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
-          <label className="flex shrink-0 items-center pt-1 sm:pt-0 cursor-pointer" title="Select combo">
-            <input
-              type="checkbox"
-              checked={selected}
-              onChange={onToggleSelect}
-              onClick={(e) => e.stopPropagation()}
-              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-              aria-label={`Select ${combo.name}`}
-            />
-          </label>
-          <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-            <span className="material-symbols-outlined text-primary text-[18px]">layers</span>
-          </div>
-          <div className="min-w-0 flex-1">
-            <code className="block truncate font-mono text-sm font-medium">{combo.name}</code>
-            <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1">
-              {combo.models.length === 0 ? (
-                <span className="text-xs text-text-muted italic">No models</span>
-              ) : (
-                combo.models.slice(0, 3).map((model, index) => (
-                  <code key={index} className="inline-flex items-center gap-1 rounded bg-black/5 px-1.5 py-0.5 font-mono text-xs text-text-muted dark:bg-white/5">
-                    <span>{model}</span>
-                    <CapacityBadges caps={
-                      comboByName[model]
-                        ? aggregateComboCapabilities(comboByName[model], comboByName, getCaps)
-                        : getCaps?.(model)
-                    } />
-                  </code>
-                ))
-              )}
-              {combo.models.length > 3 && (
-                <span className="text-[10px] text-text-muted">+{combo.models.length - 3} more</span>
-              )}
-            </div>
-            {comboCaps && (
-              <div className="mt-1 flex items-center gap-2 text-[10px] text-text-muted">
-                <span>ctx {fmtK(comboCaps.contextWindow)}</span>
-                <span className="opacity-40">·</span>
-                <span>max {fmtK(comboCaps.maxOutput)}</span>
-              </div>
-            )}
-            {/* Fusion: judge picker (Auto = first model) */}
-            {isFusion && (
-              <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5">
-                <span className="text-[11px] font-medium text-text-muted">Judge</span>
-                <button
-                  onClick={() => setShowJudgeSelect(true)}
-                  className="inline-flex max-w-full items-center gap-1 rounded border border-dashed border-primary/40 px-1.5 py-0.5 font-mono text-[11px] text-primary hover:border-primary hover:bg-primary/5 transition-colors"
-                  title="Pick the model that fuses panel answers"
-                >
-                  <span className="material-symbols-outlined text-[13px]">gavel</span>
-                  <span className="truncate">{judge || `Auto — ${combo.models[0] || "first model"}`}</span>
-                </button>
-                {judge && (
-                  <button
-                    onClick={() => onSetStrategy({ judgeModel: "" })}
-                    className="p-0.5 rounded text-text-muted hover:text-red-500 hover:bg-red-500/10 transition-colors"
-                    title="Reset judge to Auto"
-                  >
-                    <span className="material-symbols-outlined text-[13px]">close</span>
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
+    <div
+      className={cn(
+        "p-3.5 sm:p-4 border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] rounded flex flex-col gap-3 transition-colors",
+        selected && "border-[var(--color-primary)] ring-1 ring-[var(--color-primary)]/30"
+      )}
+    >
+      {/* Top Header Row */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={onToggleSelect}
+            onClick={(e) => e.stopPropagation()}
+            className="h-4 w-4 rounded border-[var(--color-hairline-strong)] text-[var(--color-primary)] focus:ring-0 cursor-pointer shrink-0"
+            aria-label={`Select ${combo.name}`}
+          />
+          <span className="font-mono font-bold text-[15px] sm:text-[16px] text-[var(--color-ink)] truncate">
+            {combo.name}
+          </span>
         </div>
 
-        {/* Actions */}
-        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3 sm:shrink-0">
-          {/* Strategy selector — always visible */}
-          <div className="w-full sm:w-[200px]">
-            <Select
-              options={STRATEGY_OPTIONS}
-              value={current}
-              onChange={(e) => onSetStrategy({ fallbackStrategy: e.target.value })}
-              selectClassName="py-1.5 text-xs"
-            />
-          </div>
-
-          <div className="grid grid-cols-3 gap-1 sm:flex">
-            <button
-              onClick={(e) => { e.stopPropagation(); onCopy(combo.name, `combo-${combo.id}`); }}
-              className="flex flex-col items-center rounded px-2 py-1 text-text-muted transition-colors hover:bg-black/5 hover:text-primary dark:hover:bg-white/5"
-              title="Copy combo name"
-            >
-              <span className="material-symbols-outlined text-[18px]">
-                {copied === `combo-${combo.id}` ? "check" : "content_copy"}
-              </span>
-              <span className="text-[10px] leading-tight">Copy</span>
-            </button>
-            <button
-              onClick={onEdit}
-              className="flex flex-col items-center rounded px-2 py-1 text-text-muted transition-colors hover:bg-black/5 hover:text-primary dark:hover:bg-white/5"
-              title="Edit"
-            >
-              <span className="material-symbols-outlined text-[18px]">edit</span>
-              <span className="text-[10px] leading-tight">Edit</span>
-            </button>
-            <button
-              onClick={onDelete}
-              className="flex flex-col items-center rounded px-2 py-1 text-red-500 transition-colors hover:bg-red-500/10"
-              title="Delete"
-            >
-              <span className="material-symbols-outlined text-[18px]">delete</span>
-              <span className="text-[10px] leading-tight">Delete</span>
-            </button>
-          </div>
+        {/* Action buttons */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onCopy(combo.name, `combo-${combo.id}`);
+            }}
+            className="flex items-center justify-center h-7 px-2 border border-[var(--color-hairline)] bg-[var(--color-canvas)] text-[12px] font-mono text-[var(--color-mute)] hover:text-[var(--color-ink)] rounded transition-colors cursor-pointer"
+            title="Copy combo name"
+          >
+            <span className="material-symbols-outlined text-[14px] mr-1">
+              {copied === `combo-${combo.id}` ? "check" : "content_copy"}
+            </span>
+            {copied === `combo-${combo.id}` ? "Copied" : "Copy"}
+          </button>
+          <button
+            onClick={onEdit}
+            className="flex items-center justify-center h-7 px-2 border border-[var(--color-hairline)] bg-[var(--color-canvas)] text-[12px] font-mono text-[var(--color-mute)] hover:text-[var(--color-ink)] rounded transition-colors cursor-pointer"
+            title="Edit combo"
+          >
+            <span className="material-symbols-outlined text-[14px] mr-1">edit</span>
+            Edit
+          </button>
+          <button
+            onClick={onDelete}
+            className="flex items-center justify-center size-7 border border-red-500/20 text-red-500 hover:bg-red-500/10 rounded transition-colors cursor-pointer"
+            title="Delete combo"
+            aria-label="Delete combo"
+          >
+            <span className="material-symbols-outlined text-[15px]">delete</span>
+          </button>
         </div>
       </div>
 
-      {/* Judge model picker (single-select; combo members make natural judges too) */}
+      {/* Model Sequence / Pipeline Display */}
+      <div className="p-2.5 bg-[var(--color-canvas)] border border-[var(--color-hairline)] rounded flex flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-1.5 font-mono text-[12px]">
+          {combo.models.length === 0 ? (
+            <span className="text-[var(--color-ash)] italic">No models configured</span>
+          ) : (
+            combo.models.map((model, index) => (
+              <div key={index} className="inline-flex items-center gap-1.5 flex-wrap">
+                <span className="px-2 py-0.5 border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] rounded text-[var(--color-ink)] inline-flex items-center gap-1.5">
+                  <span className="text-[var(--color-ash)] font-medium">#{index + 1}</span>
+                  <span className="font-medium truncate max-w-[200px] sm:max-w-none">{model}</span>
+                  <CapacityBadges
+                    caps={
+                      comboByName[model]
+                        ? aggregateComboCapabilities(comboByName[model], comboByName, getCaps)
+                        : getCaps?.(model)
+                    }
+                  />
+                </span>
+                {index < combo.models.length - 1 && (
+                  <span className="text-[var(--color-ash)] font-bold text-[11px]">→</span>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Limits & Capabilities Info */}
+        {comboCaps && (
+          <div className="flex items-center gap-3 text-[11px] font-mono text-[var(--color-mute)] pt-1.5 border-t border-[var(--color-hairline)]">
+            <span>
+              ctx: <strong className="text-[var(--color-ink)] font-normal">{fmtK(comboCaps.contextWindow)}</strong>
+            </span>
+            <span className="text-[var(--color-ash)]">·</span>
+            <span>
+              max output: <strong className="text-[var(--color-ink)] font-normal">{fmtK(comboCaps.maxOutput)}</strong>
+            </span>
+            <span className="text-[var(--color-ash)]">·</span>
+            <span>{combo.models.length} model{combo.models.length === 1 ? "" : "s"}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Bottom Strategy Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1 border-t border-[var(--color-hairline)]">
+        <div className="flex items-center gap-2">
+          <span className="text-[12px] font-mono text-[var(--color-mute)] shrink-0">Strategy:</span>
+          <select
+            value={current}
+            onChange={(e) => onSetStrategy({ fallbackStrategy: e.target.value })}
+            className="h-8 rounded border border-[var(--color-hairline)] bg-[var(--color-canvas)] px-2.5 text-[12px] font-mono text-[var(--color-ink)] outline-none flex-1 sm:flex-initial cursor-pointer hover:border-[var(--color-hairline-strong)] transition-colors"
+          >
+            {STRATEGY_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Fusion Judge Selector */}
+        {isFusion && (
+          <div className="flex items-center gap-1.5 flex-wrap font-mono text-[12px]">
+            <span className="text-[var(--color-mute)]">Judge:</span>
+            <button
+              onClick={() => setShowJudgeSelect(true)}
+              className="h-7 px-2 border border-dashed border-[var(--color-hairline-strong)] bg-[var(--color-canvas)] rounded text-[var(--color-primary)] hover:border-[var(--color-primary)] transition-colors inline-flex items-center gap-1 cursor-pointer"
+              title="Pick the model that fuses panel answers"
+            >
+              <span className="material-symbols-outlined text-[13px]">gavel</span>
+              <span className="truncate max-w-[180px]">{judge || `Auto (${combo.models[0] || "first"})`}</span>
+            </button>
+            {judge && (
+              <button
+                onClick={() => onSetStrategy({ judgeModel: "" })}
+                className="h-7 px-1.5 text-[var(--color-mute)] hover:text-red-500 cursor-pointer"
+                title="Reset judge to Auto"
+              >
+                [x]
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Judge model picker */}
       {showJudgeSelect && (
         <ModelSelectModal
           isOpen={showJudgeSelect}
           onClose={() => setShowJudgeSelect(false)}
-          onSelect={(m) => { onSetStrategy({ judgeModel: m?.value || "" }); setShowJudgeSelect(false); }}
+          onSelect={(m) => {
+            onSetStrategy({ judgeModel: m?.value || "" });
+            setShowJudgeSelect(false);
+          }}
           activeProviders={activeProviders}
           title="Select Judge Model"
           addedModelValues={judge ? [judge] : []}
           closeOnSelect={true}
         />
       )}
-    </Card>
+    </div>
   );
 }
 
 function CapacityAdapterSection({ capacityAdapter, onChange, activeProviders, getCaps }) {
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-sm font-medium">Vision Adapter</p>
-          <p className="text-xs text-text-muted mt-0.5">
-            Your model can&apos;t read image/audio? Auto-switches to a model in the pool below.
-          </p>
+    <div className="flex flex-col gap-3 mt-4 pt-4 border-t border-[var(--color-hairline)] font-mono">
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-2">
+          <span className="material-symbols-outlined text-[20px] text-[var(--color-ink)]">auto_awesome</span>
+          <h2 className="text-[16px] font-bold text-[var(--color-ink)]">Capacity Adapter</h2>
         </div>
+        <p className="text-[13px] text-[var(--color-mute)] leading-tight">
+          Auto-switches to capable fallback models when the targeted model lacks vision or audio support.
+        </p>
       </div>
-      <div className="flex flex-col gap-4">
+
+      <div className="flex flex-col gap-3">
         {CAPACITY_ADAPTER_CAPS.map((cap) => (
           <CapacityAdapterCap
             key={cap.key}
@@ -762,41 +814,42 @@ function CapacityAdapterCap({ cap, entry, onChange, activeProviders, getCaps }) 
   };
 
   return (
-    <Card padding="sm" className={`group ${!enabled ? "opacity-50" : ""}`}>
-      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        {/* Master toggle + icon + label */}
-        <div className="flex min-w-0 flex-1 items-start gap-2.5 sm:items-center">
+    <div
+      className={cn(
+        "p-3.5 sm:p-4 border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] rounded flex flex-col gap-3 transition-colors",
+        !enabled && "opacity-60"
+      )}
+    >
+      {/* Cap Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+        <div className="flex items-center gap-2.5 min-w-0">
           <Toggle
             checked={enabled}
             onChange={(v) => patch({ enabled: v })}
             aria-label={`Enable ${cap.label} adapter`}
           />
-          <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-            <span className="material-symbols-outlined text-primary text-[18px]">{cap.icon}</span>
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5">
-              <code className="font-mono text-sm font-medium">{cap.label}</code>
-              <span className="text-[10px] text-text-muted">— {cap.desc}</span>
-            </div>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="font-mono font-bold text-[14px] text-[var(--color-ink)]">{cap.label}</span>
+            <span className="text-[12px] text-[var(--color-mute)] truncate">— {cap.desc}</span>
           </div>
         </div>
 
-        {/* Actions: Round-robin toggle + Add Model */}
-        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3 sm:shrink-0">
-          <label className="flex items-center gap-1.5 text-xs text-text-muted cursor-pointer select-none">
+        {/* Controls */}
+        <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-1 sm:pt-0 border-t sm:border-t-0 border-[var(--color-hairline)]">
+          <label className="flex items-center gap-2 text-[12px] font-mono text-[var(--color-mute)] cursor-pointer select-none">
             <Toggle
+              size="sm"
               checked={roundRobin}
               onChange={(v) => patch({ roundRobin: v })}
               disabled={!enabled}
               aria-label={`Round-robin ${cap.label} adapter`}
             />
-            <span>Round</span>
+            <span>Round-Robin</span>
           </label>
           <Button
+            variant="secondary"
+            size="xs"
             icon="add"
-            variant="ghost"
-            size="sm"
             onClick={() => setShowModelSelect(true)}
             disabled={!enabled}
             title={`Add ${cap.label} model`}
@@ -806,88 +859,60 @@ function CapacityAdapterCap({ cap, entry, onChange, activeProviders, getCaps }) 
         </div>
       </div>
 
-      {/* Model pool list/table */}
+      {/* Model Pool Ordered List (Mobile-First Card Rows) */}
       {models.length === 0 ? (
-        <div className="mt-3 py-2 text-center text-xs text-text-muted italic">
+        <div className="p-3 border border-dashed border-[var(--color-hairline)] rounded text-center text-[12px] font-mono text-[var(--color-mute)] bg-[var(--color-canvas)]">
           No models in pool (will fallback to {DEFAULT_FALLBACK_MODEL})
         </div>
       ) : (
-        <div className="mt-3 overflow-hidden rounded-lg border border-border/50">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="border-b border-border/40 bg-black/[0.02] text-text-muted dark:bg-white/[0.02]">
-                <th className="w-12 px-3 py-1.5 font-medium text-center">#</th>
-                <th className="px-3 py-1.5 font-medium">Model</th>
-                <th className="w-24 px-3 py-1.5 font-medium text-center">Order</th>
-                <th className="w-12 px-3 py-1.5 font-medium text-right"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/30 font-mono">
-              {models.map((model, index) => (
-                <tr key={`${model}-${index}`} className="hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
-                  <td className="px-3 py-2 text-center text-text-muted text-[11px] font-sans">
-                    #{index + 1}
-                  </td>
-                  <td className="px-3 py-2 text-text-main">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="truncate">{model}</span>
-                      <CapacityBadges caps={getCaps?.(model)} />
-                      {model === DEFAULT_FALLBACK_MODEL && (
-                        <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 font-sans text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
-                          free default
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-3 py-2 text-center">
-                    <div className="inline-flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => handleMove(index, -1)}
-                        disabled={!enabled || index === 0}
-                        className={`p-1 rounded transition-colors ${
-                          !enabled || index === 0
-                            ? "text-text-muted/20 cursor-not-allowed"
-                            : "text-text-muted hover:text-primary hover:bg-black/5 dark:hover:bg-white/5"
-                        }`}
-                        title="Move up"
-                      >
-                        <span className="material-symbols-outlined text-[16px] leading-none">arrow_upward</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleMove(index, 1)}
-                        disabled={!enabled || index === models.length - 1}
-                        className={`p-1 rounded transition-colors ${
-                          !enabled || index === models.length - 1
-                            ? "text-text-muted/20 cursor-not-allowed"
-                            : "text-text-muted hover:text-primary hover:bg-black/5 dark:hover:bg-white/5"
-                        }`}
-                        title="Move down"
-                      >
-                        <span className="material-symbols-outlined text-[16px] leading-none">arrow_downward</span>
-                      </button>
-                    </div>
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    <button
-                      type="button"
-                      onClick={() => handleRemove(index)}
-                      disabled={!enabled}
-                      className={`p-1 rounded transition-colors ${
-                        !enabled
-                          ? "text-text-muted/20 cursor-not-allowed"
-                          : "text-text-muted hover:text-red-500 hover:bg-red-500/10"
-                      }`}
-                      title="Remove model"
-                    >
-                      <span className="material-symbols-outlined text-[16px] leading-none">close</span>
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="flex flex-col gap-1.5">
+          {models.map((model, index) => (
+            <div
+              key={`${model}-${index}`}
+              className="p-2 sm:px-3 sm:py-2 border border-[var(--color-hairline)] bg-[var(--color-canvas)] rounded flex items-center justify-between gap-2 font-mono text-[13px]"
+            >
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <span className="text-[11px] text-[var(--color-ash)] shrink-0 w-6">#{index + 1}</span>
+                <span className="text-[var(--color-ink)] font-medium truncate">{model}</span>
+                <CapacityBadges caps={getCaps?.(model)} />
+                {model === DEFAULT_FALLBACK_MODEL && (
+                  <span className="hidden sm:inline-block px-1.5 py-0.2 text-[10px] text-[var(--color-success)] border border-[rgba(48,209,88,0.3)] rounded shrink-0">
+                    default
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleMove(index, -1)}
+                  disabled={!enabled || index === 0}
+                  className="flex items-center justify-center size-7 border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] text-[var(--color-mute)] hover:text-[var(--color-ink)] disabled:opacity-30 disabled:cursor-not-allowed rounded cursor-pointer transition-colors"
+                  title="Move up"
+                >
+                  <span className="material-symbols-outlined text-[14px]">arrow_upward</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleMove(index, 1)}
+                  disabled={!enabled || index === models.length - 1}
+                  className="flex items-center justify-center size-7 border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] text-[var(--color-mute)] hover:text-[var(--color-ink)] disabled:opacity-30 disabled:cursor-not-allowed rounded cursor-pointer transition-colors"
+                  title="Move down"
+                >
+                  <span className="material-symbols-outlined text-[14px]">arrow_downward</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleRemove(index)}
+                  disabled={!enabled}
+                  className="flex items-center justify-center size-7 border border-red-500/20 text-red-500 hover:bg-red-500/10 disabled:opacity-30 disabled:cursor-not-allowed rounded transition-colors cursor-pointer"
+                  title="Remove"
+                >
+                  <span className="material-symbols-outlined text-[14px]">close</span>
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
@@ -904,7 +929,7 @@ function CapacityAdapterCap({ cap, entry, onChange, activeProviders, getCaps }) 
           closeOnSelect={false}
         />
       )}
-    </Card>
+    </div>
   );
 }
 
@@ -912,7 +937,6 @@ function ModelItem({ id, index, model, isFirst, isLast, onEdit, onMoveUp, onMove
   const { attributes, listeners, setNodeRef, transform, isDragging } = useSortable({ id });
   const style = {
     transform: CSS.Transform.toString(transform),
-    // no transition — prevents the CSS settle animation fighting React's re-render on drop
     opacity: isDragging ? 0.4 : 1,
     zIndex: isDragging ? 999 : undefined,
   };
@@ -927,87 +951,98 @@ function ModelItem({ id, index, model, isFirst, isLast, onEdit, onMoveUp, onMove
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter") commit();
-    if (e.key === "Escape") { setDraft(model); setEditing(false); }
+    if (e.key === "Escape") {
+      setDraft(model);
+      setEditing(false);
+    }
   };
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`group flex min-w-0 items-center gap-1.5 rounded-md px-2 py-1 bg-black/[0.02] hover:bg-black/[0.04] dark:bg-white/[0.02] dark:hover:bg-white/[0.04] transition-colors ${isDragging ? "shadow-md ring-1 ring-primary/30" : ""}`}
-    >
-      {/* Drag handle */}
-      <button
-        {...attributes}
-        {...listeners}
-        type="button"
-        className="cursor-grab touch-none p-0.5 rounded text-text-muted hover:text-primary active:cursor-grabbing shrink-0"
-        title="Drag to reorder"
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <circle cx="9" cy="4" r="2"/><circle cx="15" cy="4" r="2"/>
-          <circle cx="9" cy="12" r="2"/><circle cx="15" cy="12" r="2"/>
-          <circle cx="9" cy="20" r="2"/><circle cx="15" cy="20" r="2"/>
-        </svg>
-      </button>
-
-      {/* Index badge */}
-      <span className="text-[10px] font-medium text-text-muted w-3 text-center shrink-0">{index + 1}</span>
-
-      {/* Inline editable model value */}
-      {editing ? (
-        <input
-          autoFocus
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={handleKeyDown}
-          className="min-w-0 flex-1 rounded border border-primary/40 bg-white px-1.5 py-0.5 font-mono text-xs text-text-main outline-none dark:bg-black/20"
-        />
-      ) : (
-        <div
-          className="min-w-0 flex-1 cursor-text truncate rounded px-1.5 py-0.5 font-mono text-xs text-text-main hover:bg-black/5 dark:hover:bg-white/5"
-          onClick={() => setEditing(true)}
-          title="Click to edit"
-        >
-          {model}
-        </div>
+      className={cn(
+        "p-2 border border-[var(--color-hairline)] bg-[var(--color-canvas)] rounded flex items-center justify-between gap-2 font-mono text-[13px] transition-colors",
+        isDragging && "ring-1 ring-[var(--color-primary)]/40"
       )}
+    >
+      <div className="flex items-center gap-2 min-w-0 flex-1">
+        {/* Drag handle */}
+        <button
+          {...attributes}
+          {...listeners}
+          type="button"
+          className="cursor-grab touch-none p-1 rounded text-[var(--color-ash)] hover:text-[var(--color-ink)] active:cursor-grabbing shrink-0"
+          title="Drag to reorder"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="9" cy="4" r="2" />
+            <circle cx="15" cy="4" r="2" />
+            <circle cx="9" cy="12" r="2" />
+            <circle cx="15" cy="12" r="2" />
+            <circle cx="9" cy="20" r="2" />
+            <circle cx="15" cy="20" r="2" />
+          </svg>
+        </button>
 
-      {/* Priority arrows */}
-      <div className="flex shrink-0 items-center gap-0.5">
-        <button
-          onClick={onMoveUp}
-          disabled={isFirst}
-          className={`p-0.5 rounded ${isFirst ? "text-text-muted/20 cursor-not-allowed" : "text-text-muted hover:text-primary hover:bg-black/5 dark:hover:bg-white/5"}`}
-          title="Move up"
-        >
-          <span className="material-symbols-outlined text-[12px]">arrow_upward</span>
-        </button>
-        <button
-          onClick={onMoveDown}
-          disabled={isLast}
-          className={`p-0.5 rounded ${isLast ? "text-text-muted/20 cursor-not-allowed" : "text-text-muted hover:text-primary hover:bg-black/5 dark:hover:bg-white/5"}`}
-          title="Move down"
-        >
-          <span className="material-symbols-outlined text-[12px]">arrow_downward</span>
-        </button>
+        {/* Index badge */}
+        <span className="text-[11px] text-[var(--color-ash)] shrink-0 w-5">#{index + 1}</span>
+
+        {/* Editable Model Name */}
+        {editing ? (
+          <input
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={commit}
+            onKeyDown={handleKeyDown}
+            className="min-w-0 flex-1 rounded border border-[var(--color-hairline-strong)] bg-[var(--color-surface-soft)] px-2 py-0.5 font-mono text-[12px] text-[var(--color-ink)] outline-none"
+          />
+        ) : (
+          <span
+            className="min-w-0 flex-1 cursor-text truncate font-mono text-[12px] text-[var(--color-ink)] hover:underline"
+            onClick={() => setEditing(true)}
+            title="Click to edit model ID"
+          >
+            {model}
+          </span>
+        )}
       </div>
 
-      {/* Remove */}
-      <button
-        onClick={onRemove}
-        className="p-0.5 hover:bg-red-500/10 rounded text-text-muted hover:text-red-500 transition-all"
-        title="Remove"
-      >
-        <span className="material-symbols-outlined text-[12px]">close</span>
-      </button>
+      {/* Up / Down / Remove buttons */}
+      <div className="flex items-center gap-1 shrink-0">
+        <button
+          type="button"
+          onClick={onMoveUp}
+          disabled={isFirst}
+          className="flex items-center justify-center size-6 border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] text-[var(--color-mute)] hover:text-[var(--color-ink)] disabled:opacity-30 disabled:cursor-not-allowed rounded cursor-pointer"
+          title="Move up"
+        >
+          <span className="material-symbols-outlined text-[13px]">arrow_upward</span>
+        </button>
+        <button
+          type="button"
+          onClick={onMoveDown}
+          disabled={isLast}
+          className="flex items-center justify-center size-6 border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] text-[var(--color-mute)] hover:text-[var(--color-ink)] disabled:opacity-30 disabled:cursor-not-allowed rounded cursor-pointer"
+          title="Move down"
+        >
+          <span className="material-symbols-outlined text-[13px]">arrow_downward</span>
+        </button>
+        <button
+          type="button"
+          onClick={onRemove}
+          className="flex items-center justify-center size-6 border border-red-500/20 text-red-500 hover:bg-red-500/10 rounded cursor-pointer transition-colors"
+          title="Remove"
+        >
+          <span className="material-symbols-outlined text-[13px]">close</span>
+        </button>
+      </div>
     </div>
   );
 }
 
 function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, kindFilter = null }) {
-  // Initialize state with combo values - key prop on parent handles reset on remount
   const [name, setName] = useState(combo?.name || "");
   const [models, setModels] = useState(combo?.models || []);
   const [showModelSelect, setShowModelSelect] = useState(false);
@@ -1020,7 +1055,6 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, kindF
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
-  // Use stable index-based IDs so duplicates and similar names are handled correctly
   const modelItems = models.map((model, i) => ({ uid: `item-${i}`, model }));
 
   const handleDragEnd = (event) => {
@@ -1112,80 +1146,92 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, kindF
         isOpen={isOpen}
         onClose={onClose}
         title={isEdit ? "Edit Combo" : "Create Combo"}
+        footer={
+          <>
+            <Button onClick={onClose} variant="ghost">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={!name.trim() || !!nameError || saving}
+            >
+              {saving ? "Saving..." : isEdit ? "Save Changes" : "Create Combo"}
+            </Button>
+          </>
+        }
       >
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-4 font-mono">
           {/* Name */}
           <div>
             <Input
               label="Combo Name"
               value={name}
               onChange={handleNameChange}
-              placeholder="my-combo"
+              placeholder="e.g. smart-fallback"
               error={nameError}
+              hint="Only letters, numbers, -, _ and . allowed."
+              required
+              autoFocus
             />
-            <p className="text-[10px] text-text-muted mt-0.5">
-              Only letters, numbers, -, _ and . allowed
-            </p>
           </div>
 
           {/* Models */}
-          <div>
-            <label className="text-sm font-medium mb-1.5 block">Models</label>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <label className="text-[14px] font-bold text-[var(--color-ink)]">
+                Models in Sequence
+              </label>
+              <span className="text-[11px] text-[var(--color-mute)]">
+                {models.length} model{models.length === 1 ? "" : "s"}
+              </span>
+            </div>
 
             {models.length === 0 ? (
-              <div className="text-center py-4 border border-dashed border-black/10 dark:border-white/10 rounded-lg bg-black/[0.01] dark:bg-white/[0.01]">
-                <span className="material-symbols-outlined text-text-muted text-xl mb-1">layers</span>
-                <p className="text-xs text-text-muted">No models added yet</p>
+              <div className="text-center py-6 border border-dashed border-[var(--color-hairline)] rounded bg-[var(--color-surface-soft)]">
+                <span className="material-symbols-outlined text-[24px] text-[var(--color-mute)] mb-1">layers</span>
+                <p className="text-[13px] text-[var(--color-mute)]">No models added yet</p>
               </div>
             ) : (
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd} modifiers={[restrictToVerticalAxis, restrictToParentElement]}>
-              <SortableContext items={modelItems.map((m) => m.uid)} strategy={verticalListSortingStrategy}>
-                <div className="flex max-h-[55vh] min-w-0 flex-col gap-1 overflow-y-auto sm:max-h-[350px]">
-                  {modelItems.map(({ uid, model }, index) => (
-                    <ModelItem
-                      key={uid}
-                      id={uid}
-                      index={index}
-                      model={model}
-                      isFirst={index === 0}
-                      isLast={index === modelItems.length - 1}
-                      onEdit={(newVal) => {
-                        const updated = [...models];
-                        updated[index] = newVal;
-                        setModels(updated);
-                      }}
-                      onMoveUp={() => handleMoveUp(index)}
-                      onMoveDown={() => handleMoveDown(index)}
-                      onRemove={() => handleRemoveModel(index)}
-                    />
-                  ))}
-                </div>
-              </SortableContext>
-            </DndContext>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+                modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+              >
+                <SortableContext items={modelItems.map((m) => m.uid)} strategy={verticalListSortingStrategy}>
+                  <div className="flex max-h-[45vh] min-w-0 flex-col gap-1.5 overflow-y-auto sm:max-h-[300px]">
+                    {modelItems.map(({ uid, model }, index) => (
+                      <ModelItem
+                        key={uid}
+                        id={uid}
+                        index={index}
+                        model={model}
+                        isFirst={index === 0}
+                        isLast={index === modelItems.length - 1}
+                        onEdit={(newVal) => {
+                          const updated = [...models];
+                          updated[index] = newVal;
+                          setModels(updated);
+                        }}
+                        onMoveUp={() => handleMoveUp(index)}
+                        onMoveDown={() => handleMoveDown(index)}
+                        onRemove={() => handleRemoveModel(index)}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
             )}
 
-            {/* Add Model button */}
-            <button
-              onClick={() => setShowModelSelect(true)}
-              className="w-full mt-2 py-2 border border-dashed border-black/10 dark:border-white/10 rounded-lg text-xs text-primary font-medium hover:text-primary hover:border-primary/50 transition-colors flex items-center justify-center gap-1"
-            >
-              <span className="material-symbols-outlined text-[16px]">add</span>
-              Add Model
-            </button>
-          </div>
-
-          {/* Actions */}
-          <div className="flex flex-col gap-2 pt-1 sm:flex-row">
-            <Button onClick={onClose} variant="ghost" fullWidth size="sm">
-              Cancel
-            </Button>
+            {/* Add Model Button */}
             <Button
-              onClick={handleSave}
-              fullWidth
+              variant="secondary"
               size="sm"
-              disabled={!name.trim() || !!nameError || saving}
+              icon="add"
+              onClick={() => setShowModelSelect(true)}
+              className="w-full mt-1"
             >
-              {saving ? "Saving..." : isEdit ? "Save" : "Create"}
+              Add Model to Sequence
             </Button>
           </div>
         </div>
