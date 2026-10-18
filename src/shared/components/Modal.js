@@ -14,6 +14,8 @@ export default function Modal({
   closeOnOverlay = true,
   showTrafficLights = false, // removed traffic lights — not in design system
   className,
+  bodyClassName,
+  scrollable = true,
 }) {
   const sizes = {
     sm:   "max-w-sm",
@@ -77,7 +79,13 @@ export default function Modal({
         )}
 
         {/* Body */}
-        <div className="p-5 max-h-[calc(85vh-100px)] overflow-y-auto custom-scrollbar">
+        <div
+          className={cn(
+            "p-5",
+            scrollable && "max-h-[calc(85vh-100px)] overflow-y-auto custom-scrollbar",
+            bodyClassName
+          )}
+        >
           {children}
         </div>
 

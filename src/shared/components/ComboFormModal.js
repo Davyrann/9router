@@ -110,23 +110,42 @@ export default function ComboFormModal({ isOpen, combo, onClose, onSave, activeP
 
   return (
     <>
-      <Modal isOpen={isOpen} onClose={onClose} title={title || (isEdit ? "Edit Combo" : "Create Combo")}>
-        <div className="flex flex-col gap-3">
+      <Modal
+        isOpen={isOpen}
+        onClose={onClose}
+        title={title || (isEdit ? "Edit Combo" : "Create Combo")}
+        scrollable={false}
+        bodyClassName="p-3.5 sm:p-5"
+        footer={
+          <>
+            <Button onClick={onClose} variant="ghost">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={!name.trim() || !!nameError || saving}
+            >
+              {saving ? "Saving..." : isEdit ? "Save Changes" : "Create"}
+            </Button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-3 font-mono">
           <div>
             {forcePrefix ? (
               <>
                 <label className="text-sm font-medium mb-1 block">Combo Name</label>
                 <div className="flex items-stretch">
-                  <span className="inline-flex items-center px-2 rounded-l border border-r-0 border-black/10 dark:border-white/10 bg-black/[0.04] dark:bg-white/[0.04] text-text-muted font-mono text-sm">{forcePrefix}</span>
+                  <span className="inline-flex items-center px-2 rounded-l border border-r-0 border-[var(--color-hairline)] bg-[var(--color-surface-soft)] text-[var(--color-mute)] font-mono text-sm">{forcePrefix}</span>
                   <input value={name} onChange={handleNameChange} placeholder="my-combo"
-                    className="flex-1 min-w-0 rounded-r border border-black/10 dark:border-white/10 bg-white dark:bg-black/20 px-2 py-1.5 font-mono text-sm outline-none focus:border-primary" />
+                    className="flex-1 min-w-0 rounded-r border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] px-2 py-1.5 font-mono text-sm text-[var(--color-ink)] outline-none focus:border-[var(--color-hairline-strong)]" />
                 </div>
-                {nameError && <p className="text-[11px] text-red-500 mt-0.5">{nameError}</p>}
+                {nameError && <p className="text-[11px] text-[var(--color-danger)] mt-0.5">{nameError}</p>}
               </>
             ) : (
               <Input label="Combo Name" value={name} onChange={handleNameChange} placeholder="my-combo" error={nameError} />
             )}
-            <p className="text-[10px] text-text-muted mt-0.5">
+            <p className="text-[10px] text-[var(--color-mute)] mt-0.5">
               {forcePrefix ? `Auto-prefixed with "${forcePrefix}". ` : ""}Only letters, numbers, -, _ and . allowed
             </p>
           </div>
@@ -134,12 +153,12 @@ export default function ComboFormModal({ isOpen, combo, onClose, onSave, activeP
           <div>
             <label className="text-sm font-medium mb-1.5 block">Models</label>
             {models.length === 0 ? (
-              <div className="text-center py-4 border border-dashed border-black/10 dark:border-white/10 rounded-lg bg-black/[0.01] dark:bg-white/[0.01]">
-                <span className="material-symbols-outlined text-text-muted text-xl mb-1">layers</span>
-                <p className="text-xs text-text-muted">No models added yet</p>
+              <div className="text-center py-4 border border-dashed border-[var(--color-hairline)] rounded bg-[var(--color-surface-soft)]">
+                <span className="material-symbols-outlined text-[20px] text-[var(--color-mute)] mb-1">layers</span>
+                <p className="text-xs text-[var(--color-mute)]">No models added yet</p>
               </div>
             ) : (
-              <div className="flex max-h-[55vh] min-w-0 flex-col gap-1 overflow-y-auto sm:max-h-[350px]">
+              <div className="flex max-h-[160px] sm:max-h-[220px] min-w-0 flex-col gap-1 overflow-y-auto custom-scrollbar pr-0.5">
                 {models.map((model, index) => (
                   <ModelItem key={index} index={index} model={model}
                     isFirst={index === 0} isLast={index === models.length - 1}
@@ -150,17 +169,14 @@ export default function ComboFormModal({ isOpen, combo, onClose, onSave, activeP
                 ))}
               </div>
             )}
-            <button onClick={() => setShowModelSelect(true)}
-              className="w-full mt-2 py-2 border border-dashed border-black/10 dark:border-white/10 rounded-lg text-xs text-primary font-medium hover:text-primary hover:border-primary/50 transition-colors flex items-center justify-center gap-1">
-              <span className="material-symbols-outlined text-[16px]">add</span>
-              Add Model
-            </button>
-          </div>
-
-          <div className="flex flex-col gap-2 pt-1 sm:flex-row">
-            <Button onClick={onClose} variant="ghost" fullWidth size="sm">Cancel</Button>
-            <Button onClick={handleSave} fullWidth size="sm" disabled={!name.trim() || !!nameError || saving}>
-              {saving ? "Saving..." : isEdit ? "Save" : "Create"}
+            <Button
+              variant="secondary"
+              size="sm"
+              icon="add"
+              onClick={() => setShowModelSelect(true)}
+              className="w-full mt-2"
+            >
+              Add Model to Sequence
             </Button>
           </div>
         </div>

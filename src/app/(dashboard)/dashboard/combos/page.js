@@ -379,16 +379,16 @@ export default function CombosPage() {
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <button
             onClick={() => setShowGuide((v) => !v)}
-            className="flex-1 sm:flex-initial h-8 px-2.5 border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] text-[12px] font-mono text-[var(--color-mute)] hover:text-[var(--color-ink)] rounded transition-colors text-center cursor-pointer"
+            className="h-8 px-2.5 border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] text-[12px] font-mono text-[var(--color-mute)] hover:text-[var(--color-ink)] rounded transition-colors text-center cursor-pointer whitespace-nowrap shrink-0"
             title="Toggle strategy explanation"
           >
-            {showGuide ? "[x] Close Guide" : "[?] Strategy Guide"}
+            {showGuide ? "[x] Close" : "[?] Guide"}
           </button>
           <Button
             size="sm"
             icon="add"
             onClick={() => setShowCreateModal(true)}
-            className="flex-1 sm:flex-initial shrink-0"
+            className="flex-1 sm:flex-initial shrink-0 whitespace-nowrap"
           >
             Create Combo
           </Button>
@@ -651,7 +651,8 @@ function ComboCard({
 
       {/* Model Sequence / Pipeline Display */}
       <div className="p-2.5 bg-[var(--color-canvas)] border border-[var(--color-hairline)] rounded flex flex-col gap-2">
-        <div className="flex flex-wrap items-center gap-1.5 font-mono text-[12px]">
+        {/* Desktop: horizontal pipeline chain */}
+        <div className="hidden sm:flex flex-wrap items-center gap-1.5 font-mono text-[12px]">
           {combo.models.length === 0 ? (
             <span className="text-[var(--color-ash)] italic">No models configured</span>
           ) : (
@@ -676,6 +677,37 @@ function ComboCard({
           )}
         </div>
 
+        {/* Mobile: clean vertical pipeline with downward fallback indicators */}
+        <div className="flex sm:hidden flex-col gap-1 font-mono text-[12px]">
+          {combo.models.length === 0 ? (
+            <span className="text-[var(--color-ash)] italic py-1">No models configured</span>
+          ) : (
+            combo.models.map((model, index) => (
+              <div key={index} className="flex flex-col">
+                <div className="flex items-center justify-between gap-2 p-2 bg-[var(--color-surface-soft)] border border-[var(--color-hairline)] rounded">
+                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                    <span className="text-[10px] text-[var(--color-ash)] font-bold shrink-0">#{index + 1}</span>
+                    <span className="font-medium text-[var(--color-ink)] truncate text-[12px]">{model}</span>
+                  </div>
+                  <CapacityBadges
+                    caps={
+                      comboByName[model]
+                        ? aggregateComboCapabilities(comboByName[model], comboByName, getCaps)
+                        : getCaps?.(model)
+                    }
+                  />
+                </div>
+                {index < combo.models.length - 1 && (
+                  <div className="flex items-center gap-1.5 px-3 py-1 text-[10px] text-[var(--color-ash)]">
+                    <span className="font-bold text-[11px]">↓</span>
+                    <span>fallback</span>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+
         {/* Limits & Capabilities Info */}
         {comboCaps && (
           <div className="flex items-center gap-3 text-[11px] font-mono text-[var(--color-mute)] pt-1.5 border-t border-[var(--color-hairline)]">
@@ -692,8 +724,8 @@ function ComboCard({
         )}
       </div>
 
-      {/* Bottom Strategy Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1 border-t border-[var(--color-hairline)]">
+      {/* Bottom Strategy Bar — Centered vertically */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2.5 mt-0.5 border-t border-[var(--color-hairline)]">
         <div className="flex items-center gap-2">
           <span className="text-[12px] font-mono text-[var(--color-mute)] shrink-0">Strategy:</span>
           <select
@@ -1146,6 +1178,8 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, kindF
         isOpen={isOpen}
         onClose={onClose}
         title={isEdit ? "Edit Combo" : "Create Combo"}
+        scrollable={false}
+        bodyClassName="p-3.5 sm:p-5"
         footer={
           <>
             <Button onClick={onClose} variant="ghost">
@@ -1160,7 +1194,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, kindF
           </>
         }
       >
-        <div className="flex flex-col gap-4 font-mono">
+        <div className="flex flex-col gap-3 font-mono">
           {/* Name */}
           <div>
             <Input
@@ -1176,9 +1210,9 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, kindF
           </div>
 
           {/* Models */}
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between">
-              <label className="text-[14px] font-bold text-[var(--color-ink)]">
+              <label className="text-[13px] font-bold text-[var(--color-ink)]">
                 Models in Sequence
               </label>
               <span className="text-[11px] text-[var(--color-mute)]">
@@ -1187,9 +1221,9 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, kindF
             </div>
 
             {models.length === 0 ? (
-              <div className="text-center py-6 border border-dashed border-[var(--color-hairline)] rounded bg-[var(--color-surface-soft)]">
-                <span className="material-symbols-outlined text-[24px] text-[var(--color-mute)] mb-1">layers</span>
-                <p className="text-[13px] text-[var(--color-mute)]">No models added yet</p>
+              <div className="text-center py-5 border border-dashed border-[var(--color-hairline)] rounded bg-[var(--color-surface-soft)]">
+                <span className="material-symbols-outlined text-[22px] text-[var(--color-mute)] mb-0.5">layers</span>
+                <p className="text-[12px] text-[var(--color-mute)]">No models added yet</p>
               </div>
             ) : (
               <DndContext
@@ -1199,7 +1233,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, kindF
                 modifiers={[restrictToVerticalAxis, restrictToParentElement]}
               >
                 <SortableContext items={modelItems.map((m) => m.uid)} strategy={verticalListSortingStrategy}>
-                  <div className="flex max-h-[45vh] min-w-0 flex-col gap-1.5 overflow-y-auto sm:max-h-[300px]">
+                  <div className="flex max-h-[160px] sm:max-h-[220px] min-w-0 flex-col gap-1.5 overflow-y-auto custom-scrollbar pr-0.5">
                     {modelItems.map(({ uid, model }, index) => (
                       <ModelItem
                         key={uid}
@@ -1229,7 +1263,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, kindF
               size="sm"
               icon="add"
               onClick={() => setShowModelSelect(true)}
-              className="w-full mt-1"
+              className="w-full mt-0.5"
             >
               Add Model to Sequence
             </Button>

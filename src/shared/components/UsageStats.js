@@ -12,6 +12,7 @@ function isLLMProvider(id) {
 }
 import Badge from "./Badge";
 import Card from "./Card";
+import { cn } from "@/shared/utils/cn";
 import OverviewCards from "@/app/(dashboard)/dashboard/usage/components/OverviewCards";
 import UsageTable, { fmt, fmtTime } from "@/app/(dashboard)/dashboard/usage/components/UsageTable";
 import dynamic from "next/dynamic";
@@ -43,50 +44,51 @@ function TimeAgo({ timestamp }) {
 
 function RecentRequests({ requests = [] }) {
   return (
-    <Card className="flex min-w-0 flex-col overflow-hidden" padding="sm" style={{ height: 480 }}>
+    <div className="flex min-w-0 flex-col overflow-hidden border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] rounded font-mono" style={{ height: 480 }}>
       {/* Header */}
-      <div className="px-1 py-2 border-b border-border shrink-0">
-        <span className="text-xs font-semibold text-text-muted uppercase tracking-wide">Recent Requests</span>
+      <div className="px-3 py-2 border-b border-[var(--color-hairline)] shrink-0 bg-[var(--color-canvas)] flex items-center justify-between">
+        <span className="text-[12px] font-bold text-[var(--color-ink)] uppercase tracking-wide">Recent Requests</span>
+        <span className="text-[11px] text-[var(--color-mute)]">{requests.length} logged</span>
       </div>
 
       {!requests.length ? (
-        <div className="flex-1 flex items-center justify-center text-text-muted text-sm">No requests yet.</div>
+        <div className="flex-1 flex items-center justify-center text-[var(--color-mute)] text-sm">No requests recorded yet.</div>
       ) : (
-        <div className="flex-1 overflow-y-auto">
-          <table className="w-full min-w-[360px] border-collapse text-xs">
-            <thead className="sticky top-0 bg-bg z-10">
-              <tr className="border-b border-border">
-                <th className="py-1.5 text-left font-semibold text-text-muted w-2"></th>
-                <th className="py-1.5 text-left font-semibold text-text-muted">Model</th>
-                <th className="py-1.5 text-right font-semibold text-text-muted whitespace-nowrap">In / Out</th>
-                <th className="py-1.5 text-right font-semibold text-text-muted whitespace-nowrap">Cache</th>
-                <th className="py-1.5 text-right font-semibold text-text-muted">When</th>
+        <div className="flex-1 overflow-y-auto custom-scrollbar">
+          <table className="w-full min-w-[340px] border-collapse text-xs">
+            <thead className="sticky top-0 bg-[var(--color-surface-soft)] z-10">
+              <tr className="border-b border-[var(--color-hairline)] text-[var(--color-mute)] text-[11px]">
+                <th className="py-1.5 px-2 text-left w-2"></th>
+                <th className="py-1.5 px-2 text-left font-medium">Model</th>
+                <th className="py-1.5 px-2 text-right font-medium whitespace-nowrap">In / Out</th>
+                <th className="py-1.5 px-2 text-right font-medium whitespace-nowrap">Cache</th>
+                <th className="py-1.5 px-2 text-right font-medium">When</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border/50">
+            <tbody className="divide-y divide-[var(--color-hairline)]">
               {requests.map((r, i) => {
                 const ok = !r.status || r.status === "ok" || r.status === "success";
                 return (
-                  <tr key={i} className="hover:bg-bg-subtle transition-colors">
-                    <td className="py-1.5">
-                      <span className={`block w-1.5 h-1.5 rounded-full ${ok ? "bg-success" : "bg-error"}`} />
+                  <tr key={i} className="hover:bg-[var(--color-canvas)] transition-colors">
+                    <td className="py-2 px-2">
+                      <span className={`block w-1.5 h-1.5 rounded-full ${ok ? "bg-[var(--color-success)]" : "bg-[var(--color-danger)]"}`} />
                     </td>
-                    <td className="py-1.5 font-mono truncate max-w-[120px]" title={r.model}>{r.model}</td>
-                    <td className="py-1.5 text-right whitespace-nowrap">
-                      <span className="text-primary">{fmt(r.promptTokens)}↑</span>
+                    <td className="py-2 px-2 font-mono truncate max-w-[120px] text-[var(--color-ink)]" title={r.model}>{r.model}</td>
+                    <td className="py-2 px-2 text-right whitespace-nowrap">
+                      <span className="text-[var(--color-primary)]">{fmt(r.promptTokens)}↑</span>
                       {" "}
-                      <span className="text-success">{fmt(r.completionTokens)}↓</span>
+                      <span className="text-[var(--color-success)]">{fmt(r.completionTokens)}↓</span>
                     </td>
-                    <td className="py-1.5 text-right whitespace-nowrap">
+                    <td className="py-2 px-2 text-right whitespace-nowrap">
                       {r.cachedTokens > 0 ? (
-                        <span className="text-sky-400" title={`${r.cachedTokens.toLocaleString()} cached input tokens`}>
+                        <span className="text-[var(--color-accent)] font-medium" title={`${r.cachedTokens.toLocaleString()} cached tokens`}>
                           {fmt(r.cachedTokens)}
                         </span>
                       ) : (
-                        <span className="text-text-muted/40">—</span>
+                        <span className="text-[var(--color-ash)]">—</span>
                       )}
                     </td>
-                    <td className="py-1.5 text-right text-text-muted whitespace-nowrap"><TimeAgo timestamp={r.timestamp} /></td>
+                    <td className="py-2 px-2 text-right text-[var(--color-mute)] whitespace-nowrap"><TimeAgo timestamp={r.timestamp} /></td>
                   </tr>
                 );
               })}
@@ -94,7 +96,7 @@ function RecentRequests({ requests = [] }) {
           </table>
         </div>
       )}
-    </Card>
+    </div>
   );
 }
 
@@ -478,59 +480,106 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
         </div>
       )}
 
-      {/* Overview cards */}
-      {loading ? spinner : <OverviewCards stats={stats} />}
-
-      {/* Token / Cost chart - sync period */}
-      {loading ? spinner : <UsageChart period={period} />}
-
-      {/* Provider topology + Recent Requests */}
-      {loading ? spinner : (
-        <div className="grid min-w-0 grid-cols-1 items-stretch gap-2 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
-          <ProviderTopology
-            providers={providers}
-            activeRequests={stats.activeRequests || []}
-            lastProvider={stats.recentRequests?.[0]?.provider || ""}
-            errorProvider={stats.errorProvider || ""}
-          />
-          <RecentRequests requests={stats.recentRequests || []} />
+      {/* 1. Metrics & Comparison Overview */}
+      <div className="flex flex-col gap-2.5">
+        <div className="flex items-center justify-between pb-1.5 border-b border-[var(--color-hairline)] font-mono">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-[18px] text-[var(--color-ink)]">insights</span>
+            <h2 className="text-[14px] sm:text-[15px] font-bold text-[var(--color-ink)]">
+              Overview & Comparisons
+            </h2>
+          </div>
+          {fetching && (
+            <span className="text-[12px] font-mono text-[var(--color-mute)] flex items-center gap-1">
+              <span className="material-symbols-outlined text-[14px] animate-spin">progress_activity</span>
+              updating…
+            </span>
+          )}
         </div>
-      )}
+        {loading ? spinner : <OverviewCards stats={stats} />}
+      </div>
 
-      {/* Provider and model breakdown charts */}
-      {!loading && (stats.byProvider || stats.byModel) && (
-        <div className="grid min-w-0 grid-cols-1 gap-2 lg:grid-cols-2">
-          <ProviderBarChart byProvider={stats.byProvider} />
-          <TopModelsChart byModel={stats.byModel} />
+      {/* 2. Activity Timeline & Analytics */}
+      <div className="flex flex-col gap-2.5 pt-2 border-t border-[var(--color-hairline)] font-mono">
+        <div className="flex items-center gap-2 pb-1">
+          <span className="material-symbols-outlined text-[18px] text-[var(--color-ink)]">timeline</span>
+          <h2 className="text-[14px] sm:text-[15px] font-bold text-[var(--color-ink)]">
+            Activity Timeline
+          </h2>
         </div>
-      )}
+        {loading ? spinner : <UsageChart period={period} />}
+        {!loading && (stats.byProvider || stats.byModel) && (
+          <div className="grid min-w-0 grid-cols-1 gap-2.5 lg:grid-cols-2 mt-1">
+            <ProviderBarChart byProvider={stats.byProvider} />
+            <TopModelsChart byModel={stats.byModel} />
+          </div>
+        )}
+      </div>
 
-      {/* Table with dropdown selector */}
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <select
-            value={tableView}
-            onChange={(e) => setTableView(e.target.value)}
-            className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-text-main focus:outline-none focus:ring-2 focus:ring-primary/50 sm:w-auto"
-            style={{ colorScheme: 'auto' }}
-          >
-            {TABLE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-          <div className="grid grid-cols-2 items-center gap-1 rounded-lg border border-border bg-bg-subtle p-1 sm:flex">
-            <button
-              onClick={() => setViewMode("costs")}
-              className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${viewMode === "costs" ? "bg-primary text-white shadow-sm" : "text-text-muted hover:text-text hover:bg-bg-hover"}`}
+      {/* 3. Live Topology & Recent Stream */}
+      <div className="flex flex-col gap-2.5 pt-2 border-t border-[var(--color-hairline)] font-mono">
+        <div className="flex items-center gap-2 pb-1">
+          <span className="material-symbols-outlined text-[18px] text-[var(--color-ink)]">hub</span>
+          <h2 className="text-[14px] sm:text-[15px] font-bold text-[var(--color-ink)]">
+            Routing Topology & Live Stream
+          </h2>
+        </div>
+        {loading ? spinner : (
+          <div className="grid min-w-0 grid-cols-1 items-stretch gap-2.5 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
+            <ProviderTopology
+              providers={providers}
+              activeRequests={stats.activeRequests || []}
+              lastProvider={stats.recentRequests?.[0]?.provider || ""}
+              errorProvider={stats.errorProvider || ""}
+            />
+            <RecentRequests requests={stats.recentRequests || []} />
+          </div>
+        )}
+      </div>
+
+      {/* 4. Granular Breakdown Table */}
+      <div className="flex flex-col gap-2.5 pt-2 border-t border-[var(--color-hairline)] font-mono">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-1">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-[18px] text-[var(--color-ink)]">table_chart</span>
+            <h2 className="text-[14px] sm:text-[15px] font-bold text-[var(--color-ink)]">
+              Breakdown Details
+            </h2>
+          </div>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+            <select
+              value={tableView}
+              onChange={(e) => setTableView(e.target.value)}
+              className="h-8 rounded border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] px-2.5 text-[12px] font-mono text-[var(--color-ink)] outline-none cursor-pointer hover:border-[var(--color-hairline-strong)] transition-colors"
             >
-              Costs
-            </button>
-            <button
-              onClick={() => setViewMode("tokens")}
-              className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${viewMode === "tokens" ? "bg-primary text-white shadow-sm" : "text-text-muted hover:text-text hover:bg-bg-hover"}`}
-            >
-              Tokens
-            </button>
+              {TABLE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+            <div className="flex items-center border border-[var(--color-hairline)] rounded overflow-hidden">
+              <button
+                onClick={() => setViewMode("costs")}
+                className={cn(
+                  "h-8 px-3 text-[12px] font-mono transition-colors cursor-pointer",
+                  viewMode === "costs"
+                    ? "bg-[var(--color-primary)] text-[var(--color-on-primary)] font-bold"
+                    : "bg-[var(--color-surface-soft)] text-[var(--color-mute)] hover:text-[var(--color-ink)]"
+                )}
+              >
+                Costs
+              </button>
+              <button
+                onClick={() => setViewMode("tokens")}
+                className={cn(
+                  "h-8 px-3 text-[12px] font-mono transition-colors cursor-pointer border-l border-[var(--color-hairline)]",
+                  viewMode === "tokens"
+                    ? "bg-[var(--color-primary)] text-[var(--color-on-primary)] font-bold"
+                    : "bg-[var(--color-surface-soft)] text-[var(--color-mute)] hover:text-[var(--color-ink)]"
+                )}
+              >
+                Tokens
+              </button>
+            </div>
           </div>
         </div>
         {loading ? spinner : activeTableConfig && (

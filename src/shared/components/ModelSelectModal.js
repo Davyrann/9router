@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import PropTypes from "prop-types";
+import { cn } from "@/shared/utils/cn";
 import Modal from "./Modal";
 import ProviderIcon from "./ProviderIcon";
 import CapacityBadges from "./CapacityBadges";
@@ -135,6 +136,8 @@ export default function ModelSelectModal({
   const [providerNodes, setProviderNodes] = useState([]);
   const [customModels, setCustomModels] = useState([]);
   const [disabledModels, setDisabledModels] = useState({});
+  const [expandedProviders, setExpandedProviders] = useState({});
+  const [combosExpanded, setCombosExpanded] = useState(true);
   // Cursor and Cline expose the usable catalog per account, so the static catalog is
   // kept only as a fallback: it goes stale quickly and entitlements differ per account.
   // Single map driven by LIVE_CATALOG_PROVIDERS so the constant cannot drift
@@ -615,6 +618,31 @@ export default function ModelSelectModal({
     }
   };
 
+  const isSearching = searchQuery.trim().length > 0;
+
+  const isProviderExpanded = (providerId) => {
+    if (isSearching) return true;
+    if (expandedProviders[providerId] !== undefined) return expandedProviders[providerId];
+    const group = filteredGroups[providerId];
+    if (group && group.models.some((m) => addedModelValues.includes(m.value))) return true;
+    return false;
+  };
+
+  const toggleProvider = (providerId) => {
+    setExpandedProviders((prev) => ({
+      ...prev,
+      [providerId]: !isProviderExpanded(providerId),
+    }));
+  };
+
+  const handleToggleAll = (expand) => {
+    const next = {};
+    Object.keys(filteredGroups).forEach((id) => {
+      next[id] = expand;
+    });
+    setExpandedProviders(next);
+  };
+
   return (
     <Modal
       isOpen={isOpen}
@@ -624,35 +652,35 @@ export default function ModelSelectModal({
       }}
       title={title}
       size={size}
-      className="p-4!"
+      className="p-3 sm:p-4!"
       footer={null}
     >
       {/* Info bar */}
-      <div className="flex items-center gap-2 mb-3 px-2.5 py-2 bg-primary/8 border border-primary/20 rounded-lg text-xs text-text-muted">
-        <span className="material-symbols-outlined text-primary shrink-0" style={{ fontSize: "14px" }}>info</span>
-        <span>
+      <div className="flex items-center gap-2 mb-3 px-2.5 py-2 bg-[var(--color-surface-soft)] border border-[var(--color-hairline)] rounded text-xs text-[var(--color-mute)] font-mono">
+        <span className="material-symbols-outlined text-[var(--color-primary)] shrink-0 text-[14px]">info</span>
+        <span className="leading-tight">
           {allowProviderWildcard
-            ? "Click to add/remove a model, or click a provider name for wildcard (e.g. provider/*). Search supports exclusions (e.g. claude -haiku) and RegEx (/pattern/)."
-            : "Click to add, click again to remove. Search supports exclusions (e.g. claude -haiku) and RegEx (/pattern/)."}
+            ? "Click provider to reveal models. Click model to select. Click provider tag for wildcard (provider/*)."
+            : "Click provider to reveal models. Click model to add/remove."}
         </span>
       </div>
 
       {/* Search & batch actions */}
-      <div className="mb-3 space-y-2">
+      <div className="mb-3 space-y-2 font-mono">
         <div className="relative">
-          <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted text-[16px]">
+          <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-ash)] text-[16px] pointer-events-none">
             search
           </span>
           <input
             type="text"
             placeholder={
               allowProviderWildcard
-                ? "Search models (e.g. claude -haiku, oc/*, /regex/)..."
-                : "Search models (e.g. claude -haiku, !embed, /regex/)..."
+                ? "Search models (e.g. claude -haiku, oc/*)..."
+                : "Search models (e.g. claude -haiku, !embed)..."
             }
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-8 pr-20 py-1.5 bg-surface border border-border rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary/50"
+            className="w-full pl-8 pr-20 py-2 bg-[var(--color-surface-soft)] border border-[var(--color-hairline)] rounded text-xs text-[var(--color-ink)] focus:outline-none focus:border-[var(--color-hairline-strong)] font-mono"
           />
           <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
             {parsedQuery.isRegex && (
@@ -669,191 +697,225 @@ export default function ModelSelectModal({
               <button
                 type="button"
                 onClick={() => setSearchQuery("")}
-                className="text-text-muted hover:text-text-main cursor-pointer p-0.5 rounded"
+                className="text-[var(--color-mute)] hover:text-[var(--color-ink)] cursor-pointer p-0.5 rounded text-[13px]"
                 title="Clear search"
               >
-                <span className="material-symbols-outlined text-[14px] leading-none">close</span>
+                [x]
               </button>
             )}
           </div>
         </div>
 
-        {!closeOnSelect && visibleModels.length > 0 && (
-          <div className="flex items-center justify-between px-1 text-[11px] text-text-muted">
-            <span className="flex items-center gap-1.5">
-              <span>{visibleModels.length} models</span>
-              {addedModelValues.length > 0 && (
-                <span className="text-primary font-medium">({addedModelValues.length} selected)</span>
-              )}
-            </span>
-            <div className="flex items-center gap-1.5">
-              {visibleUnadded.length > 0 && (
-                <button
-                  type="button"
-                  onClick={handleSelectAllVisible}
-                  className="px-2 py-0.5 rounded text-[11px] font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors cursor-pointer"
-                  title="Select all filtered models"
-                >
-                  Select All ({visibleUnadded.length})
-                </button>
-              )}
-              {visibleAdded.length > 0 && (
-                <button
-                  type="button"
-                  onClick={handleDeselectAllVisible}
-                  className="px-2 py-0.5 rounded text-[11px] font-medium bg-border/40 text-text-muted hover:text-text-main hover:bg-border/60 transition-colors cursor-pointer"
-                  title="Deselect all filtered models"
-                >
-                  Deselect All ({visibleAdded.length})
-                </button>
-              )}
-            </div>
+        <div className="flex flex-wrap items-center justify-between gap-1.5 px-0.5 text-[11px] text-[var(--color-mute)]">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span>{visibleModels.length} models</span>
+            {addedModelValues.length > 0 && (
+              <span className="text-[var(--color-primary)] font-bold">({addedModelValues.length} selected)</span>
+            )}
           </div>
-        )}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {!isSearching && Object.keys(filteredGroups).length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => handleToggleAll(true)}
+                  className="px-1.5 py-0.5 text-[10px] border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] rounded hover:text-[var(--color-ink)] cursor-pointer whitespace-nowrap"
+                >
+                  Expand all
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleToggleAll(false)}
+                  className="px-1.5 py-0.5 text-[10px] border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] rounded hover:text-[var(--color-ink)] cursor-pointer whitespace-nowrap"
+                >
+                  Collapse all
+                </button>
+              </>
+            )}
+            {!closeOnSelect && visibleModels.length > 0 && visibleUnadded.length > 0 && (
+              <button
+                type="button"
+                onClick={handleSelectAllVisible}
+                className="px-2 py-0.5 rounded text-[10px] font-medium bg-[var(--color-surface-card)] text-[var(--color-ink)] border border-[var(--color-hairline)] hover:bg-[var(--color-surface-soft)] transition-colors cursor-pointer whitespace-nowrap"
+                title="Select all filtered models"
+              >
+                Select All
+              </button>
+            )}
+            {!closeOnSelect && visibleModels.length > 0 && visibleAdded.length > 0 && (
+              <button
+                type="button"
+                onClick={handleDeselectAllVisible}
+                className="px-2 py-0.5 rounded text-[10px] font-medium bg-[var(--color-surface-card)] text-[var(--color-mute)] border border-[var(--color-hairline)] hover:text-[var(--color-ink)] transition-colors cursor-pointer whitespace-nowrap"
+                title="Deselect all filtered models"
+              >
+                Deselect All
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Models grouped by provider - compact */}
-      <div className="max-h-[400px] overflow-y-auto space-y-3">
+      {/* Models grouped by provider - Accordion style */}
+      <div className="max-h-[50vh] sm:max-h-[420px] overflow-y-auto custom-scrollbar space-y-2 font-mono">
         {/* Combos section - always first */}
         {filteredCombos.length > 0 && (
-          <div>
-            <div className="flex items-center gap-1.5 mb-1.5 sticky top-0 bg-surface py-0.5">
-              <span className="material-symbols-outlined text-primary text-[14px]">layers</span>
-              <span className="text-xs font-medium text-primary">Combos</span>
-              <span className="text-[10px] text-text-muted">({filteredCombos.length})</span>
+          <div className="border border-[var(--color-hairline)] rounded overflow-hidden">
+            <div
+              onClick={() => setCombosExpanded((v) => !v)}
+              className="flex items-center justify-between p-2.5 bg-[var(--color-surface-soft)] cursor-pointer select-none hover:bg-[var(--color-surface-card)] transition-colors"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="material-symbols-outlined text-[var(--color-primary)] text-[16px]">layers</span>
+                <span className="text-[13px] font-bold text-[var(--color-ink)] truncate">Combos</span>
+                <span className="text-[11px] text-[var(--color-mute)]">({filteredCombos.length})</span>
+              </div>
+              <span className="text-[12px] text-[var(--color-ash)] font-bold">
+                {combosExpanded ? "[-]" : "[+]"}
+              </span>
             </div>
-            <div className="flex flex-wrap gap-1.5">
-              {filteredCombos.map((combo) => {
-                const isSelected = selectedModel === combo.name;
-                return (
-                  <button
-                    key={combo.id}
-                    onClick={() => handleSelect({ id: combo.name, name: combo.name, value: combo.name })}
-                    className={`
-                      px-2 py-1 rounded-xl text-xs font-medium transition-all border hover:cursor-pointer flex items-center gap-1
-                      ${isSelected
-                        ? "bg-primary text-white border-primary"
-                        : addedModelValues.includes(combo.name)
-                          ? "bg-primary border-primary text-white hover:bg-primary-hover"
-                          : "bg-surface border-border text-text-main hover:border-primary/50 hover:bg-primary/5"
-                      }
-                    `}
-                  >
-                    {addedModelValues.includes(combo.name) && (
-                      <span className="material-symbols-outlined leading-none" style={{ fontSize: "10px" }}>check</span>
-                    )}
-                    {combo.name}
-                  </button>
-                );
-              })}
-            </div>
+            {combosExpanded && (
+              <div className="p-2 bg-[var(--color-canvas)] border-t border-[var(--color-hairline)] flex flex-wrap gap-1.5">
+                {filteredCombos.map((combo) => {
+                  const isSelected = selectedModel === combo.name;
+                  const isAdded = addedModelValues.includes(combo.name);
+                  return (
+                    <button
+                      key={combo.id}
+                      onClick={() => handleSelect({ id: combo.name, name: combo.name, value: combo.name })}
+                      className={cn(
+                        "px-2.5 py-1 rounded text-xs font-mono font-medium transition-colors border cursor-pointer flex items-center gap-1",
+                        isSelected || isAdded
+                          ? "bg-[var(--color-primary)] text-[var(--color-on-primary)] border-[var(--color-primary)]"
+                          : "bg-[var(--color-surface-soft)] border-[var(--color-hairline)] text-[var(--color-ink)] hover:border-[var(--color-hairline-strong)]"
+                      )}
+                    >
+                      {isAdded && (
+                        <span className="text-[10px] leading-none font-bold">[✓]</span>
+                      )}
+                      <span>{combo.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
-        {/* Provider models */}
+        {/* Provider models — Accordion */}
         {Object.entries(filteredGroups).map(([providerId, group]) => {
           const wildcardValue = `${group.alias || providerId}/*`;
           const isWildcardAdded = allowProviderWildcard && addedModelValues.includes(wildcardValue);
+          const isExpanded = isProviderExpanded(providerId);
+          const selectedInGroupCount = group.models.filter((m) => addedModelValues.includes(m.value)).length;
 
           return (
-            <div key={providerId}>
-              {/* Provider header */}
-              <div className="flex items-center gap-1.5 mb-1.5 sticky top-0 bg-surface py-0.5 z-10">
-                <ProviderIcon
-                  src={`/providers/${providerId}.png`}
-                  alt={group.name}
-                  size={14}
-                  fallbackText={(group.name || providerId).slice(0, 2).toUpperCase()}
-                  fallbackColor={group.color}
-                />
-                {allowProviderWildcard ? (
-                  <button
-                    type="button"
-                    onClick={() => handleSelect({ value: wildcardValue, name: wildcardValue })}
-                    title={isWildcardAdded ? `Click to remove wildcard ${wildcardValue}` : `Click to allow all models from ${group.name} (${wildcardValue})`}
-                    className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium transition-all cursor-pointer border ${
-                      isWildcardAdded
-                        ? "bg-primary text-white border-primary shadow-2xs hover:bg-primary-hover"
-                        : "text-primary border-transparent hover:bg-primary/10 hover:border-primary/20"
-                    }`}
-                  >
-                    {isWildcardAdded && (
-                      <span className="material-symbols-outlined leading-none text-[12px]">check</span>
-                    )}
-                    <span>{group.name}</span>
-                    <span className={`text-[10px] font-mono px-1 py-0.2 rounded ${isWildcardAdded ? "bg-white/20 text-white" : "text-text-muted bg-sidebar border border-border/50"}`}>
-                      {wildcardValue}
-                    </span>
-                  </button>
-                ) : (
-                  <span className="text-xs font-medium text-primary">
+            <div key={providerId} className="border border-[var(--color-hairline)] rounded overflow-hidden">
+              {/* Provider Accordion Header */}
+              <div
+                onClick={() => toggleProvider(providerId)}
+                className="flex items-center justify-between p-2.5 bg-[var(--color-surface-soft)] cursor-pointer select-none hover:bg-[var(--color-surface-card)] transition-colors gap-2"
+              >
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <ProviderIcon
+                    src={`/providers/${providerId}.png`}
+                    alt={group.name}
+                    size={16}
+                    fallbackText={(group.name || providerId).slice(0, 2).toUpperCase()}
+                    fallbackColor={group.color}
+                  />
+                  <span className="text-[13px] font-bold text-[var(--color-ink)] truncate">
                     {group.name}
                   </span>
-                )}
-                <span className="text-[10px] text-text-muted">
-                  ({group.models.length})
-                </span>
+                  <span className="text-[11px] text-[var(--color-mute)] shrink-0">
+                    ({group.models.length})
+                  </span>
+                  {selectedInGroupCount > 0 && (
+                    <span className="px-1.5 py-0.2 text-[10px] font-bold text-[var(--color-primary)] border border-[var(--color-primary)]/40 rounded shrink-0">
+                      {selectedInGroupCount} selected
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {allowProviderWildcard && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSelect({ value: wildcardValue, name: wildcardValue });
+                      }}
+                      title={isWildcardAdded ? `Click to remove wildcard ${wildcardValue}` : `Click to allow all models from ${group.name} (${wildcardValue})`}
+                      className={cn(
+                        "px-1.5 py-0.5 rounded text-[10px] font-mono border transition-colors cursor-pointer",
+                        isWildcardAdded
+                          ? "bg-[var(--color-primary)] text-[var(--color-on-primary)] border-[var(--color-primary)]"
+                          : "border-[var(--color-hairline)] bg-[var(--color-canvas)] text-[var(--color-mute)] hover:text-[var(--color-ink)]"
+                      )}
+                    >
+                      {wildcardValue}
+                    </button>
+                  )}
+                  <span className="text-[12px] font-bold text-[var(--color-ash)]">
+                    {isExpanded ? "[-]" : "[+]"}
+                  </span>
+                </div>
               </div>
 
-            <div className="flex flex-wrap gap-1.5">
-              {group.models.map((model) => {
-                const isSelected = selectedModel === model.value;
-                const isPlaceholder = model.isPlaceholder;
-                return (
-                  <button
-                    key={model.value}
-                    onClick={() => handleSelect(model)}
-                    title={isPlaceholder ? "Select to pre-fill, then edit model ID in the input" : undefined}
-                    className={`
-                      px-2 py-1 rounded-xl text-xs font-medium transition-all border hover:cursor-pointer
-                      ${isPlaceholder
-                        ? "border-dashed border-border text-text-muted hover:border-primary/50 hover:text-primary bg-surface italic"
-                        : isSelected
-                          ? "bg-primary text-white border-primary"
-                          : addedModelValues.includes(model.value)
-                            ? "bg-primary border-primary text-white hover:bg-primary-hover"
-                            : "bg-surface border-border text-text-main hover:border-primary/50 hover:bg-primary/5"
-                      }
-                    `}
-                  >
-                    <span className="flex items-center gap-1">
-                      {addedModelValues.includes(model.value) && !isPlaceholder && (
-                        <span className="material-symbols-outlined leading-none" style={{ fontSize: "10px" }}>check</span>
-                      )}
-                      {isPlaceholder ? (
-                        <>
-                          <span className="material-symbols-outlined text-[11px]">edit</span>
-                          {model.name}
-                        </>
-                      ) : model.isCustom ? (
-                        <>
-                          {model.name}
-                          <span className="text-[9px] opacity-60 font-normal">custom</span>
-                          <CapacityBadges caps={getCaps(model.value)} />
-                        </>
-                      ) : (
-                        <>
-                          {model.name}
-                          <CapacityBadges caps={getCaps(model.value)} />
-                        </>
-                      )}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })}
+              {/* Expanded models list */}
+              {isExpanded && (
+                <div className="p-2.5 bg-[var(--color-canvas)] border-t border-[var(--color-hairline)] flex flex-wrap gap-1.5">
+                  {group.models.map((model) => {
+                    const isSelected = selectedModel === model.value;
+                    const isAdded = addedModelValues.includes(model.value);
+                    const isPlaceholder = model.isPlaceholder;
 
-      {Object.keys(filteredGroups).length === 0 && filteredCombos.length === 0 && (
-        <div className="text-center py-4 text-text-muted">
-          <span className="material-symbols-outlined text-2xl mb-1 block">
-            search_off
-          </span>
-          <p className="text-xs">No models found</p>
-        </div>
-      )}
+                    return (
+                      <button
+                        key={model.value}
+                        onClick={() => handleSelect(model)}
+                        title={isPlaceholder ? "Select to pre-fill, then edit model ID in the input" : undefined}
+                        className={cn(
+                          "px-2.5 py-1 rounded text-xs font-mono font-medium transition-colors border cursor-pointer flex items-center gap-1",
+                          isPlaceholder
+                            ? "border-dashed border-[var(--color-hairline)] text-[var(--color-mute)] italic bg-[var(--color-surface-soft)]"
+                            : isSelected || isAdded
+                              ? "bg-[var(--color-primary)] text-[var(--color-on-primary)] border-[var(--color-primary)]"
+                              : "bg-[var(--color-surface-soft)] border-[var(--color-hairline)] text-[var(--color-ink)] hover:border-[var(--color-hairline-strong)]"
+                        )}
+                      >
+                        {isAdded && !isPlaceholder && (
+                          <span className="text-[10px] font-bold leading-none">[✓]</span>
+                        )}
+                        {isPlaceholder ? (
+                          <>
+                            <span className="material-symbols-outlined text-[11px]">edit</span>
+                            <span>{model.name}</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>{model.name}</span>
+                            {model.isCustom && (
+                              <span className="text-[9px] opacity-70 font-normal">custom</span>
+                            )}
+                            <CapacityBadges caps={getCaps(model.value)} />
+                          </>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {Object.keys(filteredGroups).length === 0 && filteredCombos.length === 0 && (
+          <div className="text-center py-8 text-[var(--color-mute)] border border-dashed border-[var(--color-hairline)] rounded">
+            <span className="material-symbols-outlined text-2xl mb-1 block">search_off</span>
+            <p className="text-xs">No models found</p>
+          </div>
+        )}
       </div>
     </Modal>
   );

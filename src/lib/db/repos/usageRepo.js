@@ -718,6 +718,108 @@ export async function getUsageStats(period = "all") {
   }
 
   stats.totalRequests = Object.values(stats.byProvider).reduce((sum, p) => sum + (p.requests || 0), 0);
+
+  // Compute comparison trend against the preceding period
+  try {
+    let prevRequests = 0;
+    let prevPromptTokens = 0;
+    let prevCompletionTokens = 0;
+    let prevCachedTokens = 0;
+    let prevCost = 0;
+    let prevLabel = "";
+
+    if (period === "today") {
+      prevLabel = "vs yesterday";
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+      const prevStartOfDay = new Date(startOfDay.getTime() - 86400000);
+      const prevRows = db.all(
+        `SELECT promptTokens, completionTokens, cost, tokens FROM usageHistory WHERE timestamp >= ? AND timestamp < ?`,
+        [prevStartOfDay.toISOString(), startOfDay.toISOString()]
+      );
+      for (const r of prevRows) {
+        const tokens = parseJson(r.tokens, {}) || {};
+        prevPromptTokens += tokens.prompt_tokens || tokens.input_tokens || r.promptTokens || 0;
+        prevCompletionTokens += tokens.completion_tokens || tokens.output_tokens || r.completionTokens || 0;
+        prevCachedTokens += tokens.cached_tokens || tokens.cache_read_input_tokens || 0;
+        prevCost += r.cost || 0;
+        prevRequests += 1;
+      }
+    } else if (period === "24h") {
+      prevLabel = "vs prev 24h";
+      const cutoffTime = new Date(Date.now() - 86400000);
+      const prevCutoffTime = new Date(Date.now() - 2 * 86400000);
+      const prevRows = db.all(
+        `SELECT promptTokens, completionTokens, cost, tokens FROM usageHistory WHERE timestamp >= ? AND timestamp < ?`,
+        [prevCutoffTime.toISOString(), cutoffTime.toISOString()]
+      );
+      for (const r of prevRows) {
+        const tokens = parseJson(r.tokens, {}) || {};
+        prevPromptTokens += tokens.prompt_tokens || tokens.input_tokens || r.promptTokens || 0;
+        prevCompletionTokens += tokens.completion_tokens || tokens.output_tokens || r.completionTokens || 0;
+        prevCachedTokens += tokens.cached_tokens || tokens.cache_read_input_tokens || 0;
+        prevCost += r.cost || 0;
+        prevRequests += 1;
+      }
+    } else if (period === "7d" || period === "30d" || period === "60d") {
+      const periodDays = { "7d": 7, "30d": 30, "60d": 60 };
+      const maxDays = periodDays[period];
+      prevLabel = `vs prev ${maxDays}d`;
+      const today = new Date();
+      const cutoff = new Date(today.getFullYear(), today.getMonth(), today.getDate() - maxDays + 1);
+      const cutoffKey = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, "0")}-${String(cutoff.getDate()).padStart(2, "0")}`;
+      const prevCutoff = new Date(today.getFullYear(), today.getMonth(), today.getDate() - (maxDays * 2) + 1);
+      const prevCutoffKey = `${prevCutoff.getFullYear()}-${String(prevCutoff.getMonth() + 1).padStart(2, "0")}-${String(prevCutoff.getDate()).padStart(2, "0")}`;
+
+      const prevDayRows = db.all(
+        `SELECT dateKey, data FROM usageDaily WHERE dateKey >= ? AND dateKey < ? ORDER BY dateKey ASC`,
+        [prevCutoffKey, cutoffKey]
+      );
+      for (const dr of prevDayRows) {
+        const day = parseJson(dr.data, {});
+        prevPromptTokens += day.promptTokens || 0;
+        prevCompletionTokens += day.completionTokens || 0;
+        prevCachedTokens += day.cachedTokens || 0;
+        prevCost += day.cost || 0;
+        prevRequests += Object.values(day.byProvider || {}).reduce((s, p) => s + (p.requests || 0), 0);
+      }
+    }
+
+    if (prevLabel) {
+      const calcTrend = (current, previous) => {
+        const curr = Number(current) || 0;
+        const prev = Number(previous) || 0;
+        if (prev === 0) {
+          return curr > 0 ? { diff: curr, pct: 100, direction: "up", rawPct: 100 } : { diff: 0, pct: 0, direction: "flat", rawPct: 0 };
+        }
+        const pct = Math.round(((curr - prev) / prev) * 100);
+        return {
+          diff: curr - prev,
+          pct: Math.abs(pct),
+          direction: pct > 0 ? "up" : pct < 0 ? "down" : "flat",
+          rawPct: pct,
+        };
+      };
+
+      stats.trends = {
+        requests: calcTrend(stats.totalRequests, prevRequests),
+        promptTokens: calcTrend(stats.totalPromptTokens, prevPromptTokens),
+        cachedTokens: calcTrend(stats.totalCachedTokens, prevCachedTokens),
+        completionTokens: calcTrend(stats.totalCompletionTokens, prevCompletionTokens),
+        cost: calcTrend(stats.totalCost, prevCost),
+        cacheRate: stats.totalPromptTokens > 0
+          ? Math.round((stats.totalCachedTokens / stats.totalPromptTokens) * 100)
+          : 0,
+        prevLabel,
+      };
+    } else {
+      stats.trends = null;
+    }
+  } catch (err) {
+    console.error("[getUsageStats] Failed to compute trends:", err);
+    stats.trends = null;
+  }
+
   return stats;
 }
 
