@@ -66,27 +66,6 @@ function expiryLabel(key) {
   return { text: `expires in ${d}d`, variant: d <= 7 ? "warn" : "muted" };
 }
 
-// Small rounded badge for key-row metadata — makes usage/expiry/status stand out.
-function Pill({ tone = "neutral", icon, title, children }) {
-  return (
-    <span
-      title={title}
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium",
-        tone === "neutral" && "border-border bg-surface-2 text-text-muted",
-        tone === "info" && "border-sky-500/30 bg-sky-500/10 text-sky-500",
-        tone === "warn" && "border-amber-500/30 bg-amber-500/10 text-amber-500",
-        tone === "error" && "border-red-500/30 bg-red-500/10 text-red-500",
-        tone === "success" && "border-emerald-500/30 bg-emerald-500/10 text-emerald-500",
-        tone === "paused" && "border-orange-500/30 bg-orange-500/10 text-orange-500"
-      )}
-    >
-      {icon && <span className="material-symbols-outlined text-[13px] leading-none">{icon}</span>}
-      {children}
-    </span>
-  );
-}
-
 export default function APIPageClient({ machineId }) {
   const { timeZone } = useTimezone();
   // Date-only in the user's display timezone (replaces hard-coded toLocaleDateString).
@@ -786,11 +765,20 @@ export default function APIPageClient({ machineId }) {
   };
 
   // Per-key quota: save (empty limit = unlimited) or reset the counter now.
-  const saveQuota = async (id) => {
-    const raw = (quotaEditing?.limit || "").trim();
-    const body = raw
-      ? { quotaLimit: Number(raw), quotaWindow: quotaEditing.window === "monthly" ? "monthly" : "daily" }
-      : { quotaLimit: null, quotaWindow: null };
+  const saveQuota = async (id, overrideBody = null) => {
+    let body;
+    if (overrideBody) {
+      body = overrideBody;
+    } else {
+      const rawReq = (quotaEditing?.limit || "").trim();
+      const rawTok = (quotaEditing?.tokenLimit || "").trim();
+      const hasLimit = rawReq || rawTok;
+      body = {
+        quotaLimit: rawReq ? Number(rawReq) : null,
+        quotaTokenLimit: rawTok ? Number(rawTok) : null,
+        quotaWindow: hasLimit ? (quotaEditing?.window === "monthly" ? "monthly" : "daily") : null,
+      };
+    }
     try {
       const res = await fetch(`/api/keys/${id}`, {
         method: "PUT",
@@ -1425,119 +1413,247 @@ export default function APIPageClient({ machineId }) {
                 </div>
 
                 {/* Specs / Details */}
-                <div className="grid grid-cols-2 sm:flex sm:flex-wrap sm:items-center gap-2 sm:gap-x-4 sm:gap-y-1.5 text-[12px] font-mono text-[var(--color-mute)]">
-                  <div className="flex items-center gap-1">
+                <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[4px] bg-[var(--color-canvas)] border border-[var(--color-hairline)] text-[var(--color-mute)]">
                     <span className="text-[var(--color-ash)]">Created:</span>
-                    <span className="text-[var(--color-ink)]">{fmtDate(key.createdAt)}</span>
+                    <span className="text-[var(--color-ink)] font-medium whitespace-nowrap">{fmtDate(key.createdAt)}</span>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <span className="text-[var(--color-ash)]">Usage:</span>
-                    <span className="text-[var(--color-ink)] truncate">
-                      {key.usage
-                        ? `${key.usage.requests} reqs (${fmtTokens((key.usage.promptTokens || 0) + (key.usage.completionTokens || 0))} tok)`
-                        : "0 reqs"}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <span className="text-[var(--color-ash)]">Quota:</span>
-                    {key.quotaLimit ? (
-                      <span className="text-[var(--color-ink)]">
-                        {key.quotaUsed || 0}/{key.quotaLimit} {key.quotaWindow === "monthly" ? "mo" : "day"}
-                      </span>
-                    ) : (
-                      <button
-                        onClick={() => setQuotaEditing({ id: key.id, limit: "", window: "daily" })}
-                        className="text-[var(--color-ink)] underline hover:text-[var(--color-primary)] cursor-pointer"
-                        title="Click to set quota"
-                      >
-                        Unlimited
-                      </button>
-                    )}
-                  </div>
+
                   {keyExpiry && (
-                    <div className="flex items-center gap-1">
-                      <span className="text-[var(--color-ash)]">Expires:</span>
-                      <span className={keyExpiry.variant === "error" ? "text-[var(--color-danger)]" : "text-[var(--color-ink)]"}>
+                    <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[4px] border ${
+                      keyExpiry.variant === "error"
+                        ? "bg-[rgba(239,68,68,0.08)] border-[var(--color-danger)] text-[var(--color-danger)]"
+                        : "bg-[var(--color-canvas)] border-[var(--color-hairline)] text-[var(--color-mute)]"
+                    }`}>
+                      <span className={keyExpiry.variant === "error" ? "text-[var(--color-danger)] opacity-80" : "text-[var(--color-ash)]"}>Expires:</span>
+                      <span className={keyExpiry.variant === "error" ? "font-semibold whitespace-nowrap" : "text-[var(--color-ink)] font-medium whitespace-nowrap"}>
                         {keyExpiry.text}
                       </span>
                     </div>
                   )}
+
                   {isKeyStale(key) && key.isActive !== false && (
                     <button
                       onClick={() => handleToggleKey(key.id, false)}
                       title={key.usage ? "Unused for over 90 days — click to pause" : "Created over 90 days ago and never used — click to pause"}
-                      className="text-[var(--color-warning)] underline hover:opacity-80"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[4px] bg-[rgba(245,158,11,0.08)] border border-[var(--color-warning)] text-[var(--color-warning)] hover:opacity-80 font-medium whitespace-nowrap cursor-pointer"
                     >
                       [!] Stale (pause)
                     </button>
                   )}
+
+                  <button
+                    onClick={() => setQuotaEditing({
+                      id: key.id,
+                      limit: key.quotaLimit ? String(key.quotaLimit) : "",
+                      tokenLimit: key.quotaTokenLimit ? String(key.quotaTokenLimit) : "",
+                      window: key.quotaWindow || "daily"
+                    })}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[4px] bg-[var(--color-canvas)] border border-[var(--color-hairline)] text-[var(--color-ink)] hover:border-[var(--color-primary)] font-medium whitespace-nowrap cursor-pointer ml-auto"
+                  >
+                    <span className="material-symbols-outlined text-[13px]">tune</span>
+                    {(key.quotaLimit || key.quotaTokenLimit) ? "Edit Limits" : "Set Limits"}
+                  </button>
                 </div>
 
-                {/* Quota editing input */}
-                {quotaEditing?.id === key.id && (
-                  <div className="mt-3 p-3 bg-[var(--color-canvas)] border border-[var(--color-hairline)] rounded flex flex-wrap items-center gap-2">
-                    <span className="text-[12px] font-mono text-[var(--color-mute)] shrink-0">Set Quota:</span>
-                    <Input
-                      type="number"
-                      min={1}
-                      placeholder="e.g. 100"
-                      value={quotaEditing.limit}
-                      onChange={(e) => setQuotaEditing({ ...quotaEditing, limit: e.target.value })}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") saveQuota(key.id);
-                        if (e.key === "Escape") setQuotaEditing(null);
-                      }}
-                      autoFocus
-                      className="w-28"
-                      inputClassName="h-8 text-[13px] py-1"
-                    />
-                    <select
-                      value={quotaEditing.window}
-                      onChange={(e) => setQuotaEditing({ ...quotaEditing, window: e.target.value })}
-                      className="h-8 rounded border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] px-2.5 text-[12px] font-mono text-[var(--color-ink)] outline-none transition-colors hover:border-[var(--color-hairline-strong)]"
-                    >
-                      <option value="daily">per day</option>
-                      <option value="monthly">per month</option>
-                    </select>
-                    <Button size="sm" onClick={() => saveQuota(key.id)} disabled={!quotaEditing.limit.trim()}>
-                      Save
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => setQuotaEditing(null)}>
-                      Cancel
-                    </Button>
-                    {key.quotaLimit && (
-                      <button
-                        onClick={() => setQuotaEditing({ id: key.id, limit: "", window: key.quotaWindow || "daily" })}
-                        className="text-[12px] font-mono text-[var(--color-danger)] underline hover:opacity-80 ml-auto"
-                      >
-                        Remove quota
-                      </button>
+                {/* Quota & Usage Bars */}
+                {quotaEditing?.id !== key.id && (
+                  <div className="mt-3 flex flex-col gap-2.5 font-mono text-xs">
+                    {/* 1. Request Quota / Usage Bar */}
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center justify-between text-[11px] tabular-nums">
+                        <span className="text-[var(--color-mute)]">
+                          <span className="text-[var(--color-ash)]">Requests: </span>
+                          {key.quotaLimit ? (
+                            <span className="font-bold text-[var(--color-ink)]">
+                              {key.quotaUsed || 0} / {key.quotaLimit} reqs ({key.quotaWindow === "monthly" ? "mo" : "day"})
+                            </span>
+                          ) : (
+                            <span className="text-[var(--color-ink)] font-medium">
+                              {key.usage?.requests || 0} reqs (unlimited)
+                            </span>
+                          )}
+                        </span>
+                        <span className={`font-bold ${
+                          key.quotaLimit && (key.quotaUsed || 0) >= key.quotaLimit
+                            ? "text-[var(--color-danger)]"
+                            : key.quotaLimit && ((key.quotaUsed || 0) / key.quotaLimit) >= 0.8
+                            ? "text-[var(--color-warning)]"
+                            : "text-[var(--color-ink)]"
+                        }`}>
+                          {key.quotaLimit
+                            ? `${Math.round(((key.quotaUsed || 0) / key.quotaLimit) * 100)}%`
+                            : "No Limit"}
+                        </span>
+                      </div>
+                      <div className="w-full h-2 bg-[var(--color-surface-soft)] border border-[var(--color-hairline)] overflow-hidden rounded-none">
+                        <div
+                          className={`h-full transition-all duration-300 ${
+                            key.quotaLimit && (key.quotaUsed || 0) >= key.quotaLimit
+                              ? "bg-[var(--color-danger)]"
+                              : key.quotaLimit && ((key.quotaUsed || 0) / key.quotaLimit) >= 0.8
+                              ? "bg-[var(--color-warning)]"
+                              : "bg-[var(--color-primary)]"
+                          }`}
+                          style={{
+                            width: key.quotaLimit
+                              ? `${Math.max(0, Math.min(100, ((key.quotaUsed || 0) / key.quotaLimit) * 100))}%`
+                              : "0%",
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* 2. Token Quota / Usage Bar */}
+                    {(() => {
+                      const totalTokensUsed = (key.usage?.promptTokens || 0) + (key.usage?.completionTokens || 0);
+                      const windowTokensUsed = key.quotaTokensUsed || 0;
+                      const hasTokenLimit = Boolean(key.quotaTokenLimit);
+                      const percent = hasTokenLimit
+                        ? Math.round((windowTokensUsed / key.quotaTokenLimit) * 100)
+                        : null;
+                      const isExceeded = hasTokenLimit && windowTokensUsed >= key.quotaTokenLimit;
+                      const isWarning = hasTokenLimit && !isExceeded && percent >= 80;
+
+                      return (
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center justify-between text-[11px] tabular-nums">
+                            <span className="text-[var(--color-mute)]">
+                              <span className="text-[var(--color-ash)]">Token Usage: </span>
+                              {hasTokenLimit ? (
+                                <span className="font-bold text-[var(--color-ink)]">
+                                  {fmtTokens(windowTokensUsed)} / {fmtTokens(key.quotaTokenLimit)} tok ({key.quotaWindow === "monthly" ? "mo" : "day"})
+                                </span>
+                              ) : (
+                                <span className="text-[var(--color-ink)] font-medium">
+                                  {fmtTokens(totalTokensUsed)} tok (unlimited)
+                                </span>
+                              )}
+                            </span>
+                            <span className={`font-bold ${
+                              isExceeded
+                                ? "text-[var(--color-danger)]"
+                                : isWarning
+                                ? "text-[var(--color-warning)]"
+                                : "text-[var(--color-ink)]"
+                            }`}>
+                              {hasTokenLimit ? `${percent}%` : "No Limit"}
+                            </span>
+                          </div>
+                          <div className="w-full h-2 bg-[var(--color-surface-soft)] border border-[var(--color-hairline)] overflow-hidden rounded-none">
+                            <div
+                              className={`h-full transition-all duration-300 ${
+                                isExceeded
+                                  ? "bg-[var(--color-danger)]"
+                                  : isWarning
+                                  ? "bg-[var(--color-warning)]"
+                                  : "bg-[var(--color-accent,#007aff)]"
+                              }`}
+                              style={{
+                                width: hasTokenLimit
+                                  ? `${Math.max(0, Math.min(100, (windowTokensUsed / key.quotaTokenLimit) * 100))}%`
+                                  : "0%",
+                              }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Reset telemetry & actions */}
+                    {(key.quotaLimit || key.quotaTokenLimit) && (
+                      <div className="flex items-center justify-between pt-1 text-[11px] text-[var(--color-mute)]">
+                        <span>
+                          Window: <span className="text-[var(--color-ink)] font-medium">{key.quotaWindow === "monthly" ? "Monthly" : "Daily (UTC)"}</span>
+                          {key.quotaResetAt && (
+                            <span className="text-[var(--color-ash)] ml-2">
+                              Resets: {new Date(key.quotaResetAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          )}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => resetQuota(key.id)}
+                            className="text-[11px] font-mono text-[var(--color-mute)] underline hover:text-[var(--color-ink)] cursor-pointer"
+                            title="Zero the window counters and restart interval"
+                          >
+                            Reset counters
+                          </button>
+                        </div>
+                      </div>
                     )}
                   </div>
                 )}
 
-                {/* Quota progress bar */}
-                {key.quotaLimit && !quotaEditing && (
-                  <div className="mt-3 flex items-center gap-2">
-                    <div className="h-1.5 flex-1 max-w-xs overflow-hidden rounded-full bg-[var(--color-surface-card)]">
-                      <div
-                        className={`h-full ${(key.quotaUsed || 0) >= key.quotaLimit ? "bg-[var(--color-danger)]" : "bg-[var(--color-primary)]"}`}
-                        style={{ width: `${Math.min(100, ((key.quotaUsed || 0) / key.quotaLimit) * 100)}%` }}
-                      />
+                {/* Quota editing panel */}
+                {quotaEditing?.id === key.id && (
+                  <div className="mt-3 p-3.5 bg-[var(--color-canvas)] border border-[var(--color-hairline)] rounded-none flex flex-col gap-3 font-mono text-xs">
+                    <div className="flex items-center justify-between pb-1 border-b border-[var(--color-hairline)]">
+                      <span className="font-bold text-[var(--color-ink)] uppercase tracking-wider text-[11px]">Configure Key Rate & Token Limits</span>
+                      <button
+                        onClick={() => setQuotaEditing(null)}
+                        className="text-[var(--color-mute)] hover:text-[var(--color-ink)] cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">close</span>
+                      </button>
                     </div>
-                    <button
-                      onClick={() => resetQuota(key.id)}
-                      className="text-[11px] font-mono text-[var(--color-mute)] underline hover:text-[var(--color-ink)]"
-                      title="Zero the counter and start a fresh window"
-                    >
-                      Reset
-                    </button>
-                    <button
-                      onClick={() => setQuotaEditing({ id: key.id, limit: String(key.quotaLimit), window: key.quotaWindow || "daily" })}
-                      className="text-[11px] font-mono text-[var(--color-mute)] underline hover:text-[var(--color-ink)]"
-                    >
-                      Edit
-                    </button>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[11px] text-[var(--color-mute)]">Request Limit (reqs):</label>
+                        <Input
+                          type="number"
+                          min={1}
+                          placeholder="e.g. 500 (empty = unlimited)"
+                          value={quotaEditing.limit || ""}
+                          onChange={(e) => setQuotaEditing({ ...quotaEditing, limit: e.target.value })}
+                          className="w-full"
+                          inputClassName="h-8 text-xs py-1 font-mono rounded-[4px]"
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[11px] text-[var(--color-mute)]">Token Limit (total tokens):</label>
+                        <Input
+                          type="number"
+                          min={1}
+                          placeholder="e.g. 1000000 (empty = unlimited)"
+                          value={quotaEditing.tokenLimit || ""}
+                          onChange={(e) => setQuotaEditing({ ...quotaEditing, tokenLimit: e.target.value })}
+                          className="w-full"
+                          inputClassName="h-8 text-xs py-1 font-mono rounded-[4px]"
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[11px] text-[var(--color-mute)]">Limit Window:</label>
+                        <select
+                          value={quotaEditing.window || "daily"}
+                          onChange={(e) => setQuotaEditing({ ...quotaEditing, window: e.target.value })}
+                          className="h-8 rounded-[4px] border border-[var(--color-hairline)] bg-[var(--color-surface)] px-2.5 text-xs font-mono text-[var(--color-ink)] outline-none transition-colors hover:border-[var(--color-primary)] cursor-pointer w-full"
+                        >
+                          <option value="daily">Daily (per 24 hours)</option>
+                          <option value="monthly">Monthly (calendar month)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-1 border-t border-[var(--color-hairline)]">
+                      <Button size="sm" onClick={() => saveQuota(key.id)} className="h-7 text-xs font-bold rounded-[4px]">
+                        Save Limits
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setQuotaEditing(null)} className="h-7 text-xs rounded-[4px]">
+                        Cancel
+                      </Button>
+                      {(key.quotaLimit || key.quotaTokenLimit) && (
+                        <button
+                          onClick={() => saveQuota(key.id, { quotaLimit: null, quotaTokenLimit: null, quotaWindow: null })}
+                          className="text-[11px] font-mono text-[var(--color-danger)] underline hover:opacity-80 ml-auto cursor-pointer"
+                        >
+                          Clear all limits
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
 

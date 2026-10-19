@@ -180,21 +180,20 @@ export default function RequestDetailsTab() {
   };
 
   return (
-    <div className="flex min-w-0 flex-col gap-6">
-      <Card padding="md">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="flex min-w-0 flex-col gap-2">
-            <label htmlFor="provider-filter" className="text-sm font-medium text-text-main">Provider</label>
+    <div className="flex min-w-0 flex-col gap-4 font-mono">
+      <div className="rounded-none border border-[var(--color-hairline)] bg-[var(--color-surface)] p-3.5 sm:p-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 items-end">
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <label htmlFor="provider-filter" className="text-xs font-semibold text-[var(--color-ink)]">Provider</label>
             <select
               id="provider-filter"
               value={filters.provider}
               onChange={(e) => setFilters({ ...filters, provider: e.target.value })}
               className={cn(
-                "h-9 px-3 rounded-lg border border-black/10 dark:border-white/10 bg-surface",
-                "text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/20",
+                "h-8 px-2.5 rounded-[4px] border border-[var(--color-hairline)] bg-[var(--color-canvas)]",
+                "text-xs text-[var(--color-ink)] focus:outline-none focus:border-[var(--color-primary)]",
                 "w-full min-w-0 cursor-pointer"
               )}
-              style={{ colorScheme: 'auto' }}
             >
               <option value="">All Providers</option>
               {providers.map((provider) => (
@@ -205,77 +204,77 @@ export default function RequestDetailsTab() {
             </select>
           </div>
           
-          <div className="flex min-w-0 flex-col gap-2">
-            <label htmlFor="start-date-filter" className="text-sm font-medium text-text-main">Start Date</label>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <label htmlFor="start-date-filter" className="text-xs font-semibold text-[var(--color-ink)]">Start Date</label>
             <input
               id="start-date-filter"
               type="datetime-local"
               value={filters.startDate}
               onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
               className={cn(
-                "h-9 px-3 rounded-lg border border-black/10 dark:border-white/10 bg-surface",
-                "w-full min-w-0 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/20"
+                "h-8 px-2.5 rounded-[4px] border border-[var(--color-hairline)] bg-[var(--color-canvas)]",
+                "w-full min-w-0 text-xs text-[var(--color-ink)] focus:outline-none focus:border-[var(--color-primary)]"
               )}
             />
           </div>
 
-          <div className="flex min-w-0 flex-col gap-2">
-            <label htmlFor="end-date-filter" className="text-sm font-medium text-text-main">End Date</label>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <label htmlFor="end-date-filter" className="text-xs font-semibold text-[var(--color-ink)]">End Date</label>
             <input
               id="end-date-filter"
               type="datetime-local"
               value={filters.endDate}
               onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
               className={cn(
-                "h-9 px-3 rounded-lg border border-black/10 dark:border-white/10 bg-surface",
-                "w-full min-w-0 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/20"
+                "h-8 px-2.5 rounded-[4px] border border-[var(--color-hairline)] bg-[var(--color-canvas)]",
+                "w-full min-w-0 text-xs text-[var(--color-ink)] focus:outline-none focus:border-[var(--color-primary)]"
               )}
             />
           </div>
           
-          <div className="flex min-w-0 flex-col gap-2 sm:col-span-2 lg:col-span-1">
-            <span className="hidden text-sm font-medium text-text-main opacity-0 lg:block" aria-hidden="true">Clear</span>
+          <div className="flex min-w-0 flex-col gap-1.5 sm:col-span-2 lg:col-span-1">
             <Button 
-              variant="ghost" 
+              variant="outline" 
+              size="sm"
               onClick={handleClearFilters}
               disabled={!filters.provider && !filters.startDate && !filters.endDate}
-              className="w-full"
+              className="w-full h-8 rounded-[4px] text-xs font-medium cursor-pointer"
             >
               Clear Filters
             </Button>
           </div>
         </div>
-      </Card>
+      </div>
 
-      <Card padding="none">
+      <div className="rounded-none border border-[var(--color-hairline)] bg-[var(--color-surface)] overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[880px]">
+          <table className="w-full min-w-[880px] text-xs text-left">
             <thead>
-              <tr className="border-b border-black/5 dark:border-white/5">
-                <th className="text-left p-4 text-sm font-semibold text-text-main">Timestamp</th>
-                <th className="text-left p-4 text-sm font-semibold text-text-main">Model</th>
-                <th className="text-left p-4 text-sm font-semibold text-text-main">Provider</th>
-                <th className="text-right p-4 text-sm font-semibold text-text-main">Input Tokens</th>
-                <th className="text-right p-4 text-sm font-semibold text-text-main">Cached</th>
-                <th className="text-right p-4 text-sm font-semibold text-text-main">Cache Creation</th>
-                <th className="text-right p-4 text-sm font-semibold text-text-main">Output Tokens</th>
-                <th className="text-left p-4 text-sm font-semibold text-text-main">Latency</th>
-                <th className="text-center p-4 text-sm font-semibold text-text-main">Action</th>
+              <tr className="bg-[var(--color-canvas)] text-[var(--color-ash)] uppercase text-[11px] font-semibold border-b border-[var(--color-hairline)]">
+                <th className="px-4 py-2.5">Timestamp</th>
+                <th className="px-4 py-2.5">Model</th>
+                <th className="px-4 py-2.5">Provider</th>
+                <th className="px-4 py-2.5 text-right">Input</th>
+                <th className="px-4 py-2.5 text-right">Cached</th>
+                <th className="px-4 py-2.5 text-right">Cache Create</th>
+                <th className="px-4 py-2.5 text-right">Output</th>
+                <th className="px-4 py-2.5">Latency</th>
+                <th className="px-4 py-2.5 text-center">Action</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-[var(--color-hairline)]">
               {loading ? (
                 <tr>
-                  <td colSpan="7" className="p-8 text-center text-text-muted">
+                  <td colSpan="9" className="p-8 text-center text-[var(--color-mute)]">
                     <div className="flex items-center justify-center gap-2">
-                      <span className="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>
-                      Loading...
+                      <span className="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
+                      Loading request details…
                     </div>
                   </td>
                 </tr>
               ) : details.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="p-8 text-center text-text-muted">
+                  <td colSpan="9" className="p-8 text-center text-[var(--color-mute)] text-xs">
                     No request details found
                   </td>
                 </tr>
@@ -283,42 +282,43 @@ export default function RequestDetailsTab() {
                 details.map((detail, index) => (
                   <tr
                     key={`${detail.id}-${index}`}
-                    className="border-b border-black/5 dark:border-white/5 last:border-b-0 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors"
+                    className="hover:bg-[var(--color-canvas)]/60 transition-colors"
                   >
-                    <td className="whitespace-nowrap p-4 text-sm text-text-main">
+                    <td className="whitespace-nowrap px-4 py-2.5 text-[var(--color-mute)] tabular-nums">
                       {new Date(detail.timestamp).toLocaleString()}
                     </td>
-                    <td className="max-w-[260px] truncate p-4 font-mono text-sm text-text-main">
+                    <td className="max-w-[240px] truncate px-4 py-2.5 font-bold text-[var(--color-ink)]" title={detail.model}>
                       {detail.model}
                     </td>
-                    <td className="max-w-[180px] truncate p-4 text-sm text-text-main">
-                       <span className="font-medium">
-                         {getProviderName(detail.provider, providerNameCache)}
-                       </span>
-                     </td>
-                    <td className="p-4 text-sm text-text-main text-right font-mono">
+                    <td className="max-w-[160px] truncate px-4 py-2.5">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[var(--color-canvas)] border border-[var(--color-hairline)] text-[var(--color-ink)]">
+                        {getProviderName(detail.provider, providerNameCache)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5 text-right text-[var(--color-primary)] font-medium tabular-nums">
                       {getInputTokens(detail.tokens).toLocaleString()}
                     </td>
-                    <td className="p-4 text-sm text-text-main text-right font-mono">
+                    <td className="px-4 py-2.5 text-right text-[var(--color-accent,#8b5cf6)] font-semibold tabular-nums">
                       {getCachedTokens(detail.tokens) > 0 ? getCachedTokens(detail.tokens).toLocaleString() : "—"}
                     </td>
-                    <td className="p-4 text-sm text-text-main text-right font-mono">
+                    <td className="px-4 py-2.5 text-right text-[var(--color-mute)] tabular-nums">
                       {getCacheCreationTokens(detail.tokens) > 0 ? getCacheCreationTokens(detail.tokens).toLocaleString() : "—"}
                     </td>
-                    <td className="p-4 text-sm text-text-main text-right font-mono">
+                    <td className="px-4 py-2.5 text-right text-[var(--color-success)] font-medium tabular-nums">
                       {detail.tokens?.completion_tokens?.toLocaleString() || 0}
                     </td>
-                    <td className="p-4 text-sm text-text-muted">
-                      <div className="flex flex-col gap-0.5">
-                        <div>TTFT: <span className="font-mono">{detail.latency?.ttft || 0}ms</span></div>
-                        <div>Total: <span className="font-mono">{detail.latency?.total || 0}ms</span></div>
+                    <td className="px-4 py-2.5 text-[11px] text-[var(--color-mute)] tabular-nums">
+                      <div className="flex items-center gap-1.5">
+                        <span className="px-1.5 py-0.5 rounded bg-[var(--color-canvas)] border border-[var(--color-hairline)]">TTFT: {detail.latency?.ttft || 0}ms</span>
+                        <span className="px-1.5 py-0.5 rounded bg-[var(--color-canvas)] border border-[var(--color-hairline)]">Tot: {detail.latency?.total || 0}ms</span>
                       </div>
                     </td>
-                    <td className="p-4 text-center">
+                    <td className="px-4 py-2.5 text-center">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => handleViewDetail(detail)}
+                        className="h-6 px-2.5 text-[11px] cursor-pointer"
                       >
                         Detail
                       </Button>
@@ -331,7 +331,7 @@ export default function RequestDetailsTab() {
         </div>
 
         {!loading && details.length > 0 && (
-          <div className="border-t border-black/5 dark:border-white/5">
+          <div className="border-t border-[var(--color-hairline)] p-2">
             <Pagination
               currentPage={pagination.page}
               pageSize={pagination.pageSize}
@@ -341,7 +341,7 @@ export default function RequestDetailsTab() {
             />
           </div>
         )}
-      </Card>
+      </div>
 
       <Drawer
         isOpen={isDrawerOpen}
@@ -372,7 +372,7 @@ export default function RequestDetailsTab() {
                 <span className="text-text-muted">Status:</span>{" "}
                 <span className={cn(
                   "font-medium",
-                  selectedDetail.status === "success" ? "text-green-600" : "text-red-600"
+                  ["success", "ok", "200", 200].includes(selectedDetail.status) ? "text-[var(--color-success)]" : "text-[var(--color-danger)]"
                 )}>
                   {selectedDetail.status}
                 </span>
@@ -488,8 +488,8 @@ export default function RequestDetailsTab() {
                       <span className="material-symbols-outlined text-[16px]">psychology</span>
                       Thinking Process
                     </h4>
-                    <pre className="max-h-[200px] max-w-full overflow-auto rounded-lg border border-amber-200 bg-amber-50 p-3 font-mono text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100 sm:p-4">
-                      {selectedDetail.response.thinking}
+                    <pre className="max-h-[200px] max-w-full overflow-auto rounded-lg border border-amber-200 bg-amber-50 p-3 font-mono text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100 sm:p-4 whitespace-pre-wrap">
+                      {typeof selectedDetail.response.thinking === "string" ? selectedDetail.response.thinking : JSON.stringify(selectedDetail.response.thinking, null, 2)}
                     </pre>
                   </div>
                 )}
@@ -497,8 +497,8 @@ export default function RequestDetailsTab() {
                 <h4 className="font-semibold text-text-main mb-2 text-xs uppercase tracking-wide opacity-70">
                   Content
                 </h4>
-                <pre className="max-h-[300px] max-w-full overflow-auto rounded-lg border border-black/5 bg-black/5 p-3 font-mono text-xs text-text-main dark:border-white/5 dark:bg-white/5 sm:p-4">
-                  {selectedDetail.response?.content || "[No content]"}
+                <pre className="max-h-[300px] max-w-full overflow-auto rounded-lg border border-black/5 bg-black/5 p-3 font-mono text-xs text-text-main dark:border-white/5 dark:bg-white/5 sm:p-4 whitespace-pre-wrap">
+                  {typeof selectedDetail.response?.content === "string" ? selectedDetail.response.content : (selectedDetail.response?.content ? JSON.stringify(selectedDetail.response.content, null, 2) : "[No content]")}
                 </pre>
               </CollapsibleSection>
             </div>

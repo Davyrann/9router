@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, Button, Badge, Modal, Input, ModelSelectModal } from "@/shared/components";
+import { Button, Modal, Input, ModelSelectModal } from "@/shared/components";
 import Image from "next/image";
 
 export default function AntigravityToolCard({
@@ -226,182 +226,211 @@ export default function AntigravityToolCard({
   const isRunning = status?.running;
 
   return (
-    <Card padding="xs" className="overflow-hidden">
+    <div className="rounded-none border border-[var(--color-hairline)] bg-[var(--color-surface)] font-mono overflow-hidden p-3.5 sm:p-4">
       <div className="flex items-start justify-between gap-3 hover:cursor-pointer sm:items-center" onClick={onToggle}>
         <div className="flex min-w-0 items-center gap-3">
-          <div className="size-8 flex items-center justify-center shrink-0">
+          <div className="size-9 rounded-[4px] flex items-center justify-center p-1.5 bg-[rgba(245,158,11,0.1)] border border-[rgba(245,158,11,0.2)] shrink-0">
             <Image
               src="/providers/antigravity.png"
               alt={tool.name}
               width={32}
               height={32}
-              className="size-8 object-contain rounded-lg"
+              className="size-7 object-contain rounded-[2px]"
               sizes="32px"
               onError={(e) => { e.target.style.display = "none"; }}
-            loading="lazy"
-            decoding="async"
+              loading="lazy"
+              decoding="async"
             />
           </div>
           <div className="min-w-0">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <h3 className="font-medium text-sm">{tool.name}</h3>
+              <h3 className="font-bold text-sm text-[var(--color-ink)]">{tool.name}</h3>
               {isRunning ? (
-                <Badge variant="success" size="sm">Active</Badge>
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[4px] text-[11px] font-bold bg-[rgba(16,185,129,0.1)] border border-[rgba(16,185,129,0.25)] text-[var(--color-success)]">
+                  <span className="h-1.5 w-1.5 bg-[var(--color-success)] animate-pulse" />
+                  Active
+                </span>
               ) : (
-                <Badge variant="default" size="sm">Inactive</Badge>
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[4px] text-[11px] font-medium bg-[var(--color-canvas)] border border-[var(--color-hairline)] text-[var(--color-mute)]">
+                  <span className="h-1.5 w-1.5 bg-[var(--color-ash)]" />
+                  Inactive
+                </span>
               )}
             </div>
-            <p className="text-xs text-text-muted truncate">{tool.description}</p>
+            <p className="text-xs text-[var(--color-mute)] truncate">{tool.description}</p>
           </div>
         </div>
-        <span className={`material-symbols-outlined text-text-muted text-[20px] transition-transform ${isExpanded ? "rotate-180" : ""}`}>expand_more</span>
+        <span className={`material-symbols-outlined text-[var(--color-mute)] text-[20px] transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}>expand_more</span>
       </div>
 
       {isExpanded && (
-        <div className="mt-4 pt-4 border-t border-border flex flex-col gap-4">
+        <div className="mt-4 pt-4 border-t border-[var(--color-hairline)] flex flex-col gap-4">
           {/* Status indicators — ordered: Cert → Server → DNS */}
-          <div className="flex items-center gap-1">
+          <div className="inline-flex flex-wrap items-center gap-2 p-1.5 rounded-[4px] border border-[var(--color-hairline)] bg-[var(--color-canvas)] w-fit">
             {[
-              { key: "cert", label: "Cert", ok: status?.certExists },
-              { key: "server", label: "Server", ok: status?.running },
-              { key: "dns", label: "DNS", ok: status?.dnsConfigured },
+              { key: "cert", label: "SSL Cert", ok: status?.certExists },
+              { key: "server", label: "MITM Server", ok: status?.running },
+              { key: "dns", label: "DNS Redirect", ok: status?.dnsConfigured },
             ].map(({ key, label, ok }, i) => {
               const isLoading = startingStep === key;
               return (
-                <div key={key} className="flex items-center">
-                  <div className="flex items-center gap-1 px-2 py-1 rounded-md">
+                <div key={key} className="flex items-center gap-1.5">
+                  <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-[4px] text-xs font-medium border ${
+                    isLoading
+                      ? "bg-[rgba(99,102,241,0.1)] border-[var(--color-primary)] text-[var(--color-primary)]"
+                      : ok
+                      ? "bg-[rgba(16,185,129,0.08)] border-[rgba(16,185,129,0.25)] text-[var(--color-success)]"
+                      : "bg-[var(--color-surface)] border-[var(--color-hairline)] text-[var(--color-mute)]"
+                  }`}>
                     {isLoading ? (
-                      <span className="material-symbols-outlined text-[14px] text-primary animate-spin">progress_activity</span>
+                      <span className="material-symbols-outlined text-[14px] animate-spin">progress_activity</span>
                     ) : (
-                      <span className={`material-symbols-outlined text-[14px] ${ok ? "text-green-500" : "text-text-muted"}`}>
+                      <span className="material-symbols-outlined text-[14px]">
                         {ok ? "check_circle" : "radio_button_unchecked"}
                       </span>
                     )}
-                    <span className={`text-xs font-medium ${isLoading ? "text-primary" : ok ? "text-green-500" : "text-text-muted"}`}>
-                      {label}
-                    </span>
+                    <span>{label}</span>
                   </div>
-                  {i < 2 && <span className="material-symbols-outlined text-[12px] text-text-muted">arrow_forward</span>}
+                  {i < 2 && <span className="material-symbols-outlined text-[12px] text-[var(--color-ash)]">arrow_forward</span>}
                 </div>
               );
             })}
           </div>
 
           {/* Start/Stop Button */}
-          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-[8rem_auto_1fr_auto] sm:items-center sm:gap-2">
+          <div className="flex items-center gap-2">
             {isRunning ? (
               <button
                 onClick={handleStop}
                 disabled={loading}
-                className="px-4 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-500 font-medium text-sm flex items-center gap-2 hover:bg-red-500/20 transition-colors disabled:opacity-50"
+                className="px-4 py-2 rounded-[4px] bg-[rgba(239,68,68,0.1)] border border-[rgba(239,68,68,0.3)] text-[var(--color-danger)] font-bold text-xs flex items-center gap-2 hover:bg-[rgba(239,68,68,0.2)] active:scale-[0.98] transition-all cursor-pointer disabled:opacity-50"
               >
-                <span className="material-symbols-outlined text-[18px]">stop_circle</span>
+                <span className="material-symbols-outlined text-[16px]">stop_circle</span>
                 Stop MITM
               </button>
             ) : (
               <button
                 onClick={handleStart}
                 disabled={loading || !hasActiveProviders}
-                className="px-4 py-2 rounded-lg bg-primary/10 border border-primary/30 text-primary font-medium text-sm flex items-center gap-2 hover:bg-primary/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 rounded-[4px] bg-[var(--color-primary)] text-[var(--color-on-primary)] font-bold text-xs flex items-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <span className="material-symbols-outlined text-[18px]">play_circle</span>
+                <span className="material-symbols-outlined text-[16px]">play_circle</span>
                 Start MITM
               </button>
             )}
           </div>
 
           {message?.type === "error" && (
-            <div className="flex items-center gap-2 px-2 py-1.5 rounded text-xs bg-red-500/10 text-red-600">
-              <span className="material-symbols-outlined text-[14px]">error</span>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs bg-[rgba(239,68,68,0.1)] text-[var(--color-danger)] border border-[rgba(239,68,68,0.2)]">
+              <span className="material-symbols-outlined text-[16px]">error</span>
               <span>{message.text}</span>
             </div>
           )}
 
           {/* When running: API Key + Model Mappings */}
           {isRunning && (
-            <>
-              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-[8rem_auto_1fr_auto] sm:items-center sm:gap-2">
-                <span className="text-xs font-semibold text-text-main sm:text-right sm:text-sm">API Key</span>
-                <span className="material-symbols-outlined hidden text-text-muted text-[14px] sm:inline">arrow_forward</span>
-                {apiKeys.length > 0 ? (
+            <div className="rounded-none border border-[var(--color-hairline)] bg-[var(--color-canvas)] p-3.5 sm:p-4 flex flex-col gap-3">
+              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-[10rem_auto_1fr] sm:items-center sm:gap-2 pb-3 border-b border-[var(--color-hairline)]">
+                <span className="text-xs font-bold text-[var(--color-ink)]">Active API Key</span>
+                <span className="material-symbols-outlined hidden text-[var(--color-ash)] text-[14px] sm:inline">arrow_forward</span>
+                {apiKeys?.length > 0 ? (
                   <select
                     value={selectedApiKey}
                     onChange={(e) => setSelectedApiKey(e.target.value)}
-                    className="w-full min-w-0 px-2 py-2 bg-surface rounded text-xs border border-border focus:outline-none focus:ring-1 focus:ring-primary/50 sm:py-1.5"
+                    className="w-full min-w-0 px-2.5 py-1.5 bg-[var(--color-surface)] rounded-[4px] text-xs border border-[var(--color-hairline)] text-[var(--color-ink)] focus:outline-none focus:border-[var(--color-primary)] font-mono"
                   >
                     {apiKeys.map((key) => <option key={key.id} value={key.key}>{key.key}</option>)}
                   </select>
                 ) : (
-                  <span className="min-w-0 rounded bg-surface/40 px-2 py-2 text-xs text-text-muted sm:py-1.5">
-                    {cloudEnabled ? "No API keys - Create one in Keys page" : "sk_9router (default)"}
+                  <span className="min-w-0 rounded-[4px] bg-[var(--color-surface)] px-2.5 py-1.5 text-xs text-[var(--color-mute)] border border-[var(--color-hairline)]">
+                    {cloudEnabled ? "No API keys — create one in Keys page" : "sk_9router (default)"}
                   </span>
                 )}
               </div>
 
-              {tool.defaultModels.map((model) => (
-                <div key={model.alias} className="grid grid-cols-1 gap-1.5 sm:grid-cols-[8rem_auto_1fr_auto] sm:items-center sm:gap-2">
-                  <span className="text-xs font-semibold text-text-main sm:text-right sm:text-sm">{model.name}</span>
-                  <span className="material-symbols-outlined hidden text-text-muted text-[14px] sm:inline">arrow_forward</span>
-                  <div className="relative w-full min-w-0">
-                    <input
-                      type="text"
-                      value={modelMappings[model.alias] || ""}
-                      onChange={(e) => handleModelMappingChange(model.alias, e.target.value)}
-                      placeholder="provider/model-id"
-                      className="w-full min-w-0 pl-2 pr-7 py-2 bg-surface rounded border border-border text-xs focus:outline-none focus:ring-1 focus:ring-primary/50 sm:py-1.5"
-                    />
-                    {modelMappings[model.alias] && (
-                      <button
-                        onClick={() => handleModelMappingChange(model.alias, "")}
-                        className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 text-text-muted hover:text-red-500 rounded transition-colors"
-                        title="Clear"
-                      >
-                        <span className="material-symbols-outlined text-[14px]">close</span>
-                      </button>
-                    )}
+              <div className="flex flex-col gap-2 pt-1">
+                <span className="text-xs font-bold text-[var(--color-ink)] uppercase tracking-wider mb-1">Model Rerouting Rules</span>
+                {tool.defaultModels.map((model) => (
+                  <div key={model.alias} className="grid grid-cols-1 gap-1.5 sm:grid-cols-[10rem_auto_1fr_auto] sm:items-center sm:gap-2">
+                    <span className="text-xs font-medium text-[var(--color-ink)] truncate px-2 py-1 rounded-[4px] bg-[var(--color-surface)] border border-[var(--color-hairline)]">
+                      {model.name}
+                    </span>
+                    <span className="material-symbols-outlined hidden text-[var(--color-ash)] text-[14px] sm:inline">arrow_forward</span>
+                    <div className="relative w-full min-w-0">
+                      <input
+                        type="text"
+                        value={modelMappings[model.alias] || ""}
+                        onChange={(e) => handleModelMappingChange(model.alias, e.target.value)}
+                        placeholder="provider/model-id"
+                        className="w-full min-w-0 pl-2.5 pr-7 py-1.5 bg-[var(--color-surface)] rounded-[4px] border border-[var(--color-hairline)] text-xs text-[var(--color-ink)] focus:outline-none focus:border-[var(--color-primary)] font-mono"
+                      />
+                      {modelMappings[model.alias] && (
+                        <button
+                          onClick={() => handleModelMappingChange(model.alias, "")}
+                          className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 text-[var(--color-mute)] hover:text-[var(--color-danger)] rounded-[2px] transition-colors cursor-pointer"
+                          title="Clear"
+                        >
+                          <span className="material-symbols-outlined text-[14px]">close</span>
+                        </button>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => openModelSelector(model.alias)}
+                      disabled={!hasActiveProviders}
+                      className={`w-full sm:w-auto rounded-[4px] border px-3 py-1.5 text-xs transition-all whitespace-nowrap sm:shrink-0 font-medium ${
+                        hasActiveProviders
+                          ? "bg-[var(--color-surface)] border-[var(--color-hairline)] text-[var(--color-ink)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] cursor-pointer"
+                          : "opacity-40 cursor-not-allowed border-[var(--color-hairline)] text-[var(--color-mute)]"
+                      }`}
+                    >
+                      Select
+                    </button>
                   </div>
-                  <button
-                    onClick={() => openModelSelector(model.alias)}
-                    disabled={!hasActiveProviders}
-                    className={`w-full sm:w-auto rounded border px-2 py-2 text-xs transition-colors sm:py-1.5 whitespace-nowrap sm:shrink-0 ${hasActiveProviders ? "bg-surface border-border text-text-main hover:border-primary cursor-pointer" : "opacity-50 cursor-not-allowed border-border"}`}
-                  >
-                    Select
-                  </button>
-                </div>
-              ))}
+                ))}
+              </div>
 
-              <div className="grid grid-cols-1 gap-2 sm:flex sm:items-center">
+              <div className="pt-2">
                 <Button
                   variant="primary"
                   size="sm"
                   onClick={handleSaveMappings}
                   disabled={loading || Object.keys(modelMappings).length === 0}
+                  className="h-8 rounded-[4px] text-xs font-bold cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[14px] mr-1">save</span>
                   Save Mappings
                 </Button>
               </div>
-            </>
+            </div>
           )}
 
           {/* Windows admin warning */}
           {!isRunning && serverIsWindows && (
-            <div className="flex items-center gap-2 px-2 py-1.5 rounded text-xs bg-yellow-500/10 text-yellow-600 border border-yellow-500/20">
-              <span className="material-symbols-outlined text-[14px]">warning</span>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-[4px] text-xs bg-[rgba(245,158,11,0.08)] text-[var(--color-warning,#f59e0b)] border border-[rgba(245,158,11,0.25)]">
+              <span className="material-symbols-outlined text-[16px]">warning</span>
               <span>Windows: Run terminal (9Router) as Administrator to enable MITM</span>
             </div>
           )}
 
           {/* When stopped: how it works */}
           {!isRunning && (
-            <div className="flex flex-col gap-1.5 px-1">
-              <p className="text-xs text-text-muted">
-                <span className="font-medium text-text-main">How it works:</span> Intercepts Antigravity traffic via DNS redirect, letting you reroute models through 9Router.
+            <div className="rounded-none border border-[var(--color-hairline)] bg-[var(--color-canvas)] p-3 sm:p-4 flex flex-col gap-2">
+              <p className="text-xs text-[var(--color-ink)] font-semibold">
+                How Antigravity MITM works:
               </p>
-              <div className="flex flex-col gap-0.5 text-[11px] text-text-muted">
-                <span>1. Generates SSL cert & adds to system keychain</span>
-                <span>2. Redirects <code className="text-[10px] bg-surface px-1 rounded">daily-cloudcode-pa.googleapis.com</code> → localhost</span>
-                <span>3. Maps Antigravity models to any provider via 9Router</span>
+              <div className="flex flex-col gap-1.5 text-[11px] text-[var(--color-mute)]">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex size-4 items-center justify-center rounded-[2px] bg-[var(--color-surface)] border border-[var(--color-hairline)] text-[10px] font-bold text-[var(--color-ink)]">1</span>
+                  <span>Generates trusted local SSL certificate for IDE proxying</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex size-4 items-center justify-center rounded-[2px] bg-[var(--color-surface)] border border-[var(--color-hairline)] text-[10px] font-bold text-[var(--color-ink)]">2</span>
+                  <span>Redirects <code className="text-[10px] bg-[var(--color-surface)] border border-[var(--color-hairline)] px-1.5 py-0.5 rounded-[2px]">daily-cloudcode-pa.googleapis.com</code> → 9Router gateway</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex size-4 items-center justify-center rounded-[2px] bg-[var(--color-surface)] border border-[var(--color-hairline)] text-[10px] font-bold text-[var(--color-ink)]">3</span>
+                  <span>Routes all Antigravity Claude & Gemini requests through your configured upstream providers</span>
+                </div>
               </div>
             </div>
           )}
@@ -475,6 +504,6 @@ export default function AntigravityToolCard({
           title={`Select model for ${currentEditingAlias}`}
         />
       )}
-    </Card>
+    </div>
   );
 }

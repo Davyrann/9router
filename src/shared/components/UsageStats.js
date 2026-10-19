@@ -11,7 +11,6 @@ function isLLMProvider(id) {
   return p.serviceKinds.includes("llm");
 }
 import Badge from "./Badge";
-import Card from "./Card";
 import { cn } from "@/shared/utils/cn";
 import OverviewCards from "@/app/(dashboard)/dashboard/usage/components/OverviewCards";
 import UsageTable, { fmt, fmtTime } from "@/app/(dashboard)/dashboard/usage/components/UsageTable";
@@ -44,51 +43,65 @@ function TimeAgo({ timestamp }) {
 
 function RecentRequests({ requests = [] }) {
   return (
-    <div className="flex min-w-0 flex-col overflow-hidden border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] rounded font-mono" style={{ height: 480 }}>
+    <div className="flex min-w-0 flex-col overflow-hidden rounded-none border border-[var(--color-hairline)] bg-[var(--color-surface)] font-mono h-[340px] sm:h-[480px]">
       {/* Header */}
-      <div className="px-3 py-2 border-b border-[var(--color-hairline)] shrink-0 bg-[var(--color-canvas)] flex items-center justify-between">
-        <span className="text-[12px] font-bold text-[var(--color-ink)] uppercase tracking-wide">Recent Requests</span>
-        <span className="text-[11px] text-[var(--color-mute)]">{requests.length} logged</span>
+      <div className="px-3.5 py-2.5 border-b border-[var(--color-hairline)] shrink-0 bg-[var(--color-canvas)] flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-none bg-[var(--color-success)] opacity-75" />
+            <span className="relative inline-flex h-2 w-2 bg-[var(--color-success)]" />
+          </span>
+          <span className="text-[12px] font-bold text-[var(--color-ink)] uppercase tracking-wider">Live Requests</span>
+        </div>
+        <span className="px-2 py-0.5 rounded-[4px] text-[11px] bg-[var(--color-surface-soft)] text-[var(--color-mute)] border border-[var(--color-hairline)]">
+          {requests.length} logged
+        </span>
       </div>
 
       {!requests.length ? (
-        <div className="flex-1 flex items-center justify-center text-[var(--color-mute)] text-sm">No requests recorded yet.</div>
+        <div className="flex-1 flex items-center justify-center text-[var(--color-mute)] text-xs">
+          No live requests recorded yet
+        </div>
       ) : (
         <div className="flex-1 overflow-y-auto custom-scrollbar">
           <table className="w-full min-w-[340px] border-collapse text-xs">
-            <thead className="sticky top-0 bg-[var(--color-surface-soft)] z-10">
-              <tr className="border-b border-[var(--color-hairline)] text-[var(--color-mute)] text-[11px]">
-                <th className="py-1.5 px-2 text-left w-2"></th>
-                <th className="py-1.5 px-2 text-left font-medium">Model</th>
-                <th className="py-1.5 px-2 text-right font-medium whitespace-nowrap">In / Out</th>
-                <th className="py-1.5 px-2 text-right font-medium whitespace-nowrap">Cache</th>
-                <th className="py-1.5 px-2 text-right font-medium">When</th>
+            <thead className="sticky top-0 bg-[var(--color-surface)]/95 backdrop-blur-sm z-10">
+              <tr className="border-b border-[var(--color-hairline)] text-[var(--color-ash)] text-[11px]">
+                <th className="py-2 px-2.5 text-left w-3"></th>
+                <th className="py-2 px-2 text-left font-medium">Model</th>
+                <th className="py-2 px-2 text-right font-medium whitespace-nowrap">In / Out</th>
+                <th className="py-2 px-2 text-right font-medium whitespace-nowrap">Cache</th>
+                <th className="py-2 px-2.5 text-right font-medium">When</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--color-hairline)]">
               {requests.map((r, i) => {
                 const ok = !r.status || r.status === "ok" || r.status === "success";
                 return (
-                  <tr key={i} className="hover:bg-[var(--color-canvas)] transition-colors">
-                    <td className="py-2 px-2">
-                      <span className={`block w-1.5 h-1.5 rounded-full ${ok ? "bg-[var(--color-success)]" : "bg-[var(--color-danger)]"}`} />
+                  <tr key={i} className="hover:bg-[var(--color-canvas)]/70 transition-colors">
+                    <td className="py-2 px-2.5">
+                      <span className={`block w-1.5 h-1.5 rounded-full ${ok ? "bg-[var(--color-success)] shadow-[0_0_6px_var(--color-success)]" : "bg-[var(--color-danger)] shadow-[0_0_6px_var(--color-danger)]"}`} />
                     </td>
-                    <td className="py-2 px-2 font-mono truncate max-w-[120px] text-[var(--color-ink)]" title={r.model}>{r.model}</td>
-                    <td className="py-2 px-2 text-right whitespace-nowrap">
-                      <span className="text-[var(--color-primary)]">{fmt(r.promptTokens)}↑</span>
+                    <td className="py-2 px-2 font-mono truncate max-w-[130px] text-[var(--color-ink)] font-medium" title={r.model}>
+                      {r.model}
+                    </td>
+                    <td className="py-2 px-2 text-right whitespace-nowrap tabular-nums">
+                      <span className="text-[var(--color-primary)] font-medium">{fmt(r.promptTokens)}↑</span>
                       {" "}
-                      <span className="text-[var(--color-success)]">{fmt(r.completionTokens)}↓</span>
+                      <span className="text-[var(--color-success)] font-medium">{fmt(r.completionTokens)}↓</span>
                     </td>
-                    <td className="py-2 px-2 text-right whitespace-nowrap">
+                    <td className="py-2 px-2 text-right whitespace-nowrap tabular-nums">
                       {r.cachedTokens > 0 ? (
-                        <span className="text-[var(--color-accent)] font-medium" title={`${r.cachedTokens.toLocaleString()} cached tokens`}>
+                        <span className="text-[var(--color-accent,#8b5cf6)] font-semibold" title={`${r.cachedTokens.toLocaleString()} cached tokens`}>
                           {fmt(r.cachedTokens)}
                         </span>
                       ) : (
                         <span className="text-[var(--color-ash)]">—</span>
                       )}
                     </td>
-                    <td className="py-2 px-2 text-right text-[var(--color-mute)] whitespace-nowrap"><TimeAgo timestamp={r.timestamp} /></td>
+                    <td className="py-2 px-2.5 text-right text-[var(--color-mute)] whitespace-nowrap tabular-nums text-[11px]">
+                      <TimeAgo timestamp={r.timestamp} />
+                    </td>
                   </tr>
                 );
               })}
@@ -345,17 +358,17 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
           emptyMessage: "No usage recorded yet.",
           renderSummaryCells: (group) => (
             <>
-              <td className="px-6 py-3 text-text-muted">—</td>
-              <td className="px-6 py-3 text-right">{fmt(group.summary.requests)}</td>
-              <td className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(group.summary.lastUsed)}</td>
+              <td className="px-4 py-2.5 text-text-muted">—</td>
+              <td className="px-4 py-2.5 text-right">{fmt(group.summary.requests)}</td>
+              <td className="px-4 py-2.5 text-right text-text-muted whitespace-nowrap">{fmtTime(group.summary.lastUsed)}</td>
             </>
           ),
           renderDetailCells: (item) => (
             <>
-              <td className={`px-6 py-3 font-medium transition-colors ${item.pending > 0 ? "text-primary" : ""}`}>{item.rawModel}</td>
-              <td className="px-6 py-3"><Badge variant={item.pending > 0 ? "primary" : "neutral"} size="sm">{item.provider}</Badge></td>
-              <td className="px-6 py-3 text-right">{fmt(item.requests)}</td>
-              <td className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(item.lastUsed)}</td>
+              <td className={`px-4 py-2.5 font-medium transition-colors ${item.pending > 0 ? "text-primary" : ""}`}>{item.rawModel}</td>
+              <td className="px-4 py-2.5"><Badge variant={item.pending > 0 ? "primary" : "neutral"} size="sm">{item.provider}</Badge></td>
+              <td className="px-4 py-2.5 text-right">{fmt(item.requests)}</td>
+              <td className="px-4 py-2.5 text-right text-text-muted whitespace-nowrap">{fmtTime(item.lastUsed)}</td>
             </>
           ),
         };
@@ -378,19 +391,19 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
           emptyMessage: "No account-specific usage recorded yet.",
           renderSummaryCells: (group) => (
             <>
-              <td className="px-6 py-3 text-text-muted">—</td>
-              <td className="px-6 py-3 text-text-muted">—</td>
-              <td className="px-6 py-3 text-right">{fmt(group.summary.requests)}</td>
-              <td className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(group.summary.lastUsed)}</td>
+              <td className="px-4 py-2.5 text-text-muted">—</td>
+              <td className="px-4 py-2.5 text-text-muted">—</td>
+              <td className="px-4 py-2.5 text-right">{fmt(group.summary.requests)}</td>
+              <td className="px-4 py-2.5 text-right text-text-muted whitespace-nowrap">{fmtTime(group.summary.lastUsed)}</td>
             </>
           ),
           renderDetailCells: (item) => (
             <>
-              <td className={`px-6 py-3 font-medium transition-colors ${item.pending > 0 ? "text-primary" : ""}`}>{item.accountName || `Account ${item.connectionId?.slice(0, 8)}...`}</td>
-              <td className={`px-6 py-3 font-medium transition-colors ${item.pending > 0 ? "text-primary" : ""}`}>{item.rawModel}</td>
-              <td className="px-6 py-3"><Badge variant={item.pending > 0 ? "primary" : "neutral"} size="sm">{item.provider}</Badge></td>
-              <td className="px-6 py-3 text-right">{fmt(item.requests)}</td>
-              <td className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(item.lastUsed)}</td>
+              <td className={`px-4 py-2.5 font-medium transition-colors ${item.pending > 0 ? "text-primary" : ""}`}>{item.accountName || `Account ${item.connectionId?.slice(0, 8)}...`}</td>
+              <td className={`px-4 py-2.5 font-medium transition-colors ${item.pending > 0 ? "text-primary" : ""}`}>{item.rawModel}</td>
+              <td className="px-4 py-2.5"><Badge variant={item.pending > 0 ? "primary" : "neutral"} size="sm">{item.provider}</Badge></td>
+              <td className="px-4 py-2.5 text-right">{fmt(item.requests)}</td>
+              <td className="px-4 py-2.5 text-right text-text-muted whitespace-nowrap">{fmtTime(item.lastUsed)}</td>
             </>
           ),
         };
@@ -403,19 +416,19 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
           emptyMessage: "No API key usage recorded yet.",
           renderSummaryCells: (group) => (
             <>
-              <td className="px-6 py-3 text-text-muted">—</td>
-              <td className="px-6 py-3 text-text-muted">—</td>
-              <td className="px-6 py-3 text-right">{fmt(group.summary.requests)}</td>
-              <td className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(group.summary.lastUsed)}</td>
+              <td className="px-4 py-2.5 text-text-muted">—</td>
+              <td className="px-4 py-2.5 text-text-muted">—</td>
+              <td className="px-4 py-2.5 text-right">{fmt(group.summary.requests)}</td>
+              <td className="px-4 py-2.5 text-right text-text-muted whitespace-nowrap">{fmtTime(group.summary.lastUsed)}</td>
             </>
           ),
           renderDetailCells: (item) => (
             <>
-              <td className="px-6 py-3 font-medium font-mono text-xs">{item.apiKeyMasked || item.keyName}</td>
-              <td className="px-6 py-3">{item.rawModel}</td>
-              <td className="px-6 py-3"><Badge variant="neutral" size="sm">{item.provider}</Badge></td>
-              <td className="px-6 py-3 text-right">{fmt(item.requests)}</td>
-              <td className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(item.lastUsed)}</td>
+              <td className="px-4 py-2.5 font-medium font-mono text-xs">{item.apiKeyMasked || item.keyName}</td>
+              <td className="px-4 py-2.5">{item.rawModel}</td>
+              <td className="px-4 py-2.5"><Badge variant="neutral" size="sm">{item.provider}</Badge></td>
+              <td className="px-4 py-2.5 text-right">{fmt(item.requests)}</td>
+              <td className="px-4 py-2.5 text-right text-text-muted whitespace-nowrap">{fmtTime(item.lastUsed)}</td>
             </>
           ),
         };
@@ -429,19 +442,19 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
           emptyMessage: "No endpoint usage recorded yet.",
           renderSummaryCells: (group) => (
             <>
-              <td className="px-6 py-3 text-text-muted">—</td>
-              <td className="px-6 py-3 text-text-muted">—</td>
-              <td className="px-6 py-3 text-right">{fmt(group.summary.requests)}</td>
-              <td className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(group.summary.lastUsed)}</td>
+              <td className="px-4 py-2.5 text-text-muted">—</td>
+              <td className="px-4 py-2.5 text-text-muted">—</td>
+              <td className="px-4 py-2.5 text-right">{fmt(group.summary.requests)}</td>
+              <td className="px-4 py-2.5 text-right text-text-muted whitespace-nowrap">{fmtTime(group.summary.lastUsed)}</td>
             </>
           ),
           renderDetailCells: (item) => (
             <>
-              <td className="px-6 py-3 font-medium font-mono text-sm">{item.endpoint}</td>
-              <td className="px-6 py-3">{item.rawModel}</td>
-              <td className="px-6 py-3"><Badge variant="neutral" size="sm">{item.provider}</Badge></td>
-              <td className="px-6 py-3 text-right">{fmt(item.requests)}</td>
-              <td className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(item.lastUsed)}</td>
+              <td className="px-4 py-2.5 font-medium font-mono text-sm">{item.endpoint}</td>
+              <td className="px-4 py-2.5">{item.rawModel}</td>
+              <td className="px-4 py-2.5"><Badge variant="neutral" size="sm">{item.provider}</Badge></td>
+              <td className="px-4 py-2.5 text-right">{fmt(item.requests)}</td>
+              <td className="px-4 py-2.5 text-right text-text-muted whitespace-nowrap">{fmtTime(item.lastUsed)}</td>
             </>
           ),
         };
@@ -550,20 +563,20 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
             <select
               value={tableView}
               onChange={(e) => setTableView(e.target.value)}
-              className="h-8 rounded border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] px-2.5 text-[12px] font-mono text-[var(--color-ink)] outline-none cursor-pointer hover:border-[var(--color-hairline-strong)] transition-colors"
+              className="h-8 rounded-[4px] border border-[var(--color-hairline)] bg-[var(--color-surface)] px-2.5 text-[12px] font-mono text-[var(--color-ink)] outline-none cursor-pointer hover:border-[var(--color-primary)] transition-colors"
             >
               {TABLE_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>
-            <div className="flex items-center border border-[var(--color-hairline)] rounded overflow-hidden">
+            <div className="inline-flex items-center gap-1 rounded-[4px] border border-[var(--color-hairline)] bg-[var(--color-canvas)] p-0.5">
               <button
                 onClick={() => setViewMode("costs")}
                 className={cn(
-                  "h-8 px-3 text-[12px] font-mono transition-colors cursor-pointer",
+                  "h-7 px-3 rounded-[4px] text-[12px] font-mono transition-all duration-150 cursor-pointer",
                   viewMode === "costs"
                     ? "bg-[var(--color-primary)] text-[var(--color-on-primary)] font-bold"
-                    : "bg-[var(--color-surface-soft)] text-[var(--color-mute)] hover:text-[var(--color-ink)]"
+                    : "text-[var(--color-mute)] hover:text-[var(--color-ink)] hover:bg-[var(--color-surface-soft)]"
                 )}
               >
                 Costs
@@ -571,10 +584,10 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
               <button
                 onClick={() => setViewMode("tokens")}
                 className={cn(
-                  "h-8 px-3 text-[12px] font-mono transition-colors cursor-pointer border-l border-[var(--color-hairline)]",
+                  "h-7 px-3 rounded-[4px] text-[12px] font-mono transition-all duration-150 cursor-pointer",
                   viewMode === "tokens"
                     ? "bg-[var(--color-primary)] text-[var(--color-on-primary)] font-bold"
-                    : "bg-[var(--color-surface-soft)] text-[var(--color-mute)] hover:text-[var(--color-ink)]"
+                    : "text-[var(--color-mute)] hover:text-[var(--color-ink)] hover:bg-[var(--color-surface-soft)]"
                 )}
               >
                 Tokens

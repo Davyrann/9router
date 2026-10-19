@@ -1,19 +1,19 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Card, Button } from "@/shared/components";
+import { Button } from "@/shared/components";
 import { CONSOLE_LOG_CONFIG } from "@/shared/constants/config";
 import { useTimezone } from "@/shared/hooks/useTimezone";
 
 const LEVEL_STYLES = {
-  error: { chip: "bg-red-500/15 text-red-400", text: "text-red-300" },
-  warn: { chip: "bg-yellow-500/15 text-yellow-400", text: "text-yellow-200/90" },
-  info: { chip: "bg-sky-500/15 text-sky-400", text: "text-sky-200/90" },
-  debug: { chip: "bg-purple-500/15 text-purple-400", text: "text-purple-300/90" },
-  log: { chip: "bg-white/5 text-gray-400", text: "text-gray-300" },
+  error: { chip: "bg-red-500/20 border border-red-500/30 text-red-400 font-bold", text: "text-red-300" },
+  warn: { chip: "bg-amber-500/20 border border-amber-500/30 text-amber-400 font-bold", text: "text-amber-200/90" },
+  info: { chip: "bg-sky-500/20 border border-sky-500/30 text-sky-400 font-bold", text: "text-sky-200/90" },
+  debug: { chip: "bg-purple-500/20 border border-purple-500/30 text-purple-400 font-bold", text: "text-purple-300/90" },
+  log: { chip: "bg-white/5 border border-white/10 text-neutral-400", text: "text-neutral-300" },
 };
 
-const FILTERS = ["all", "error", "warn", "info", "log"];
+const FILTERS = ["all", "error", "warn", "info", "debug", "log"];
 
 function normalize(entry) {
   if (typeof entry === "string") return { level: "log", t: Date.now(), text: entry };
@@ -70,22 +70,26 @@ export default function ConsoleLogClient() {
     es.onopen = () => setConnected(true);
 
     es.onmessage = (e) => {
-      const msg = JSON.parse(e.data);
-      const max = CONSOLE_LOG_CONFIG.maxLines;
-      if (msg.type === "init") {
-        setEntries(msg.logs.slice(-max).map(normalize));
-      } else if (msg.type === "line") {
-        setEntries((prev) => {
-          const next = [...prev, normalize(msg.line)];
-          return next.length > max ? next.slice(-max) : next;
-        });
-      } else if (msg.type === "lines") {
-        setEntries((prev) => {
-          const next = [...prev, ...msg.lines.map(normalize)];
-          return next.length > max ? next.slice(-max) : next;
-        });
-      } else if (msg.type === "clear") {
-        setEntries([]);
+      try {
+        const msg = JSON.parse(e.data);
+        const max = CONSOLE_LOG_CONFIG.maxLines;
+        if (msg.type === "init") {
+          setEntries(msg.logs.slice(-max).map(normalize));
+        } else if (msg.type === "line") {
+          setEntries((prev) => {
+            const next = [...prev, normalize(msg.line)];
+            return next.length > max ? next.slice(-max) : next;
+          });
+        } else if (msg.type === "lines") {
+          setEntries((prev) => {
+            const next = [...prev, ...msg.lines.map(normalize)];
+            return next.length > max ? next.slice(-max) : next;
+          });
+        } else if (msg.type === "clear") {
+          setEntries([]);
+        }
+      } catch (err) {
+        console.error("Failed to parse console log SSE message:", err);
       }
     };
 
@@ -114,74 +118,85 @@ export default function ConsoleLogClient() {
   }, {});
 
   return (
-    <div className="">
-      <Card>
-        <div className="flex flex-wrap items-center gap-2 px-4 pt-3 pb-2">
-          <span
-            className={`inline-flex items-center gap-1.5 text-xs ${
-              connected ? "text-emerald-400" : "text-red-400"
-            }`}
-          >
-            <span
-              className={`h-1.5 w-1.5 rounded-full ${connected ? "bg-emerald-400" : "bg-red-400"}`}
-            />
-            {connected ? "Live" : "Disconnected"}
-          </span>
+    <div className="font-mono">
+      <div className="rounded-none border border-[var(--color-hairline)] bg-[var(--color-surface)] overflow-hidden">
+        {/* Hardware Control Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-[var(--color-hairline)] bg-[var(--color-canvas)]">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex items-center gap-2 px-2.5 py-1 rounded-[4px] border border-[var(--color-hairline)] bg-[var(--color-surface)]">
+              <span className="relative flex h-2 w-2">
+                {connected && (
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-none bg-[var(--color-success)] opacity-75" />
+                )}
+                <span className={`relative inline-flex h-2 w-2 ${connected ? "bg-[var(--color-success)]" : "bg-[var(--color-danger)]"}`} />
+              </span>
+              <span className="font-bold text-[11px] text-[var(--color-ink)] uppercase tracking-wider">
+                {connected ? "Live Stream" : "Disconnected"}
+              </span>
+            </div>
 
-          <div className="ml-2 flex items-center gap-1">
-            {FILTERS.map((f) => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={`rounded px-2 py-0.5 text-xs capitalize transition-colors ${
-                  filter === f
-                    ? "bg-white/10 text-white"
-                    : "text-text-muted hover:bg-white/5 hover:text-white"
-                }`}
-              >
-                {f}
-                {counts[f] ? <span className="ml-1 opacity-60">{counts[f]}</span> : null}
-              </button>
-            ))}
+            <div className="inline-flex items-center gap-1 rounded-[4px] border border-[var(--color-hairline)] bg-[var(--color-surface)] p-0.5">
+              {FILTERS.map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setFilter(f)}
+                  className={`px-2.5 py-1 rounded-[4px] text-[11px] uppercase tracking-wider font-bold transition-all duration-150 cursor-pointer ${
+                    filter === f
+                      ? "bg-[var(--color-primary)] text-[var(--color-on-primary)]"
+                      : "text-[var(--color-mute)] hover:text-[var(--color-ink)] hover:bg-[var(--color-canvas)]"
+                  }`}
+                >
+                  {f}
+                  {counts[f] ? <span className="ml-1 opacity-70 font-normal">({counts[f]})</span> : null}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className="ml-auto">
-            <Button size="sm" variant="outline" icon="delete" onClick={handleClear}>
+          <div className="flex items-center gap-2 ml-auto">
+            <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] text-[10px] text-[var(--color-ash)] bg-[var(--color-surface)] border border-[var(--color-hairline)]">
+              MAX: {CONSOLE_LOG_CONFIG.maxLines} LINES
+            </span>
+            <Button size="sm" variant="outline" icon="delete" onClick={handleClear} className="h-7 rounded-[4px] text-xs font-medium cursor-pointer">
               Clear
             </Button>
           </div>
         </div>
 
+        {/* Terminal Screen */}
         <div
           ref={logRef}
           onScroll={onScroll}
-          className="bg-black rounded-b-lg px-4 py-3 text-xs font-mono leading-5 h-[calc(100vh-220px)] overflow-y-auto"
+          className="bg-[#050508] px-4 py-3 text-xs leading-5 h-[calc(100vh-230px)] overflow-y-auto custom-scrollbar"
         >
           {visible.length === 0 ? (
-            <span className="text-text-muted">
-              {entries.length === 0 ? "No console logs yet." : "No lines match this filter."}
-            </span>
+            <div className="h-full flex flex-col items-center justify-center text-neutral-500 text-xs gap-2">
+              <span className="material-symbols-outlined text-[28px] opacity-30">terminal</span>
+              <span>
+                {entries.length === 0 ? "Listening for gateway events…" : "No log lines match current filter."}
+              </span>
+            </div>
           ) : (
-            <div>
+            <div className="divide-y divide-white/[0.02]">
               {visible.map((entry, i) => {
                 const level = detectLevel(entry);
                 const style = LEVEL_STYLES[level] || LEVEL_STYLES.log;
                 return (
                   <div
                     key={i}
-                    className="flex gap-2 border-b border-white/[0.03] py-px hover:bg-white/[0.03]"
+                    className="flex items-baseline gap-2.5 py-1 hover:bg-white/[0.02] transition-colors"
                   >
-                    <span className="shrink-0 select-none text-gray-600 tabular-nums">
+                    <span className="shrink-0 select-none text-neutral-500 tabular-nums text-[11px]">
                       {fmtTime(entry.t, timeZone)}
                     </span>
                     <span
-                      className={`shrink-0 w-11 select-none rounded px-1 text-center uppercase ${
+                      className={`shrink-0 w-12 select-none rounded px-1.5 py-0.5 text-center text-[10px] uppercase tracking-wider ${
                         style.chip
                       }`}
                     >
                       {level}
                     </span>
-                    <span className={`min-w-0 whitespace-pre-wrap break-all ${style.text}`}>
+                    <span className={`min-w-0 flex-1 whitespace-pre-wrap break-all ${style.text}`}>
                       {stripLeadingTime(entry.text)}
                     </span>
                   </div>
@@ -190,7 +205,7 @@ export default function ConsoleLogClient() {
             </div>
           )}
         </div>
-      </Card>
+      </div>
     </div>
   );
 }

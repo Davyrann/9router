@@ -12,7 +12,6 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
-import Card from "@/shared/components/Card";
 
 const COLORS = ["#6366f1", "#14b8a6", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#10b981", "#f97316"];
 
@@ -41,19 +40,30 @@ export default function ProviderBarChart({ byProvider }) {
   const label = viewMode === "tokens" ? "Tokens" : "Requests";
 
   return (
-    <Card className="flex min-w-0 flex-col gap-3 p-3 sm:p-4">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-semibold text-text-muted uppercase tracking-wide">By Provider</span>
-        <div className="grid grid-cols-2 items-center gap-1 rounded-lg border border-border bg-bg-subtle p-1">
+    <div className="flex min-w-0 flex-col gap-3 rounded-none border border-[var(--color-hairline)] bg-[var(--color-surface)] p-3.5 sm:p-4 font-mono">
+      <div className="flex items-center justify-between gap-2 pb-1 border-b border-[var(--color-hairline)]">
+        <div className="flex items-center gap-1.5">
+          <span className="material-symbols-outlined text-[16px] text-[var(--color-primary)]">storage</span>
+          <span className="text-xs font-bold text-[var(--color-ink)] uppercase tracking-wider">By Provider</span>
+        </div>
+        <div className="inline-flex items-center gap-1 border border-[var(--color-hairline)] bg-[var(--color-canvas)] p-0.5">
           <button
             onClick={() => setViewMode("tokens")}
-            className={`px-2.5 py-0.5 rounded-md text-xs font-medium transition-colors ${viewMode === "tokens" ? "bg-primary text-white shadow-sm" : "text-text-muted hover:text-text hover:bg-bg-hover"}`}
+            className={`px-2.5 py-0.5 rounded-[4px] text-[11px] font-medium transition-all duration-150 cursor-pointer ${
+              viewMode === "tokens"
+                ? "bg-[var(--color-primary)] text-[var(--color-on-primary)] font-bold"
+                : "text-[var(--color-mute)] hover:text-[var(--color-ink)]"
+            }`}
           >
             Tokens
           </button>
           <button
             onClick={() => setViewMode("requests")}
-            className={`px-2.5 py-0.5 rounded-md text-xs font-medium transition-colors ${viewMode === "requests" ? "bg-primary text-white shadow-sm" : "text-text-muted hover:text-text hover:bg-bg-hover"}`}
+            className={`px-2.5 py-0.5 rounded-[4px] text-[11px] font-medium transition-all duration-150 cursor-pointer ${
+              viewMode === "requests"
+                ? "bg-[var(--color-primary)] text-[var(--color-on-primary)] font-bold"
+                : "text-[var(--color-mute)] hover:text-[var(--color-ink)]"
+            }`}
           >
             Requests
           </button>
@@ -61,44 +71,52 @@ export default function ProviderBarChart({ byProvider }) {
       </div>
 
       {!chartData.length ? (
-        <div className="h-44 flex items-center justify-center text-text-muted text-sm">No provider usage yet</div>
+        <div className="h-44 flex items-center justify-center text-[var(--color-mute)] text-xs">No provider usage recorded</div>
       ) : (
-        <ResponsiveContainer width="100%" height={180}>
-          <BarChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 4 }}>
-            <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.1} vertical={false} />
-            <XAxis
-              dataKey="name"
-              tick={{ fontSize: 10, fill: "currentColor", fillOpacity: 0.6 }}
-              tickLine={false}
-              axisLine={false}
-              interval={0}
-              tickFormatter={(v) => v.length > 10 ? v.slice(0, 10) + "…" : v}
-            />
-            <YAxis
-              tick={{ fontSize: 10, fill: "currentColor", fillOpacity: 0.5 }}
-              tickLine={false}
-              axisLine={false}
-              tickFormatter={fmt}
-              width={44}
-            />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: "var(--color-bg)",
-                border: "1px solid var(--color-border)",
-                borderRadius: "8px",
-                fontSize: "12px",
-              }}
-              formatter={(value) => [fmt(value), label]}
-            />
-            <Bar dataKey={viewMode} radius={[4, 4, 0, 0]}>
-              {chartData.map((_, i) => (
-                <Cell key={i} fill={COLORS[i % COLORS.length]} fillOpacity={0.85} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+        <div className="w-full pt-1">
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={chartData} margin={{ top: 6, right: 8, left: 0, bottom: 4 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-hairline)" strokeOpacity={0.6} vertical={false} />
+              <XAxis
+                dataKey="name"
+                tick={{ fontSize: 10, fill: "var(--color-mute)", fontFamily: "monospace" }}
+                tickLine={false}
+                axisLine={{ stroke: "var(--color-hairline)" }}
+                interval={0}
+                tickFormatter={(v) => v.length > 10 ? v.slice(0, 10) + "…" : v}
+              />
+              <YAxis
+                tick={{ fontSize: 10, fill: "var(--color-mute)", fontFamily: "monospace" }}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={fmt}
+                width={48}
+              />
+              <Tooltip
+                content={({ active, payload }) => {
+                  if (!active || !payload?.length) return null;
+                  const item = payload[0];
+                  return (
+                    <div className="rounded-[4px] border border-[var(--color-hairline)] bg-[var(--color-canvas)] px-3 py-2 font-mono text-xs">
+                      <div className="font-bold text-[var(--color-ink)] mb-0.5">{item.payload?.name}</div>
+                      <div className="flex items-center gap-1.5 text-[11px]">
+                        <span className="text-[var(--color-mute)]">{label}:</span>
+                        <span className="font-bold text-[var(--color-primary)]">{fmt(item.value)}</span>
+                      </div>
+                    </div>
+                  );
+                }}
+              />
+              <Bar dataKey={viewMode} radius={[4, 4, 0, 0]}>
+                {chartData.map((_, i) => (
+                  <Cell key={i} fill={COLORS[i % COLORS.length]} fillOpacity={0.88} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       )}
-    </Card>
+    </div>
   );
 }
 

@@ -6,9 +6,7 @@ import Link from "next/link";
 import PropTypes from "prop-types";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import HeaderMenu from "@/shared/components/HeaderMenu";
-import HeaderLanguage from "@/shared/components/HeaderLanguage";
 import ThemeToggle from "@/shared/components/ThemeToggle";
-import DonateModal from "@/shared/components/DonateModal";
 import { useHeaderSearchStore } from "@/store/headerSearchStore";
 import { OAUTH_PROVIDERS, APIKEY_PROVIDERS } from "@/shared/constants/config";
 import { MEDIA_PROVIDER_KINDS, AI_PROVIDERS } from "@/shared/constants/providers";
@@ -100,7 +98,6 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
   const pathname = usePathname();
   const [displayName, setDisplayName] = useState("");
   const [loginMethod, setLoginMethod] = useState("");
-  const [donateOpen, setDonateOpen] = useState(false);
 
   const pageInfo = useMemo(() => getPageInfo(pathname), [pathname]);
   const { title, description, breadcrumbs } = pageInfo;
@@ -217,20 +214,19 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
           </div>
         )}
         <HeaderSearch />
-        <button
-          onClick={() => setDonateOpen(true)}
-          className="hidden sm:flex items-center gap-1.5 px-3 h-8 border border-[var(--color-hairline)] text-[var(--color-mute)] hover:text-[var(--color-ink)] hover:border-[var(--color-hairline-strong)] transition-colors text-[13px] font-medium"
-          style={{ borderRadius: "4px" }}
-          aria-label="Donate"
+        <a
+          href="https://tako.id/davyran"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 px-2.5 sm:px-3 h-8 border border-[var(--color-hairline)] text-[var(--color-mute)] hover:text-[var(--color-ink)] hover:border-[var(--color-hairline-strong)] transition-colors text-[12px] sm:text-[13px] font-medium font-mono rounded-[4px] shrink-0"
+          aria-label="Tako ID"
         >
-          <span className="material-symbols-outlined text-[16px]">volunteer_activism</span>
-          <span className="hidden sm:inline">Donate</span>
-        </button>
+          <span className="material-symbols-outlined text-[16px] text-[var(--color-danger)]">volunteer_activism</span>
+          <span>Tako ID</span>
+        </a>
         <ThemeToggle />
-        <HeaderLanguage />
         <HeaderMenu onLogout={handleLogout} />
       </div>
-      <DonateModal isOpen={donateOpen} onClose={() => setDonateOpen(false)} />
     </header>
   );
 }

@@ -8,7 +8,7 @@ import { useTheme } from "@/shared/hooks/useTheme";
 import { useTimezone, listTimeZones } from "@/shared/hooks/useTimezone";
 import { cn } from "@/shared/utils/cn";
 import { APP_CONFIG } from "@/shared/constants/config";
-import { LOCALE_COOKIE, normalizeLocale } from "@/i18n/config";
+import { LOCALE_COOKIE, normalizeLocale, LOCALE_NAMES } from "@/i18n/config";
 import { LOCALE_FLAGS } from "@/shared/constants/locales";
 
 function getLocaleFromCookie() {
@@ -1117,18 +1117,29 @@ export default function ProfilePage() {
         {/* Language */}
         <Card>
           <div className="flex items-center gap-3 mb-4">
-            <div className="size-10 rounded-lg bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0">
+            <div className="size-10 rounded-[4px] bg-[var(--color-primary)]/10 text-[var(--color-primary)] flex items-center justify-center shrink-0">
               <span className="material-symbols-outlined text-[20px]">language</span>
             </div>
-            <h3 className="text-base sm:text-lg font-semibold">Language</h3>
+            <div>
+              <h3 className="text-base sm:text-lg font-semibold text-[var(--color-ink)]">Language</h3>
+              <p className="text-xs text-[var(--color-mute)]">
+                Select your preferred interface display language.
+              </p>
+            </div>
           </div>
           <button
             onClick={() => setLangOpen(true)}
-            className="flex items-center justify-between w-full p-3 rounded-lg bg-bg border border-border hover:border-primary/50 transition-colors"
-            data-i18n-skip="true"
+            className="flex items-center justify-between w-full p-3 rounded-[4px] bg-[var(--color-surface)] border border-[var(--color-hairline)] hover:border-[var(--color-primary)] transition-colors cursor-pointer"
           >
-            <span className="text-sm text-text-muted">Display language</span>
-            <span className="text-2xl">{LOCALE_FLAGS[locale] || "🌐"}</span>
+            <div className="flex items-center gap-2.5" data-i18n-skip="true">
+              <span className="text-xl leading-none">{LOCALE_FLAGS[locale] || "🌐"}</span>
+              <span className="text-sm font-medium text-[var(--color-ink)] font-mono">
+                {LOCALE_NAMES[locale] || locale}
+              </span>
+            </div>
+            <span className="text-xs font-mono text-[var(--color-mute)] border border-[var(--color-hairline)] px-2.5 py-1 rounded-[4px] bg-[var(--color-canvas)]">
+              Change language
+            </span>
           </button>
         </Card>
 

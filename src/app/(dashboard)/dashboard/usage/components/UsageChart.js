@@ -11,7 +11,6 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import Card from "@/shared/components/Card";
 import { useTimezone } from "@/shared/hooks/useTimezone";
 
 const fmtTokens = (n) => {
@@ -65,82 +64,111 @@ export default function UsageChart({ period = "7d" }) {
 
   const cfg = VIEW_CONFIG[viewMode];
   const hasData = data.some((d) => (d[cfg.dataKey] || 0) > 0);
+  const totalVal = data.reduce((acc, d) => acc + (d[cfg.dataKey] || 0), 0);
 
   return (
-    <Card className="flex min-w-0 flex-col gap-3 p-3 sm:p-4">
-      <div
-        className="grid w-full items-center gap-1 rounded-lg border border-border bg-bg-subtle p-1 sm:w-auto sm:self-start"
-        style={{ gridTemplateColumns: `repeat(${VIEW_MODES.length}, minmax(0, 1fr))` }}
-      >
-        {VIEW_MODES.map((m) => (
-          <button
-            key={m.value}
-            onClick={() => setViewMode(m.value)}
-            className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${viewMode === m.value ? "bg-primary text-white shadow-sm" : "text-text-muted hover:text-text hover:bg-bg-hover"}`}
-          >
-            {m.label}
-          </button>
-        ))}
+    <div className="flex min-w-0 flex-col gap-3 rounded-none border border-[var(--color-hairline)] bg-[var(--color-surface)] p-3.5 sm:p-4 font-mono">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-1 border-b border-[var(--color-hairline)]">
+        <div className="flex items-center gap-2">
+          <div className="inline-flex items-center gap-1 border border-[var(--color-hairline)] bg-[var(--color-canvas)] p-0.5">
+            {VIEW_MODES.map((m) => (
+              <button
+                key={m.value}
+                onClick={() => setViewMode(m.value)}
+                className={`px-3 py-1 rounded-[4px] text-[12px] font-medium transition-all duration-150 cursor-pointer ${
+                  viewMode === m.value
+                    ? "bg-[var(--color-primary)] text-[var(--color-on-primary)] font-bold"
+                    : "text-[var(--color-mute)] hover:text-[var(--color-ink)] hover:bg-[var(--color-surface-soft)]"
+                }`}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {hasData && (
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[4px] border border-[var(--color-hairline)] bg-[var(--color-canvas)] text-[12px]">
+            <span className="text-[var(--color-ash)]">Period Total:</span>
+            <span className="font-bold text-[var(--color-ink)]" style={{ color: cfg.color }}>
+              {cfg.formatter(totalVal)}
+            </span>
+          </div>
+        )}
       </div>
 
       {loading ? (
-        <div className="h-48 flex items-center justify-center text-text-muted text-sm">Loading...</div>
+        <div className="h-52 flex items-center justify-center text-[var(--color-mute)] text-xs gap-2">
+          <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+          Loading timeline…
+        </div>
       ) : !hasData ? (
-        <div className="h-48 flex items-center justify-center text-text-muted text-sm">No data for this period</div>
+        <div className="h-52 flex items-center justify-center text-[var(--color-mute)] text-xs">
+          No activity recorded for this period
+        </div>
       ) : (
-        <ResponsiveContainer width="100%" height={220}>
-          <AreaChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-            <defs>
-              <linearGradient id="gradTokens" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#6366f1" stopOpacity={0.25} />
-                <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="gradRequests" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#14b8a6" stopOpacity={0.25} />
-                <stop offset="95%" stopColor="#14b8a6" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="gradCost" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.25} />
-                <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.1} />
-            <XAxis
-              dataKey="label"
-              tick={{ fontSize: 10, fill: "currentColor", fillOpacity: 0.5 }}
-              tickLine={false}
-              axisLine={false}
-              interval="preserveStartEnd"
-            />
-            <YAxis
-              tick={{ fontSize: 10, fill: "currentColor", fillOpacity: 0.5 }}
-              tickLine={false}
-              axisLine={false}
-              tickFormatter={cfg.formatter}
-              width={50}
-            />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: "var(--color-bg)",
-                border: "1px solid var(--color-border)",
-                borderRadius: "8px",
-                fontSize: "12px",
-              }}
-              formatter={(value) => [cfg.formatter(value), cfg.label]}
-            />
-            <Area
-              type="monotone"
-              dataKey={cfg.dataKey}
-              stroke={cfg.color}
-              strokeWidth={2}
-              fill={`url(#${cfg.gradId})`}
-              dot={false}
-              activeDot={{ r: 4 }}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
+        <div className="w-full pt-2">
+          <ResponsiveContainer width="100%" height={230}>
+            <AreaChart data={data} margin={{ top: 6, right: 12, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="gradTokens" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.35} />
+                  <stop offset="95%" stopColor="#6366f1" stopOpacity={0.0} />
+                </linearGradient>
+                <linearGradient id="gradRequests" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#14b8a6" stopOpacity={0.35} />
+                  <stop offset="95%" stopColor="#14b8a6" stopOpacity={0.0} />
+                </linearGradient>
+                <linearGradient id="gradCost" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.35} />
+                  <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-hairline)" strokeOpacity={0.6} vertical={false} />
+              <XAxis
+                dataKey="label"
+                tick={{ fontSize: 10, fill: "var(--color-mute)", fontFamily: "monospace" }}
+                tickLine={false}
+                axisLine={{ stroke: "var(--color-hairline)" }}
+                interval="preserveStartEnd"
+              />
+              <YAxis
+                tick={{ fontSize: 10, fill: "var(--color-mute)", fontFamily: "monospace" }}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={cfg.formatter}
+                width={52}
+              />
+              <Tooltip
+                content={({ active, payload }) => {
+                  if (!active || !payload?.length) return null;
+                  const item = payload[0];
+                  return (
+                    <div className="rounded-[4px] border border-[var(--color-hairline)] bg-[var(--color-canvas)] px-3 py-2 font-mono text-xs">
+                      <div className="text-[var(--color-ash)] text-[10px] mb-1">{item.payload?.label}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: cfg.color }} />
+                        <span className="text-[var(--color-mute)]">{cfg.label}:</span>
+                        <span className="font-bold text-[var(--color-ink)]">{cfg.formatter(item.value)}</span>
+                      </div>
+                    </div>
+                  );
+                }}
+              />
+              <Area
+                type="monotone"
+                dataKey={cfg.dataKey}
+                stroke={cfg.color}
+                strokeWidth={2}
+                fill={`url(#${cfg.gradId})`}
+                dot={false}
+                activeDot={{ r: 4, stroke: "var(--color-canvas)", strokeWidth: 2, fill: cfg.color }}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
       )}
-    </Card>
+    </div>
   );
 }
 
