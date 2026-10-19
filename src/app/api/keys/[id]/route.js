@@ -22,7 +22,7 @@ export async function PUT(request, { params }) {
   try {
     const { id } = await params;
     const body = await request.json();
-    const { isActive, access, name, expiresAt, quotaLimit, quotaWindow, quotaReset } = body;
+    const { isActive, access, name, expiresAt, quotaLimit, quotaTokenLimit, quotaWindow, quotaReset } = body;
 
     const existing = await getApiKeyById(id);
     if (!existing) {
@@ -56,15 +56,20 @@ export async function PUT(request, { params }) {
     }
 
     // Quota: null limit clears it (unlimited), positive int sets it.
-    if (quotaLimit !== undefined || quotaWindow !== undefined) {
+    if (quotaLimit !== undefined || quotaTokenLimit !== undefined || quotaWindow !== undefined) {
       const limit = quotaLimit === undefined ? existing.quotaLimit : (quotaLimit === null || quotaLimit === "" ? null : Number(quotaLimit));
       if (limit !== null && (!Number.isInteger(limit) || limit <= 0)) {
-        return NextResponse.json({ error: "Quota limit must be a positive number of requests" }, { status: 400 });
+        return NextResponse.json({ error: "Request limit must be a positive number" }, { status: 400 });
       }
-      let win = existing.quotaWindow;
+      const tokenLimit = quotaTokenLimit === undefined ? existing.quotaTokenLimit : (quotaTokenLimit === null || quotaTokenLimit === "" ? null : Number(quotaTokenLimit));
+      if (tokenLimit !== null && (!Number.isInteger(tokenLimit) || tokenLimit <= 0)) {
+        return NextResponse.json({ error: "Token limit must be a positive number" }, { status: 400 });
+      }
+      let win = existing.quotaWindow || "daily";
       if (quotaWindow !== undefined) win = quotaWindow === "monthly" ? "monthly" : "daily";
       updateData.quotaLimit = limit;
-      updateData.quotaWindow = limit ? win : null;
+      updateData.quotaTokenLimit = tokenLimit;
+      updateData.quotaWindow = (limit || tokenLimit) ? win : null;
     }
 
     const updated = await updateApiKey(id, updateData);

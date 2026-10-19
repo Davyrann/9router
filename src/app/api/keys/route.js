@@ -5,14 +5,19 @@ import { getConsistentMachineId } from "@/shared/utils/machineId";
 export const dynamic = "force-dynamic";
 
 // Normalize optional quota input: positive int limit + allowed window.
-function parseQuota(quotaLimit, quotaWindow) {
-  if (quotaLimit === undefined || quotaLimit === null || quotaLimit === "") {
-    return { limit: null, window: null, error: null };
+function parseQuota(quotaLimit, quotaTokenLimit, quotaWindow) {
+  let limit = null;
+  if (quotaLimit !== undefined && quotaLimit !== null && quotaLimit !== "") {
+    limit = Number(quotaLimit);
+    if (!Number.isInteger(limit) || limit <= 0) return { error: "Request limit must be a positive number" };
   }
-  const limit = Number(quotaLimit);
-  if (!Number.isInteger(limit) || limit <= 0) return { error: "Quota limit must be a positive number of requests" };
+  let tokenLimit = null;
+  if (quotaTokenLimit !== undefined && quotaTokenLimit !== null && quotaTokenLimit !== "") {
+    tokenLimit = Number(quotaTokenLimit);
+    if (!Number.isInteger(tokenLimit) || tokenLimit <= 0) return { error: "Token limit must be a positive number" };
+  }
   const win = quotaWindow === "monthly" ? "monthly" : "daily";
-  return { limit, window: win, error: null };
+  return { limit, tokenLimit, window: (limit || tokenLimit) ? win : null, error: null };
 }
 
 // GET /api/keys - List API keys (each with usage summary)
@@ -32,14 +37,14 @@ export async function GET() {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { name, expiresAt, quotaLimit, quotaWindow } = body;
+    const { name, expiresAt, quotaLimit, quotaTokenLimit, quotaWindow } = body;
 
     if (!name) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
     }
 
     // Optional quota
-    const quota = parseQuota(quotaLimit, quotaWindow);
+    const quota = parseQuota(quotaLimit, quotaTokenLimit, quotaWindow);
     if (quota.error) return NextResponse.json({ error: quota.error }, { status: 400 });
 
     // Optional expiry: must be a parseable, future timestamp.
@@ -54,7 +59,7 @@ export async function POST(request) {
 
     // Always get machineId from server
     const machineId = await getConsistentMachineId();
-    const apiKey = await createApiKey(name, machineId, normalizedExpiry, quota.limit, quota.window);
+    const apiKey = await createApiKey(name, machineId, normalizedExpiry, quota.limit, quota.window, quota.tokenLimit);
 
     return NextResponse.json({
       key: apiKey.key,
@@ -64,6 +69,7 @@ export async function POST(request) {
       expiresAt: apiKey.expiresAt,
       quotaLimit: apiKey.quotaLimit,
       quotaWindow: apiKey.quotaWindow,
+      quotaTokenLimit: apiKey.quotaTokenLimit,
     }, { status: 201 });
   } catch (error) {
     console.log("Error creating key:", error);

@@ -17,6 +17,8 @@ function rowToKey(row) {
     quotaWindow: row.quotaWindow || null,
     quotaUsed: row.quotaUsed || 0,
     quotaResetAt: row.quotaResetAt || null,
+    quotaTokenLimit: row.quotaTokenLimit ?? null,
+    quotaTokensUsed: row.quotaTokensUsed || 0,
     access: keyAccessFromColumns(row.accessRestricted, row.accessAllow),
   };
 }
@@ -41,7 +43,7 @@ export async function getApiKeyByKey(key) {
   return rowToKey(row);
 }
 
-export async function createApiKey(name, machineId, expiresAt = null, quotaLimit = null, quotaWindow = null) {
+export async function createApiKey(name, machineId, expiresAt = null, quotaLimit = null, quotaWindow = null, quotaTokenLimit = null) {
   if (!machineId) throw new Error("machineId is required");
   const db = await getAdapter();
   const { generateApiKeyWithMachine } = await import("@/shared/utils/apiKey");
@@ -58,14 +60,16 @@ export async function createApiKey(name, machineId, expiresAt = null, quotaLimit
     quotaWindow: quotaWindow || null,
     quotaUsed: 0,
     quotaResetAt: null,
+    quotaTokenLimit: quotaTokenLimit || null,
+    quotaTokensUsed: 0,
     access: { restricted: false, allow: [] },
   };
   const cols = keyAccessToColumns(KEY_ACCESS_UNRESTRICTED);
   db.run(
-    `INSERT INTO apiKeys(id, key, name, machineId, isActive, createdAt, expiresAt, quotaLimit, quotaWindow, quotaUsed, quotaResetAt, accessRestricted, accessAllow)
-     VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO apiKeys(id, key, name, machineId, isActive, createdAt, expiresAt, quotaLimit, quotaWindow, quotaUsed, quotaResetAt, quotaTokenLimit, quotaTokensUsed, accessRestricted, accessAllow)
+     VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [apiKey.id, apiKey.key, apiKey.name, apiKey.machineId, 1, apiKey.createdAt, apiKey.expiresAt,
-     apiKey.quotaLimit, apiKey.quotaWindow, apiKey.quotaUsed, apiKey.quotaResetAt, cols.accessRestricted, cols.accessAllow]
+     apiKey.quotaLimit, apiKey.quotaWindow, apiKey.quotaUsed, apiKey.quotaResetAt, apiKey.quotaTokenLimit, apiKey.quotaTokensUsed, cols.accessRestricted, cols.accessAllow]
   );
   return apiKey;
 }
@@ -79,9 +83,9 @@ export async function updateApiKey(id, data) {
     const merged = { ...rowToKey(row), ...data };
     const cols = keyAccessToColumns(merged.access);
     db.run(
-      `UPDATE apiKeys SET key = ?, name = ?, machineId = ?, isActive = ?, expiresAt = ?, quotaLimit = ?, quotaWindow = ?, accessRestricted = ?, accessAllow = ? WHERE id = ?`,
+      `UPDATE apiKeys SET key = ?, name = ?, machineId = ?, isActive = ?, expiresAt = ?, quotaLimit = ?, quotaWindow = ?, quotaTokenLimit = ?, accessRestricted = ?, accessAllow = ? WHERE id = ?`,
       [merged.key, merged.name, merged.machineId, merged.isActive ? 1 : 0, merged.expiresAt || null,
-       merged.quotaLimit || null, merged.quotaWindow || null, cols.accessRestricted, cols.accessAllow, id]
+       merged.quotaLimit || null, merged.quotaWindow || null, merged.quotaTokenLimit || null, cols.accessRestricted, cols.accessAllow, id]
     );
     result = rowToKey(db.get(`SELECT * FROM apiKeys WHERE id = ?`, [id]));
   });
@@ -112,20 +116,30 @@ function nextWindowBoundaryIso(window) {
 
 // Called once per recorded request (right after the usageHistory insert).
 // Quota-less keys are a no-op.
-export function bumpKeyQuota(db, apiKey) {
+export function bumpKeyQuota(db, apiKey, tokensCount = 0) {
   if (!apiKey || typeof apiKey !== "string") return;
   const row = db.get(
-    `SELECT quotaLimit, quotaWindow, quotaUsed, quotaResetAt FROM apiKeys WHERE key = ?`,
+    `SELECT quotaLimit, quotaWindow, quotaUsed, quotaResetAt, quotaTokenLimit, quotaTokensUsed FROM apiKeys WHERE key = ?`,
     [apiKey]
   );
-  if (!row || !row.quotaLimit || row.quotaLimit <= 0) return;
-  if (!row.quotaResetAt || new Date(row.quotaResetAt).getTime() <= Date.now()) {
-    db.run(`UPDATE apiKeys SET quotaUsed = 1, quotaResetAt = ? WHERE key = ?`, [
+  if (!row) return;
+  const hasReqLimit = row.quotaLimit && row.quotaLimit > 0;
+  const hasTokenLimit = row.quotaTokenLimit && row.quotaTokenLimit > 0;
+  if (!hasReqLimit && !hasTokenLimit) return;
+
+  const isExpired = !row.quotaResetAt || new Date(row.quotaResetAt).getTime() <= Date.now();
+  const addedTokens = Number.isFinite(tokensCount) && tokensCount > 0 ? tokensCount : 0;
+  if (isExpired) {
+    db.run(`UPDATE apiKeys SET quotaUsed = 1, quotaTokensUsed = ?, quotaResetAt = ? WHERE key = ?`, [
+      addedTokens,
       nextWindowBoundaryIso(row.quotaWindow),
       apiKey,
     ]);
   } else {
-    db.run(`UPDATE apiKeys SET quotaUsed = quotaUsed + 1 WHERE key = ?`, [apiKey]);
+    db.run(`UPDATE apiKeys SET quotaUsed = quotaUsed + 1, quotaTokensUsed = COALESCE(quotaTokensUsed, 0) + ? WHERE key = ?`, [
+      addedTokens,
+      apiKey,
+    ]);
   }
 }
 
@@ -136,24 +150,40 @@ export async function checkKeyQuota(apiKey) {
   const db = await getAdapter();
   return db.transaction(() => {
     const row = db.get(
-      `SELECT quotaLimit, quotaWindow, quotaUsed, quotaResetAt FROM apiKeys WHERE key = ?`,
+      `SELECT quotaLimit, quotaWindow, quotaUsed, quotaResetAt, quotaTokenLimit, quotaTokensUsed FROM apiKeys WHERE key = ?`,
       [apiKey]
     );
-    if (!row || !row.quotaLimit || row.quotaLimit <= 0) return null;
+    if (!row) return null;
+    const hasReqLimit = row.quotaLimit && row.quotaLimit > 0;
+    const hasTokenLimit = row.quotaTokenLimit && row.quotaTokenLimit > 0;
+    if (!hasReqLimit && !hasTokenLimit) return null;
 
-    let used = row.quotaUsed || 0;
-    if (!row.quotaResetAt || new Date(row.quotaResetAt).getTime() <= Date.now()) {
-      used = 0;
-      db.run(`UPDATE apiKeys SET quotaUsed = 0, quotaResetAt = ? WHERE key = ?`, [
+    let reqUsed = row.quotaUsed || 0;
+    let tokensUsed = row.quotaTokensUsed || 0;
+    const isExpired = !row.quotaResetAt || new Date(row.quotaResetAt).getTime() <= Date.now();
+    if (isExpired) {
+      reqUsed = 0;
+      tokensUsed = 0;
+      db.run(`UPDATE apiKeys SET quotaUsed = 0, quotaTokensUsed = 0, quotaResetAt = ? WHERE key = ?`, [
         nextWindowBoundaryIso(row.quotaWindow),
         apiKey,
       ]);
     }
-    if (used >= row.quotaLimit) {
+    if (hasReqLimit && reqUsed >= row.quotaLimit) {
       return {
         quotaExceeded: true,
-        used,
+        type: "requests",
+        used: reqUsed,
         limit: row.quotaLimit,
+        resetAt: row.quotaResetAt,
+      };
+    }
+    if (hasTokenLimit && tokensUsed >= row.quotaTokenLimit) {
+      return {
+        quotaExceeded: true,
+        type: "tokens",
+        used: tokensUsed,
+        limit: row.quotaTokenLimit,
         resetAt: row.quotaResetAt,
       };
     }
@@ -164,7 +194,7 @@ export async function checkKeyQuota(apiKey) {
 // Clear the counter and let the next request start a fresh window.
 export async function resetKeyQuota(id) {
   const db = await getAdapter();
-  db.run(`UPDATE apiKeys SET quotaUsed = 0, quotaResetAt = NULL WHERE id = ?`, [id]);
+  db.run(`UPDATE apiKeys SET quotaUsed = 0, quotaTokensUsed = 0, quotaResetAt = NULL WHERE id = ?`, [id]);
 }
 
 export async function getApiKeyUsageSummary() {

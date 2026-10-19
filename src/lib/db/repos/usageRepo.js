@@ -351,7 +351,7 @@ export async function saveRequestUsage(entry) {
       const next = (cur ? parseInt(cur.value, 10) : 0) + 1;
       db.run(`INSERT INTO _meta(key, value) VALUES('totalRequestsLifetime', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`, [String(next)]);
       // Per-key quota: count this recorded request (bumps + lazy window reset).
-      bumpKeyQuota(db, entry.apiKey);
+      bumpKeyQuota(db, entry.apiKey, (promptTokens || 0) + (completionTokens || 0));
       inserted = true;
     });
 

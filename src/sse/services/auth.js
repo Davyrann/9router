@@ -392,9 +392,10 @@ export async function getKeyRejection(apiKey) {
   const quota = await checkKeyQuota(apiKey);
   if (quota) {
     const reset = quota.resetAt ? ` Quota resets ${quota.resetAt}.` : "";
+    const unit = quota.type === "tokens" ? "tokens" : "requests";
     return {
       status: 429,
-      message: `API key quota exceeded (${quota.used}/${quota.limit} requests this window).${reset}`,
+      message: `API key quota exceeded (${quota.used}/${quota.limit} ${unit} this window).${reset}`,
     };
   }
   return null;
