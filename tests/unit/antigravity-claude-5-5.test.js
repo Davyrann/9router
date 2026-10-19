@@ -5,6 +5,10 @@ import { stripThinkingSuffix } from "../../open-sse/translator/concerns/thinking
 import { getCapabilitiesForModel } from "../../open-sse/providers/capabilities.js";
 import { getPricingForModel } from "../../open-sse/providers/pricing.js";
 import { MITM_TOOLS } from "../../src/shared/constants/cliTools.js";
+import { translateRequest } from "../../open-sse/translator/index.js";
+import { FORMATS } from "../../open-sse/translator/formats.js";
+import { AntigravityExecutor } from "../../open-sse/executors/antigravity.js";
+import "../translator/registerAll.js";
 
 const require = createRequire(import.meta.url);
 const { MODEL_SYNONYMS, MODEL_PATTERNS } = require("../../src/mitm/config.js");
@@ -109,5 +113,61 @@ describe("Antigravity Claude 5.5 models (#4555, #4548)", () => {
     // Legacy fallback still works
     expect(matchModel("claude-sonnet-4.6")).toBe("claude-sonnet-4-6");
     expect(matchModel("claude-opus-4.6")).toBe("claude-opus-4-6-thinking");
+  });
+
+  it("translates Claude request to Antigravity with thinkingConfig in generationConfig", () => {
+    const upstreamModel = getModelUpstreamId("ag", "claude-sonnet-5-5");
+    const out = translateRequest(
+      FORMATS.OPENAI,
+      FORMATS.ANTIGRAVITY,
+      upstreamModel,
+      {
+        model: "claude-sonnet-5-5",
+        messages: [{ role: "user", content: "hello" }],
+        reasoning_effort: "high",
+      },
+      true,
+      { projectId: "p1", connectionId: "c1" },
+      "antigravity"
+    );
+
+    expect(out.request.generationConfig.thinkingConfig).toEqual({
+      thinkingLevel: "high",
+      includeThoughts: true,
+    });
+
+    out.model = stripThinkingSuffix(upstreamModel);
+    const finalReq = new AntigravityExecutor().transformRequest(
+      "claude-sonnet-5-5",
+      out,
+      true,
+      { projectId: "p1", connectionId: "c1" }
+    );
+    expect(finalReq.request.generationConfig.thinkingConfig).toEqual({
+      thinkingLevel: "high",
+      includeThoughts: true,
+    });
+  });
+
+  it("handles Claude client thinking intent to Antigravity thinkingConfig", () => {
+    const upstreamModel = getModelUpstreamId("ag", "claude-sonnet-5-5-medium");
+    const out = translateRequest(
+      FORMATS.CLAUDE,
+      FORMATS.ANTIGRAVITY,
+      upstreamModel,
+      {
+        model: "claude-sonnet-5-5-medium",
+        messages: [{ role: "user", content: "hello" }],
+        thinking: { type: "enabled", budget_tokens: 16000 },
+      },
+      true,
+      { projectId: "p1", connectionId: "c1" },
+      "antigravity"
+    );
+
+    expect(out.request.generationConfig.thinkingConfig).toEqual({
+      thinkingLevel: "medium",
+      includeThoughts: true,
+    });
   });
 });

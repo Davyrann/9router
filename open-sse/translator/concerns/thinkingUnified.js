@@ -17,10 +17,13 @@ const FORMAT_TO_NATIVE = {
   gemini: "gemini-budget",
   "gemini-cli": "gemini-budget",
   vertex: "gemini-budget",
-  antigravity: "gemini-budget",
+  antigravity: "gemini-level",
   kiro: "kiro",
   commandcode: "commandcode",
 };
+
+const GEMINI_WIRE_FORMATS = new Set(["gemini", "gemini-cli", "antigravity", "vertex"]);
+const GEMINI_NATIVE_FORMATS = new Set(["gemini-level", "gemini-budget"]);
 
 // Strip a trailing thinking suffix "model(value)" → "model" (no-op when absent).
 export function stripThinkingSuffix(model) {
@@ -133,13 +136,19 @@ function resolveFormat(targetFormat, model, provider) {
   if (providerFmt) return providerFmt;
   const caps = getCapabilitiesForModel(provider, model);
   const isOpenAIWire = targetFormat === "openai" || targetFormat === "openai-responses";
-  if (caps.thinkingFormat && !(isOpenAIWire && NATIVE_ONLY_FORMATS.has(caps.thinkingFormat))) {
-    // Muse (Meta) strict Responses API rejects top-level reasoning_effort and
-    // requires nested reasoning: { effort, summary }. Other upstreams keep Chat-shaped effort.
-    if (provider === "muse" && targetFormat === "openai-responses") {
-      return "openai-responses";
+  const isGeminiWire = GEMINI_WIRE_FORMATS.has(targetFormat);
+  if (caps.thinkingFormat) {
+    if (isOpenAIWire && NATIVE_ONLY_FORMATS.has(caps.thinkingFormat)) {
+      // Fall through to FORMAT_TO_NATIVE
+    } else if (isGeminiWire && !GEMINI_NATIVE_FORMATS.has(caps.thinkingFormat)) {
+      // Non-Gemini model thinking format (e.g. claude-adaptive) cannot be sent to Gemini wire
+      return FORMAT_TO_NATIVE[targetFormat] || "gemini-level";
+    } else {
+      if (provider === "muse" && targetFormat === "openai-responses") {
+        return "openai-responses";
+      }
+      return caps.thinkingFormat;
     }
-    return caps.thinkingFormat;
   }
   return FORMAT_TO_NATIVE[targetFormat] || "openai";
 }
