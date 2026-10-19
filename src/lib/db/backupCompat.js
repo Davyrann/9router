@@ -71,7 +71,9 @@ function normalizeUsage(raw) {
   const rawLifetime = usage.totalRequestsLifetime ?? raw?.totalRequestsLifetime;
   if (rawLifetime != null && Number.isFinite(Number(rawLifetime))) lifetime = Number(rawLifetime);
 
-  return { daily, totalRequestsLifetime: lifetime };
+  const history = asArray(usage.history ?? raw?.usageHistory);
+
+  return { daily, totalRequestsLifetime: lifetime, history };
 }
 
 /**

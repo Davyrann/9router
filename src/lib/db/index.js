@@ -3,7 +3,7 @@ import { getAdapter } from "./driver.js";
 import { stringifyJson, parseJson } from "./helpers/jsonCol.js";
 import { keyAccessFromColumns, keyAccessToColumns, validateKeyAccessInput } from "@/shared/utils/keyAccess.js";
 import { KEY_ACCESS_UNRESTRICTED } from "@/shared/constants/keyAccess.js";
-import { BACKUP_FORMAT_VERSION, normalizeBackupPayload, redactSettings, mergeSettingsForImport } from "./backupCompat.js";
+import { BACKUP_FORMAT_VERSION, normalizeBackupPayload, mergeSettingsForImport } from "./backupCompat.js";
 import { SCHEMA_VERSION } from "./schema.js";
 import { getAppVersion } from "./version.js";
 
@@ -83,20 +83,36 @@ export async function exportDb() {
     appVersion: getAppVersion(),
     schemaVersion: SCHEMA_VERSION,
     exportedAt: new Date().toISOString(),
-    settings: redactSettings(await exportSettings()),
+    settings: await exportSettings(),
     providerConnections: db.all(`SELECT * FROM providerConnections`).map((r) => ({ ...parseJson(r.data, {}), id: r.id, provider: r.provider, authType: r.authType, name: r.name, email: r.email, priority: r.priority, isActive: r.isActive === 1, createdAt: r.createdAt, updatedAt: r.updatedAt })),
     providerNodes: db.all(`SELECT * FROM providerNodes`).map((r) => ({ ...parseJson(r.data, {}), id: r.id, type: r.type, name: r.name, createdAt: r.createdAt, updatedAt: r.updatedAt })),
     proxyPools: db.all(`SELECT * FROM proxyPools`).map((r) => ({ ...parseJson(r.data, {}), id: r.id, isActive: r.isActive === 1, testStatus: r.testStatus, createdAt: r.createdAt, updatedAt: r.updatedAt })),
-    apiKeys: db.all(`SELECT * FROM apiKeys`).map((r) => ({ id: r.id, key: r.key, name: r.name, machineId: r.machineId, isActive: r.isActive === 1, createdAt: r.createdAt, access: keyAccessFromColumns(r.accessRestricted, r.accessAllow) })),
+    apiKeys: db.all(`SELECT * FROM apiKeys`).map((r) => ({
+      id: r.id,
+      key: r.key,
+      name: r.name,
+      machineId: r.machineId,
+      isActive: r.isActive === 1,
+      createdAt: r.createdAt,
+      access: keyAccessFromColumns(r.accessRestricted, r.accessAllow),
+      expiresAt: r.expiresAt || null,
+      quotaLimit: r.quotaLimit != null ? r.quotaLimit : null,
+      quotaWindow: r.quotaWindow || null,
+      quotaUsed: r.quotaUsed || 0,
+      quotaResetAt: r.quotaResetAt || null,
+      quotaTokenLimit: r.quotaTokenLimit != null ? r.quotaTokenLimit : null,
+      quotaTokensUsed: r.quotaTokensUsed || 0,
+    })),
     combos: db.all(`SELECT * FROM combos`).map((r) => ({ id: r.id, name: r.name, kind: r.kind, models: parseJson(r.models, []), createdAt: r.createdAt, updatedAt: r.updatedAt })),
     modelAliases: {},
     customModels: [],
     mitmAlias: {},
     pricing: {},
-    // Usage AGGREGATES only (daily rollups + lifetime counter). Per-request
-    // usageHistory and the requestDetails log are intentionally excluded — they
-    // are large, reproducible, and would blow past Telegram's document limit.
-    usage: { daily: {}, totalRequestsLifetime: null },
+    usage: {
+      daily: {},
+      totalRequestsLifetime: null,
+      history: db.all(`SELECT * FROM usageHistory`),
+    },
   };
 
   for (const r of db.all(`SELECT key, value FROM kv WHERE scope = 'modelAliases'`)) out.modelAliases[r.key] = parseJson(r.value);
@@ -169,8 +185,8 @@ export async function importDb(payload) {
       }
       const cols = keyAccessToColumns(access);
       db.run(
-        `INSERT OR REPLACE INTO apiKeys(id, key, name, machineId, isActive, createdAt, accessRestricted, accessAllow) VALUES(?, ?, ?, ?, ?, ?, ?, ?)`,
-        [k.id, k.key, k.name || null, k.machineId || null, k.isActive === false ? 0 : 1, k.createdAt || new Date().toISOString(), cols.accessRestricted, cols.accessAllow]
+        `INSERT OR REPLACE INTO apiKeys(id, key, name, machineId, isActive, createdAt, accessRestricted, accessAllow, expiresAt, quotaLimit, quotaWindow, quotaUsed, quotaResetAt, quotaTokenLimit, quotaTokensUsed) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [k.id, k.key, k.name || null, k.machineId || null, k.isActive === false ? 0 : 1, k.createdAt || new Date().toISOString(), cols.accessRestricted, cols.accessAllow, k.expiresAt || null, k.quotaLimit != null ? k.quotaLimit : null, k.quotaWindow || null, k.quotaUsed || 0, k.quotaResetAt || null, k.quotaTokenLimit != null ? k.quotaTokenLimit : null, k.quotaTokensUsed || 0]
       );
     }
     for (const c of data.combos) {
@@ -193,16 +209,25 @@ export async function importDb(payload) {
       db.run(`INSERT OR REPLACE INTO kv(scope, key, value) VALUES('pricing', ?, ?)`, [provider, stringifyJson(models || {})]);
     }
 
-    // Usage aggregates. A backup without any usage (v1) leaves this instance's
+    // Usage aggregates and logs. A backup without any usage (v1) leaves this instance's
     // rollups untouched — wiping them would silently destroy local history that
-    // the file cannot restore. With usage present, daily rows and the lifetime
-    // counter are replaced TOGETHER so they stay consistent with each other.
-    if (data.usage.totalRequestsLifetime != null || Object.keys(data.usage.daily).length) {
+    // the file cannot restore. With usage present, daily rows, history, and lifetime
+    // counter are replaced so they stay consistent with each other.
+    if (data.usage.totalRequestsLifetime != null || Object.keys(data.usage.daily).length || data.usage.history?.length) {
       db.run(`DELETE FROM usageDaily`);
       for (const [dateKey, day] of Object.entries(data.usage.daily)) {
         db.run(`INSERT OR REPLACE INTO usageDaily(dateKey, data) VALUES(?, ?)`, [dateKey, stringifyJson(day || {})]);
       }
       db.run(`INSERT INTO _meta(key, value) VALUES('totalRequestsLifetime', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`, [String(data.usage.totalRequestsLifetime ?? 0)]);
+      if (data.usage.history && Array.isArray(data.usage.history) && data.usage.history.length > 0) {
+        db.run(`DELETE FROM usageHistory`);
+        for (const h of data.usage.history) {
+          db.run(
+            `INSERT OR REPLACE INTO usageHistory(id, timestamp, provider, model, connectionId, apiKey, endpoint, promptTokens, completionTokens, cost, status, tokens, meta) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [h.id ?? null, h.timestamp || new Date().toISOString(), h.provider || null, h.model || null, h.connectionId || null, h.apiKey || null, h.endpoint || null, h.promptTokens || 0, h.completionTokens || 0, h.cost || 0, h.status || null, typeof h.tokens === "object" ? stringifyJson(h.tokens) : (h.tokens || null), typeof h.meta === "object" ? stringifyJson(h.meta) : (h.meta || null)]
+          );
+        }
+      }
     }
   });
 

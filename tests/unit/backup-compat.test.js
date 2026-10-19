@@ -118,6 +118,19 @@ describe("non-portable secret policy", () => {
     expect(out.password).toBe("from-backup");
   });
 
+  it("normalizes usage history when present", () => {
+    const raw = {
+      formatVersion: 2,
+      usage: {
+        daily: { "2026-10-19": { requests: 5 } },
+        totalRequestsLifetime: 10,
+        history: [{ id: 1, model: "claude-sonnet-5-5", promptTokens: 100 }],
+      },
+    };
+    const out = normalizeBackupPayload(raw);
+    expect(out.usage.history).toEqual([{ id: 1, model: "claude-sonnet-5-5", promptTokens: 100 }]);
+  });
+
   it("mergeSettingsForImport tolerates a missing/empty current settings row", () => {
     expect(mergeSettingsForImport(null, { a: 1 })).toEqual({ a: 1 });
     expect(mergeSettingsForImport({}, null)).toEqual({});
