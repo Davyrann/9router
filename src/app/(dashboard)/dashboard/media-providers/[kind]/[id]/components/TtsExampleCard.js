@@ -3,9 +3,11 @@
 import { useState, useEffect } from "react";
 import { AI_PROVIDERS } from "@/shared/constants/providers";
 import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
-import { getTtsVoicesForModel } from "@/shared/constants/ttsModelVoices";
+import { TTS_PROVIDER_CONFIG } from "@/shared/constants/ttsProviders";
+import { translate } from "@/i18n/runtime";
+import { getTtsVoicesForModel } from "open-sse/config/ttsModels.js";
+import { GOOGLE_TTS_LANGUAGES } from "open-sse/config/googleTtsLanguages.js";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
-import { useTranslation } from "@/shared/hooks/useTranslation";
 import { Row } from "./exampleShared";
 
 const getTimestamp = () => Date.now();
@@ -17,29 +19,9 @@ const DEFAULT_TTS_RESPONSE_EXAMPLE = `// Binary MP3 audio stream returned.
   "audio": "<base64 encoded audio string>"
 }`;
 
-const GOOGLE_TTS_LANGUAGES = [
-  { id: "en", name: "English" },
-  { id: "vi", name: "Vietnamese" },
-  { id: "ja", name: "Japanese" },
-  { id: "ko", name: "Korean" },
-  { id: "zh-CN", name: "Chinese (Simplified)" },
-  { id: "fr", name: "French" },
-  { id: "de", name: "German" },
-  { id: "es", name: "Spanish" },
-  { id: "ru", name: "Russian" },
-  { id: "pt", name: "Portuguese" },
-  { id: "it", name: "Italian" },
-  { id: "hi", name: "Hindi" },
-  { id: "th", name: "Thai" },
-  { id: "id", name: "Indonesian" },
-  { id: "tr", name: "Turkish" },
-  { id: "ar", name: "Arabic" },
-];
-
 export function TtsExampleCard({ providerId }) {
-  const { t: translate } = useTranslation();
   const provider = AI_PROVIDERS[providerId] || {};
-  const config = provider.ttsConfig || {};
+  const config = provider.ttsConfig || TTS_PROVIDER_CONFIG[providerId] || TTS_PROVIDER_CONFIG["edge-tts"] || {};
 
   const getInitialVoices = () => {
     if (config.voiceSource === "hardcoded") {
