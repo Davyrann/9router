@@ -3,7 +3,7 @@
 import { useParams, notFound, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { Card, Badge, Button, AddCustomEmbeddingModal, NoAuthProxyCard, ProviderInfoCard } from "@/shared/components";
+import { Button, AddCustomEmbeddingModal, NoAuthProxyCard, ProviderInfoCard, CardSkeleton } from "@/shared/components";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { MEDIA_PROVIDER_KINDS, AI_PROVIDERS, isCustomEmbeddingProvider } from "@/shared/constants/providers";
 import ConnectionsCard from "@/app/(dashboard)/dashboard/providers/components/ConnectionsCard";
@@ -14,7 +14,6 @@ import { TtsExampleCard } from "./components/TtsExampleCard";
 import { GenericExampleCard } from "./components/GenericExampleCard";
 import { SttExampleCard } from "./components/SttExampleCard";
 
-// MediaProviderDetailPage
 export default function MediaProviderDetailPage() {
   const { kind, id } = useParams();
   const router = useRouter();
@@ -62,107 +61,131 @@ export default function MediaProviderDetailPage() {
   if (!isCustom && !builtInProvider) return notFound();
   if (isCustom && !customLoading && !customNode) return notFound();
   if (isCustom && customLoading) {
-    return <div className="text-text-muted text-sm py-12 text-center">Loading...</div>;
+    return (
+      <div className="flex flex-col gap-4 font-mono">
+        <CardSkeleton />
+        <CardSkeleton />
+      </div>
+    );
   }
 
   const kinds = isCustom ? ["embedding"] : (provider.serviceKinds ?? ["llm"]);
   if (!isCustom && !kinds.includes(kind)) return notFound();
 
   return (
-    <div className="flex flex-col gap-8">
-      {/* Back */}
+    <div className="flex flex-col gap-5 sm:gap-6 font-mono">
+      {/* Top Bar / Navigation */}
       <div>
         <Link
           href={`/dashboard/media-providers/${kind}`}
-          className="inline-flex items-center gap-1 text-sm text-text-muted hover:text-primary transition-colors mb-4"
+          className="inline-flex items-center gap-1.5 text-xs text-[var(--color-mute)] hover:text-[var(--color-ink)] transition-colors mb-3"
         >
-          <span className="material-symbols-outlined text-lg">arrow_back</span>
-          {kindConfig.label}
+          <span>&lt;-</span>
+          <span>[{kindConfig.label}]</span>
         </Link>
 
-        {/* Header */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-          <div className="size-12 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${provider.color}15` }}>
-            <ProviderIcon
-              src={`/providers/${provider.id}.png`}
-              alt={provider.name}
-              size={48}
-              className="object-contain rounded-lg max-w-[48px] max-h-[48px]"
-              fallbackText={provider.textIcon || provider.id.slice(0, 2).toUpperCase()}
-              fallbackColor={provider.color}
-            />
+        {/* Header: responsive flex layout stacking on mobile */}
+        <div className="border border-[var(--color-hairline)] bg-[var(--color-canvas)] p-3.5 sm:p-5 rounded-none">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start sm:items-center gap-3 min-w-0">
+              <div className="size-12 rounded-[4px] border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] flex items-center justify-center shrink-0">
+                <ProviderIcon
+                  src={`/providers/${provider.id}.png`}
+                  alt={provider.name}
+                  size={36}
+                  className="object-contain rounded-[4px] max-w-[36px] max-h-[36px]"
+                  fallbackText={provider.textIcon || provider.id.slice(0, 2).toUpperCase()}
+                  fallbackColor={provider.color}
+                />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="text-lg sm:text-2xl font-bold text-[var(--color-ink)] tracking-tight truncate">
+                    {provider.name}
+                  </h1>
+                  {!isCustom && provider.notice?.apiKeyUrl && (
+                    <a
+                      href={provider.notice.apiKeyUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-[var(--color-accent)] hover:underline inline-flex items-center gap-1"
+                    >
+                      [get key -&gt;]
+                    </a>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                  {isCustom && (
+                    <span className="text-[11px] border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] px-1.5 py-0.5 rounded-[4px] text-[var(--color-ink)]">
+                      [custom: {customNode?.prefix}]
+                    </span>
+                  )}
+                  {kinds.map((k) => (
+                    <span
+                      key={k}
+                      className={`text-[11px] border px-1.5 py-0.5 rounded-[4px] uppercase ${
+                        k === kind
+                          ? "border-[var(--color-ink)] bg-[var(--color-surface-card)] text-[var(--color-ink)] font-bold"
+                          : "border-[var(--color-hairline)] text-[var(--color-mute)]"
+                      }`}
+                    >
+                      [{k}]
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {isCustom && (
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                <Button size="sm" variant="secondary" icon="edit" onClick={() => setShowEditModal(true)}>
+                  Edit
+                </Button>
+                <Button size="sm" variant="secondary" icon="delete" onClick={handleDeleteCustom}>
+                  Delete
+                </Button>
+              </div>
+            )}
           </div>
-          <div className="flex-1">
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-              <h1 className="text-3xl font-semibold tracking-tight">{provider.name}</h1>
-              {!isCustom && provider.notice?.apiKeyUrl && (
-                <a
-                  href={provider.notice.apiKeyUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-primary hover:underline inline-flex items-center gap-1"
-                >
-                  <span className="material-symbols-outlined text-sm">open_in_new</span>
-                  Get API Key
-                </a>
-              )}
-            </div>
-            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-              {isCustom && <Badge variant="default" size="sm">Custom · {customNode?.prefix}</Badge>}
-              {kinds.map((k) => (
-                <Badge key={k} variant={k === kind ? "primary" : "default"} size="sm">
-                  {k.toUpperCase()}
-                </Badge>
-              ))}
-            </div>
-          </div>
-          {isCustom && (
-            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-              <Button size="sm" variant="secondary" icon="edit" onClick={() => setShowEditModal(true)}>
-                Edit
-              </Button>
-              <Button size="sm" variant="secondary" icon="delete" onClick={handleDeleteCustom}>
-                Delete
-              </Button>
-            </div>
-          )}
         </div>
       </div>
 
-      {/* Kind-specific notice (e.g. codex/image requires Plus) */}
+      {/* Kind-specific notice */}
       {!isCustom && provider.kindNotice?.[kind] && (
-        <div className="flex items-start gap-3 px-4 py-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400">
-          <span className="material-symbols-outlined text-[20px] mt-0.5">warning</span>
-          <p className="text-sm">{provider.kindNotice[kind]}</p>
+        <div className="flex items-start gap-2.5 p-3 sm:p-3.5 border border-[var(--color-warning)]/40 bg-[var(--color-surface-soft)] text-[var(--color-ink)] rounded-none text-xs">
+          <span className="text-[var(--color-warning)] font-bold shrink-0">[notice]</span>
+          <p className="min-w-0 flex-1 leading-relaxed">{provider.kindNotice[kind]}</p>
         </div>
       )}
 
-      {/* Provider notice text (only when there's actual text content) */}
+      {/* Provider notice text */}
       {!isCustom && provider.notice?.text && !provider.deprecated && (
-        <div className="flex flex-col gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 sm:flex-row sm:items-center">
-          <span className="material-symbols-outlined text-[16px] text-blue-500 shrink-0">info</span>
-          <p className="min-w-0 flex-1 text-xs leading-relaxed text-blue-600 dark:text-blue-400">{provider.notice.text}</p>
+        <div className="flex flex-col gap-2 p-3 sm:p-3.5 border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] text-[var(--color-ink)] rounded-none text-xs sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start sm:items-center gap-2 min-w-0 flex-1">
+            <span className="text-[var(--color-mute)] font-bold shrink-0">[info]</span>
+            <p className="min-w-0 flex-1 leading-relaxed">{provider.notice.text}</p>
+          </div>
           {provider.notice.apiKeyUrl && (
             <a
               href={provider.notice.apiKeyUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex justify-center rounded bg-blue-500 px-2 py-1 text-xs font-medium text-white transition-colors hover:bg-blue-600 sm:py-0.5"
+              className="inline-flex items-center justify-center rounded-[4px] border border-[var(--color-hairline-strong)] bg-[var(--color-canvas)] px-2.5 py-1 text-xs font-bold text-[var(--color-ink)] hover:bg-[var(--color-surface-card)] transition-colors shrink-0"
             >
-              Get API Key →
+              [get key -&gt;]
             </a>
           )}
         </div>
       )}
 
-      {/* Connections */}
+      {/* Connections Card */}
       {!isCustom && provider.noAuth ? (
         <NoAuthProxyCard providerId={id} />
       ) : (
         <ConnectionsCard providerId={id} isOAuth={false} />
       )}
 
-      {/* Models - hidden for tts/webSearch/webFetch (provider IS the model); custom uses prefix as alias */}
+      {/* Models Card */}
       {kind !== "tts" && kind !== "webSearch" && kind !== "webFetch" && (
         <ModelsCard
           providerId={id}
@@ -171,7 +194,7 @@ export default function MediaProviderDetailPage() {
         />
       )}
 
-      {/* Provider Info — config-driven, supports searchConfig, fetchConfig, ttsConfig, embeddingConfig, systemoneConfig, searchViaChat */}
+      {/* Provider Info Card */}
       {!isCustom && (provider.searchConfig || provider.fetchConfig || provider.ttsConfig || provider.sttConfig || provider.embeddingConfig || provider.systemoneConfig || provider.searchViaChat) && (
         <ProviderInfoCard
           config={
@@ -187,7 +210,7 @@ export default function MediaProviderDetailPage() {
         />
       )}
 
-      {/* Example — per kind */}
+      {/* Example Test Card */}
       {kind === "embedding" && (
         <EmbeddingExampleCard providerId={id} customAlias={customNode?.prefix} />
       )}

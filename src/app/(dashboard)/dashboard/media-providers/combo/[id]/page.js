@@ -3,9 +3,11 @@
 import { useParams, notFound, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Card, Button, Input, Toggle, ModelSelectModal } from "@/shared/components";
+import { Button, Input, Toggle, ModelSelectModal, CardSkeleton } from "@/shared/components";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { AI_PROVIDERS, MEDIA_PROVIDER_KINDS } from "@/shared/constants/providers";
+
+const getTimestamp = () => Date.now();
 
 // Parse "providerId/model" or just "providerId" → { providerId, model }
 function parseModelEntry(entry) {
@@ -15,30 +17,29 @@ function parseModelEntry(entry) {
   return { providerId: entry.slice(0, idx), model: entry.slice(idx + 1) };
 }
 
-const VALID_NAME_REGEX = /^[a-zA-Z0-9_.\-]+$/;
+const VALID_NAME_REGEX = /^[a-zA-Z0-9._-]+$/;
 
 const KIND_LABELS = {
   webSearch: "Web Search",
   webFetch: "Web Fetch",
-  image: "Text to Image",
-  tts: "Text To Speech",
+  image: "Image",
+  tts: "Text-to-Speech",
 };
 
 const EXAMPLE_PATHS = {
-  webSearch: "/v1/search",
+  webSearch: "/v1/web/search",
   webFetch: "/v1/web/fetch",
   image: "/v1/images/generations",
   tts: "/v1/audio/speech",
 };
 
 const EXAMPLE_BODIES = {
-  webSearch: (n) => ({ model: n, query: "What is the latest news about AI?", search_type: "web", max_results: 5 }),
-  webFetch: (n) => ({ model: n, url: "https://example.com", format: "markdown" }),
-  image: (n) => ({ model: n, prompt: "A cute cat playing piano", n: 1, size: "1024x1024" }),
-  tts: (n) => ({ model: n, input: "Hello, this is a test.", voice: "alloy" }),
+  webSearch: (name) => ({ model: name, query: "Latest AI news", search_type: "web", max_results: 3 }),
+  webFetch: (name) => ({ model: name, url: "https://example.com", format: "markdown" }),
+  image: (name) => ({ model: name, prompt: "A minimalist retro terminal workspace", n: 1, size: "1024x1024" }),
+  tts: (name) => ({ model: name, input: "Hello, this is a combo test.", voice: "alloy" }),
 };
 
-// Map combo.kind → listing route to go back to
 function getListingHref(kind) {
   if (kind === "webSearch" || kind === "webFetch") return "/dashboard/media-providers/web";
   return `/dashboard/media-providers/${kind}`;
@@ -118,18 +119,18 @@ export default function ComboDetailPage() {
     if (ok) await fetchAll();
   };
 
-  const handleAddModel = async (model) => {
-    const value = model?.value || model;
+  const handleAddModel = async (entry) => {
+    const value = typeof entry === "string" ? entry : (entry?.value || "");
     if (!value || providers.includes(value)) return;
     const next = [...providers, value];
     setProviders(next);
     await saveCombo({ models: next });
   };
 
-  const handleDeselectModel = async (model) => {
-    const value = model?.value || model;
-    if (!value || !providers.includes(value)) return;
-    const next = providers.filter((p) => p !== value);
+  const handleDeselectModel = async (entry) => {
+    const value = typeof entry === "string" ? entry : (entry?.value || "");
+    if (!value) return;
+    const next = providers.filter((v) => v !== value);
     setProviders(next);
     await saveCombo({ models: next });
   };
@@ -140,22 +141,25 @@ export default function ComboDetailPage() {
     await saveCombo({ models: next });
   };
 
-  const handleMove = async (idx, dir) => {
+  const handleMove = async (idx, delta) => {
     const next = [...providers];
-    const swap = idx + dir;
+    const swap = idx + delta;
     if (swap < 0 || swap >= next.length) return;
-    [next[idx], next[swap]] = [next[swap], next[idx]];
+    const [item] = next.splice(idx, 1);
+    next.splice(swap, 0, item);
     setProviders(next);
     await saveCombo({ models: next });
   };
 
-  const handleToggleRoundRobin = async (enabled) => {
-    setRoundRobin(enabled);
-    const settingsRes = await fetch("/api/settings", { cache: "no-store" });
-    const s = settingsRes.ok ? await settingsRes.json() : {};
+  const handleToggleRoundRobin = async (val) => {
+    setRoundRobin(val);
+    const settingsRes = await fetch("/api/settings", { cache: "no-store" }).catch(() => null);
+    const s = settingsRes?.ok ? await settingsRes.json() : {};
     const updated = { ...(s.comboStrategies || {}) };
-    if (enabled) updated[combo.name] = { fallbackStrategy: "round-robin" };
-    else delete updated[combo.name];
+    updated[combo.name] = {
+      ...(updated[combo.name] || {}),
+      fallbackStrategy: val ? "round-robin" : "priority",
+    };
     await fetch("/api/settings", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -175,14 +179,14 @@ export default function ComboDetailPage() {
     setTestError("");
     if (testResult?.audioUrl) { try { URL.revokeObjectURL(testResult.audioUrl); } catch {} }
     if (testResult?.imageUrl?.startsWith("blob:")) { try { URL.revokeObjectURL(testResult.imageUrl); } catch {} }
-    const start = Date.now();
+    const start = getTimestamp();
     try {
       const path = EXAMPLE_PATHS[combo.kind];
       const body = EXAMPLE_BODIES[combo.kind](combo.name);
       const headers = { "Content-Type": "application/json" };
       if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
       const res = await fetch(`/api${path}`, { method: "POST", headers, body: JSON.stringify(body) });
-      const latencyMs = Date.now() - start;
+      const latencyMs = getTimestamp() - start;
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
         setTestError(d?.error?.message || d?.error || `HTTP ${res.status}`);
@@ -202,7 +206,7 @@ export default function ComboDetailPage() {
         setTestResult({ audioUrl: URL.createObjectURL(blob), latencyMs });
         return;
       }
-      // JSON — could be image (data[0].b64_json/url) or generic
+      // JSON
       const data = await res.json();
       const first = data?.data?.[0];
       const imageUrl = first?.b64_json
@@ -211,8 +215,9 @@ export default function ComboDetailPage() {
       setTestResult({ json: JSON.stringify(maskB64(data), null, 2), imageUrl, latencyMs });
     } catch (e) {
       setTestError(e.message || "Network error");
+    } finally {
+      setTesting(false);
     }
-    setTesting(false);
   };
 
   // Mask large b64_json strings to keep JSON view readable
@@ -228,7 +233,14 @@ export default function ComboDetailPage() {
     return out;
   }
 
-  if (loading) return <div className="text-text-muted text-sm">Loading...</div>;
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-4 font-mono">
+        <CardSkeleton />
+        <CardSkeleton />
+      </div>
+    );
+  }
   if (!combo) return notFound();
 
   const kindLabel = KIND_LABELS[combo.kind] || MEDIA_PROVIDER_KINDS.find((k) => k.id === combo.kind)?.label || "Combo";
@@ -240,56 +252,101 @@ export default function ComboDetailPage() {
   const backHref = getListingHref(combo.kind);
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3 min-w-0">
-          <Link href={backHref} className="text-text-muted hover:text-primary">
-            <span className="material-symbols-outlined">arrow_back</span>
-          </Link>
-          <div className="size-10 rounded-lg bg-primary/10 flex items-center justify-center">
-            <span className="material-symbols-outlined text-primary">layers</span>
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs text-text-muted">{kindLabel} Combo</p>
-            <code className="text-lg font-semibold font-mono">{combo.name}</code>
+    <div className="flex flex-col gap-5 sm:gap-6 font-mono">
+      {/* Top Bar / Navigation */}
+      <div>
+        <Link
+          href={backHref}
+          className="inline-flex items-center gap-1.5 text-xs text-[var(--color-mute)] hover:text-[var(--color-ink)] transition-colors mb-3"
+        >
+          <span>&lt;-</span>
+          <span>[{kindLabel} Combos]</span>
+        </Link>
+
+        {/* Header: responsive flex layout stacking on mobile */}
+        <div className="border border-[var(--color-hairline)] bg-[var(--color-canvas)] p-3.5 sm:p-5 rounded-none">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="size-10 rounded-[4px] border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] flex items-center justify-center shrink-0">
+                <span className="font-mono text-xs font-bold text-[var(--color-ink)]">[C]</span>
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-[var(--color-mute)]">[{kindLabel}]</span>
+                  <code className="text-base sm:text-xl font-bold font-mono text-[var(--color-ink)] truncate">
+                    {combo.name}
+                  </code>
+                </div>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-xs text-[var(--color-mute)]">
+                    [{providers.length} models configured]
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={handleDelete}
+                className="inline-flex items-center justify-center rounded-[4px] border border-[var(--color-danger)]/40 bg-[var(--color-canvas)] hover:bg-[var(--color-danger)]/10 text-[var(--color-danger)] text-xs px-3 py-1.5 min-h-[34px] transition-colors"
+              >
+                [delete combo]
+              </button>
+            </div>
           </div>
         </div>
-        <Button variant="outline" icon="delete" onClick={handleDelete} className="text-red-500 border-red-200 hover:bg-red-50">
-          Delete
-        </Button>
       </div>
 
       {/* Settings Card */}
-      <Card>
-        <h2 className="text-lg font-semibold mb-3">Settings</h2>
+      <div className="border border-[var(--color-hairline)] bg-[var(--color-canvas)] p-3.5 sm:p-5 rounded-none">
+        <div className="flex items-center justify-between mb-4 pb-2 border-b border-[var(--color-hairline)]">
+          <h2 className="text-sm font-bold text-[var(--color-ink)]">[settings]</h2>
+        </div>
         <div className="flex flex-col gap-4">
           <div>
-            <Input label="Combo Name" value={name} onChange={(e) => { setName(e.target.value); validateName(e.target.value); }} onBlur={handleSaveName} error={nameError} />
-            <p className="text-[10px] text-text-muted mt-0.5">Only letters, numbers, -, _ and .</p>
+            <Input
+              label="Combo Name"
+              value={name}
+              onChange={(e) => { setName(e.target.value); validateName(e.target.value); }}
+              onBlur={handleSaveName}
+              error={nameError}
+            />
+            <p className="text-[11px] text-[var(--color-mute)] mt-1 font-mono">
+              Only letters, numbers, -, _ and .
+            </p>
           </div>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between pt-3 border-t border-[var(--color-hairline)]">
             <div>
-              <p className="text-sm font-medium">Round Robin</p>
-              <p className="text-xs text-text-muted">Rotate providers across requests instead of strict fallback order.</p>
+              <p className="text-xs sm:text-sm font-bold text-[var(--color-ink)]">Round Robin</p>
+              <p className="text-xs text-[var(--color-mute)]">
+                Rotate providers across requests instead of strict priority fallback.
+              </p>
             </div>
             <Toggle checked={roundRobin} onChange={handleToggleRoundRobin} />
           </div>
         </div>
-      </Card>
+      </div>
 
       {/* Providers Card */}
-      <Card>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-3">
+      <div className="border border-[var(--color-hairline)] bg-[var(--color-canvas)] p-3.5 sm:p-5 rounded-none">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4 pb-2 border-b border-[var(--color-hairline)]">
           <div>
-            <h2 className="text-lg font-semibold">Providers</h2>
-            <p className="text-xs text-text-muted">Tried in order (top-down) or rotated when round-robin is on.</p>
+            <h2 className="text-sm font-bold text-[var(--color-ink)]">[providers]</h2>
+            <p className="text-xs text-[var(--color-mute)]">
+              Tried in order (top-down) or rotated when round-robin is enabled.
+            </p>
           </div>
-          <Button size="sm" icon="add" onClick={() => setShowPicker(true)}>Add Provider</Button>
+          <div className="self-start sm:self-auto">
+            <Button size="sm" icon="add" onClick={() => setShowPicker(true)}>
+              Add Provider
+            </Button>
+          </div>
         </div>
+
         {providers.length === 0 ? (
-          <div className="text-center py-6 border border-dashed border-border rounded-lg text-text-muted text-sm">
-            No providers yet.
+          <div className="text-center py-8 border border-dashed border-[var(--color-hairline)] rounded-none text-[var(--color-mute)] text-xs">
+            [-] No providers added yet.
           </div>
         ) : (
           <div className="flex flex-col gap-2">
@@ -297,29 +354,59 @@ export default function ComboDetailPage() {
               const { providerId, model } = parseModelEntry(entry);
               const p = AI_PROVIDERS[providerId];
               return (
-                <div key={`${entry}-${idx}`} className="flex items-center gap-3 p-2 rounded-lg bg-black/[0.02] dark:bg-white/[0.02]">
-                  <span className="text-xs text-text-muted w-5 text-center">{idx + 1}</span>
-                  <ProviderIcon
-                    src={`/providers/${providerId}.png`}
-                    alt={p?.name || providerId}
-                    size={24}
-                    className="object-contain rounded shrink-0"
-                    fallbackText={p?.textIcon || providerId.slice(0, 2).toUpperCase()}
-                    fallbackColor={p?.color}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium truncate">{p?.name || providerId}</div>
-                    {model && <code className="text-[10px] text-text-muted font-mono truncate block">{model}</code>}
+                <div
+                  key={`${entry}-${idx}`}
+                  className="flex items-center gap-2.5 sm:gap-3 p-2.5 border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] rounded-[4px]"
+                >
+                  <span className="text-xs text-[var(--color-mute)] font-mono w-6 text-center shrink-0">
+                    #{idx + 1}
+                  </span>
+                  <div className="size-6 rounded-[4px] border border-[var(--color-hairline)] bg-[var(--color-canvas)] flex items-center justify-center shrink-0">
+                    <ProviderIcon
+                      src={`/providers/${providerId}.png`}
+                      alt={p?.name || providerId}
+                      size={20}
+                      className="object-contain rounded-[4px] max-w-[20px] max-h-[20px]"
+                      fallbackText={p?.textIcon || providerId.slice(0, 2).toUpperCase()}
+                      fallbackColor={p?.color}
+                    />
                   </div>
-                  <div className="flex items-center gap-0.5">
-                    <button onClick={() => handleMove(idx, -1)} disabled={idx === 0} className={`p-1 rounded ${idx === 0 ? "text-text-muted/20" : "text-text-muted hover:text-primary hover:bg-black/5"}`} title="Move up">
-                      <span className="material-symbols-outlined text-[16px]">arrow_upward</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs sm:text-sm font-bold text-[var(--color-ink)] truncate">
+                      {p?.name || providerId}
+                    </div>
+                    {model && (
+                      <code className="text-[11px] text-[var(--color-mute)] font-mono truncate block">
+                        {model}
+                      </code>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleMove(idx, -1)}
+                      disabled={idx === 0}
+                      className="px-2 py-1 text-xs border border-[var(--color-hairline)] rounded-[4px] text-[var(--color-ink)] hover:bg-[var(--color-surface-card)] disabled:opacity-30 disabled:cursor-not-allowed"
+                      title="Move up"
+                    >
+                      [^]
                     </button>
-                    <button onClick={() => handleMove(idx, 1)} disabled={idx === providers.length - 1} className={`p-1 rounded ${idx === providers.length - 1 ? "text-text-muted/20" : "text-text-muted hover:text-primary hover:bg-black/5"}`} title="Move down">
-                      <span className="material-symbols-outlined text-[16px]">arrow_downward</span>
+                    <button
+                      type="button"
+                      onClick={() => handleMove(idx, 1)}
+                      disabled={idx === providers.length - 1}
+                      className="px-2 py-1 text-xs border border-[var(--color-hairline)] rounded-[4px] text-[var(--color-ink)] hover:bg-[var(--color-surface-card)] disabled:opacity-30 disabled:cursor-not-allowed"
+                      title="Move down"
+                    >
+                      [v]
                     </button>
-                    <button onClick={() => handleRemoveProvider(idx)} className="p-1 rounded text-text-muted hover:text-red-500 hover:bg-red-500/10" title="Remove">
-                      <span className="material-symbols-outlined text-[16px]">close</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveProvider(idx)}
+                      className="px-2 py-1 text-xs border border-[var(--color-danger)]/40 rounded-[4px] text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10"
+                      title="Remove"
+                    >
+                      [x]
                     </button>
                   </div>
                 </div>
@@ -327,71 +414,97 @@ export default function ComboDetailPage() {
             })}
           </div>
         )}
-      </Card>
+      </div>
 
       {/* Test Example Card */}
       {combo.kind && examplePath && (
-        <Card>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-3">
-            <h2 className="text-lg font-semibold">Test Example</h2>
-            <Button size="sm" icon="play_arrow" onClick={handleTest} disabled={testing || providers.length === 0}>
-              {testing ? "Running..." : "Run"}
-            </Button>
+        <div className="border border-[var(--color-hairline)] bg-[var(--color-canvas)] p-3.5 sm:p-5 rounded-none">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4 pb-2 border-b border-[var(--color-hairline)]">
+            <h2 className="text-sm font-bold text-[var(--color-ink)]">[test example]</h2>
+            <div className="self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={handleTest}
+                disabled={testing || providers.length === 0}
+                className="inline-flex items-center justify-center rounded-[4px] bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-[var(--color-on-primary)] text-xs font-bold px-3.5 py-1.5 min-h-[36px] transition-colors disabled:opacity-50 touch-manipulation"
+              >
+                {testing ? "[running...]" : "[run test]"}
+              </button>
+            </div>
           </div>
-          <pre className="text-xs font-mono bg-black/[0.03] dark:bg-white/[0.03] p-3 rounded-lg overflow-x-auto whitespace-pre-wrap break-all">
+          <pre className="bg-[var(--color-surface-card)] border border-[var(--color-hairline)] rounded-[4px] p-3 text-xs text-[var(--color-ink)] overflow-x-auto whitespace-pre-wrap break-all leading-relaxed">
             {curlExample}
           </pre>
           {testError && (
-            <p className="mt-3 text-xs text-red-500 break-words">{testError}</p>
+            <div className="mt-3 border border-[var(--color-danger)]/40 bg-[var(--color-danger)]/10 text-[var(--color-danger)] p-3 rounded-[4px] text-xs break-words">
+              {testError}
+            </div>
           )}
           {testResult && (
             <div className="mt-3 flex flex-col gap-3">
               {testResult.latencyMs != null && (
-                <span className="text-[11px] text-text-muted">⚡ {testResult.latencyMs}ms</span>
+                <span className="text-xs text-[var(--color-success)] font-medium">
+                  [{testResult.latencyMs}ms]
+                </span>
               )}
               {testResult.imageUrl && (
-                <div>
-                  <div className="flex items-center justify-end mb-1.5">
-                    <a href={testResult.imageUrl} download="image.png" className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-primary transition-colors">
-                      <span className="material-symbols-outlined text-[14px]">download</span>
-                      Download
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-end">
+                    <a
+                      href={testResult.imageUrl}
+                      download="image.png"
+                      className="inline-flex items-center gap-1 text-xs border border-[var(--color-hairline)] rounded-[4px] bg-[var(--color-surface-soft)] hover:bg-[var(--color-surface-card)] px-3 py-1.5 text-[var(--color-ink)] transition-colors min-h-[32px]"
+                    >
+                      [download]
                     </a>
                   </div>
-                  <img src={testResult.imageUrl} alt="Generated" className="max-w-full rounded-lg border border-border" loading="lazy" decoding="async" />
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={testResult.imageUrl}
+                    alt="Generated"
+                    className="max-w-full rounded-[4px] border border-[var(--color-hairline)] bg-[var(--color-surface-soft)]"
+                    loading="lazy"
+                    decoding="async"
+                  />
                 </div>
               )}
               {testResult.audioUrl && (
-                <div>
-                  <div className="flex items-center justify-end mb-1.5">
-                    <a href={testResult.audioUrl} download="speech.mp3" className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-primary transition-colors">
-                      <span className="material-symbols-outlined text-[14px]">download</span>
-                      Download
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-end">
+                    <a
+                      href={testResult.audioUrl}
+                      download="speech.mp3"
+                      className="inline-flex items-center gap-1 text-xs border border-[var(--color-hairline)] rounded-[4px] bg-[var(--color-surface-soft)] hover:bg-[var(--color-surface-card)] px-3 py-1.5 text-[var(--color-ink)] transition-colors min-h-[32px]"
+                    >
+                      [download]
                     </a>
                   </div>
-                  <audio controls src={testResult.audioUrl} className="w-full" />
+                  <audio controls src={testResult.audioUrl} className="w-full rounded-[4px] min-h-[44px]" />
                 </div>
               )}
               {testResult.json && (
-                <pre className="text-xs font-mono bg-black/[0.03] dark:bg-white/[0.03] p-3 rounded-lg overflow-auto max-h-[300px] whitespace-pre-wrap break-all">
+                <pre className="bg-[var(--color-surface-card)] border border-[var(--color-hairline)] rounded-[4px] p-3 text-xs text-[var(--color-ink)] overflow-auto max-h-[300px] whitespace-pre-wrap break-all leading-relaxed">
                   {testResult.json}
                 </pre>
               )}
             </div>
           )}
-        </Card>
+        </div>
       )}
 
       {/* Usage Logs Card */}
-      <Card>
-        <h2 className="text-lg font-semibold mb-3">Usage Logs</h2>
+      <div className="border border-[var(--color-hairline)] bg-[var(--color-canvas)] p-3.5 sm:p-5 rounded-none">
+        <h2 className="text-sm font-bold text-[var(--color-ink)] mb-3 pb-2 border-b border-[var(--color-hairline)]">
+          [usage logs]
+        </h2>
         {logs.length === 0 ? (
-          <p className="text-xs text-text-muted italic">No usage yet.</p>
+          <p className="text-xs text-[var(--color-mute)]">[-] No usage recorded yet.</p>
         ) : (
-          <pre className="text-[11px] font-mono bg-black/[0.03] dark:bg-white/[0.03] p-3 rounded-lg overflow-auto max-h-[400px] whitespace-pre-wrap">
+          <pre className="bg-[var(--color-surface-card)] border border-[var(--color-hairline)] rounded-[4px] p-3 text-xs text-[var(--color-ink)] overflow-auto max-h-[400px] whitespace-pre-wrap leading-relaxed">
             {logs.join("\n")}
           </pre>
         )}
-      </Card>
+      </div>
 
       {showPicker && (
         <ModelSelectModal

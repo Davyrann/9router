@@ -35,6 +35,23 @@ const systemItems = [
   { href: "/dashboard/skills", label: "Skills", icon: "extension" },
 ];
 
+const NavLink = ({ href, label, icon, active, onClick }) => (
+  <Link
+    href={href}
+    onClick={onClick}
+    className={cn(
+      "flex items-center gap-3 px-3 py-2 transition-colors group",
+      "border-l-2",
+      active
+        ? "border-[var(--color-ink)] text-[var(--color-ink)] bg-[var(--color-surface-soft)]"
+        : "border-transparent text-[var(--color-mute)] hover:text-[var(--color-ink)] hover:bg-[var(--color-surface-soft)]"
+    )}
+  >
+    <span className={cn("material-symbols-outlined text-[16px]", active ? "fill-1" : "")}>{icon}</span>
+    <span className="text-[13px] font-medium">{label}</span>
+  </Link>
+);
+
 export default function Sidebar({ onClose }) {
   const pathname = usePathname();
   const [mediaOpen, setMediaOpen] = useState(false);
@@ -97,26 +114,6 @@ export default function Sidebar({ onClose }) {
     setShutdownCountdown(0);
   };
 
-  const NavLink = ({ href, label, icon }) => {
-    const active = isActive(href);
-    return (
-      <Link
-        href={href}
-        onClick={onClose}
-        className={cn(
-          "flex items-center gap-3 px-3 py-2 transition-colors group",
-          "border-l-2",
-          active
-            ? "border-[var(--color-ink)] text-[var(--color-ink)] bg-[var(--color-surface-soft)]"
-            : "border-transparent text-[var(--color-mute)] hover:text-[var(--color-ink)] hover:bg-[var(--color-surface-soft)]"
-        )}
-      >
-        <span className={cn("material-symbols-outlined text-[16px]", active ? "fill-1" : "")}>{icon}</span>
-        <span className="text-[13px] font-medium">{label}</span>
-      </Link>
-    );
-  };
-
   return (
     <>
       <aside
@@ -124,47 +121,58 @@ export default function Sidebar({ onClose }) {
         style={{ fontFamily: "var(--font-mono)" }}
       >
         {/* Wordmark */}
-        <div className="px-4 pt-5 pb-3 border-b border-[var(--color-hairline)]">
-          <Link href="/dashboard" className="flex items-center gap-3 group">
-            <div className="flex flex-col">
-              <span className="text-[16px] font-bold text-[var(--color-ink)] tracking-tight leading-tight">
-                9Router
-              </span>
-              <span className="text-[12px] text-[var(--color-mute)] leading-none">v{APP_CONFIG.version}</span>
-            </div>
+        <div
+          className="flex items-center justify-between px-4 border-b border-[var(--color-hairline)] shrink-0"
+          style={{ height: "56px" }}
+        >
+          <Link href="/dashboard" className="flex items-baseline gap-2 group">
+            <span className="text-[16px] font-bold text-[var(--color-ink)] tracking-tight leading-none">
+              9Router
+            </span>
+            <span className="text-[12px] text-[var(--color-mute)] leading-none">v{APP_CONFIG.version}</span>
           </Link>
-
           {updateInfo && (
-            <div className="mt-3 border-t border-[var(--color-hairline)] pt-2">
-              <span className="text-[12px] font-bold text-[var(--color-success)]">
-                [+] v{updateInfo.latestVersion} available
-              </span>
-              <div className="flex items-center gap-2 mt-1">
-                <button
-                  onClick={() => setShowUpdateModal(true)}
-                  className="px-2 py-0.5 border border-[var(--color-hairline)] text-[11px] font-medium text-[var(--color-ink)] hover:bg-[var(--color-surface-soft)] transition-colors"
-                  style={{ borderRadius: "4px" }}
-                >
-                  Update
-                </button>
-                <button
-                  onClick={() => copy(INSTALL_CMD)}
-                  className="text-left hover:opacity-70 transition-opacity flex-1 min-w-0"
-                >
-                  <code className="block text-[10px] text-[var(--color-mute)] truncate">
-                    {copied ? "✓ copied" : INSTALL_CMD}
-                  </code>
-                </button>
-              </div>
-            </div>
+            <button
+              onClick={() => setShowUpdateModal(true)}
+              className="px-1.5 py-0.5 border border-[var(--color-hairline)] text-[10px] font-bold text-[var(--color-success)] hover:bg-[var(--color-surface-soft)] transition-colors"
+              style={{ borderRadius: "4px" }}
+              title={`v${updateInfo.latestVersion} available`}
+            >
+              [+update]
+            </button>
           )}
         </div>
+
+        {updateInfo && (
+          <div className="px-4 py-2 border-b border-[var(--color-hairline)] bg-[var(--color-surface-soft)] shrink-0 text-[11px]">
+            <span className="font-bold text-[var(--color-success)]">
+              [+] v{updateInfo.latestVersion} available
+            </span>
+            <div className="flex items-center gap-2 mt-1">
+              <button
+                onClick={() => setShowUpdateModal(true)}
+                className="px-2 py-0.5 border border-[var(--color-hairline)] text-[11px] font-medium text-[var(--color-ink)] hover:bg-[var(--color-canvas)] transition-colors"
+                style={{ borderRadius: "4px" }}
+              >
+                Update
+              </button>
+              <button
+                onClick={() => copy(INSTALL_CMD)}
+                className="text-left hover:opacity-70 transition-opacity flex-1 min-w-0"
+              >
+                <code className="block text-[10px] text-[var(--color-mute)] truncate">
+                  {copied ? "✓ copied" : INSTALL_CMD}
+                </code>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Navigation */}
         <nav className="flex-1 py-3 overflow-y-auto custom-scrollbar">
           <div className="space-y-0">
             {navItems.map((item) => (
-              <NavLink key={item.href} {...item} />
+              <NavLink key={item.href} {...item} active={isActive(item.href)} onClick={onClose} />
             ))}
           </div>
 
@@ -196,22 +204,38 @@ export default function Sidebar({ onClose }) {
                     href={`/dashboard/media-providers/${kind.id}`}
                     label={kind.label}
                     icon={kind.icon}
+                    active={isActive(`/dashboard/media-providers/${kind.id}`)}
+                    onClick={onClose}
                   />
                 ))}
-                <NavLink href={COMBINED_WEB_ITEM.href} label={COMBINED_WEB_ITEM.label} icon={COMBINED_WEB_ITEM.icon} />
+                <NavLink
+                  href={COMBINED_WEB_ITEM.href}
+                  label={COMBINED_WEB_ITEM.label}
+                  icon={COMBINED_WEB_ITEM.icon}
+                  active={isActive(COMBINED_WEB_ITEM.href)}
+                  onClick={onClose}
+                />
               </div>
             )}
 
             {systemItems.map((item) => (
-              <NavLink key={item.href} {...item} />
+              <NavLink key={item.href} {...item} active={isActive(item.href)} onClick={onClose} />
             ))}
 
             {debugItems.map((item) => {
               const show = item.href !== "/dashboard/translator" || enableTranslator;
-              return show ? <NavLink key={item.href} {...item} /> : null;
+              return show ? (
+                <NavLink key={item.href} {...item} active={isActive(item.href)} onClick={onClose} />
+              ) : null;
             })}
 
-            <NavLink href="/dashboard/profile" label="Settings" icon="settings" />
+            <NavLink
+              href="/dashboard/profile"
+              label="Settings"
+              icon="settings"
+              active={isActive("/dashboard/profile")}
+              onClick={onClose}
+            />
           </div>
         </nav>
       </aside>

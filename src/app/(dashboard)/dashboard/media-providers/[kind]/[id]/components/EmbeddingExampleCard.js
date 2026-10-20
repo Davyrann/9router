@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card } from "@/shared/components";
 import { getProviderAlias, isCustomEmbeddingProvider } from "@/shared/constants/providers";
 import { getModelsByProviderId, getModelKind } from "@/shared/constants/models";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { Row } from "./exampleShared";
+
+const getTimestamp = () => Date.now();
 
 const DEFAULT_RESPONSE_EXAMPLE = `{
   "object": "list",
@@ -28,7 +29,9 @@ export function EmbeddingExampleCard({ providerId, customAlias }) {
   const [dimensions, setDimensions] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [useTunnel, setUseTunnel] = useState(false);
-  const [localEndpoint, setLocalEndpoint] = useState("");
+  const [localEndpoint, setLocalEndpoint] = useState(() =>
+    typeof window !== "undefined" ? window.location.origin : ""
+  );
   const [tunnelEndpoint, setTunnelEndpoint] = useState("");
   const [result, setResult] = useState(null);
   const [running, setRunning] = useState(false);
@@ -37,7 +40,6 @@ export function EmbeddingExampleCard({ providerId, customAlias }) {
   const { copied: copiedRes, copy: copyRes } = useCopyToClipboard();
 
   useEffect(() => {
-    setLocalEndpoint(window.location.origin);
     fetch("/api/keys")
       .then((r) => r.json())
       .then((d) => { setApiKey((d.keys || []).find((k) => k.isActive !== false)?.key || ""); })
@@ -69,7 +71,7 @@ export function EmbeddingExampleCard({ providerId, customAlias }) {
     setRunning(true);
     setError("");
     setResult(null);
-    const start = Date.now();
+    const start = getTimestamp();
     try {
       const headers = { "Content-Type": "application/json" };
       if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
@@ -78,7 +80,7 @@ export function EmbeddingExampleCard({ providerId, customAlias }) {
         headers,
         body: JSON.stringify(buildBody()),
       });
-      const latencyMs = Date.now() - start;
+      const latencyMs = getTimestamp() - start;
       const data = await res.json();
       if (!res.ok) { setError(data?.error?.message || data?.error || `HTTP ${res.status}`); return; }
       setResult({ data, latencyMs });
@@ -104,24 +106,36 @@ export function EmbeddingExampleCard({ providerId, customAlias }) {
   const resultJson = result ? JSON.stringify(result.data, null, 2) : "";
 
   return (
-    <Card>
-      <h2 className="text-lg font-semibold mb-4">Example</h2>
+    <div className="border border-[var(--color-hairline)] bg-[var(--color-canvas)] p-3.5 sm:p-5 rounded-none font-mono">
+      <div className="flex items-center justify-between mb-4 pb-2.5 border-b border-[var(--color-hairline)]">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-[var(--color-mute)]">[test]</span>
+          <h2 className="text-sm sm:text-base font-bold text-[var(--color-ink)]">
+            Embedding Example
+          </h2>
+        </div>
+        {result && (
+          <span className="text-xs text-[var(--color-success)] font-medium">
+            [{result.latencyMs}ms]
+          </span>
+        )}
+      </div>
 
-      <div className="flex flex-col gap-2.5">
-        {/* Model — text input for custom node, dropdown otherwise */}
+      <div className="flex flex-col gap-3">
+        {/* Model */}
         <Row label="Model">
           {isCustom ? (
             <input
               value={selectedModel}
               onChange={(e) => setSelectedModel(e.target.value)}
               placeholder="e.g. voyage-3, embed-english-v3.0, text-embedding-3-small"
-              className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary font-mono"
+              className="w-full px-3 py-2 text-xs sm:text-sm border border-[var(--color-hairline)] rounded-[4px] bg-[var(--color-surface-soft)] text-[var(--color-ink)] focus:bg-[var(--color-canvas)] focus:border-[var(--color-ink)] focus:outline-none min-h-[38px] transition-colors"
             />
           ) : (
             <select
               value={selectedModel}
               onChange={(e) => setSelectedModel(e.target.value)}
-              className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
+              className="w-full px-3 py-2 text-xs sm:text-sm border border-[var(--color-hairline)] rounded-[4px] bg-[var(--color-surface-soft)] text-[var(--color-ink)] focus:bg-[var(--color-canvas)] focus:border-[var(--color-ink)] focus:outline-none min-h-[38px] transition-colors"
             >
               {embeddingModels.map((m) => (
                 <option key={m.id} value={m.id}>{m.name || m.id}</option>
@@ -132,24 +146,25 @@ export function EmbeddingExampleCard({ providerId, customAlias }) {
 
         {/* Endpoint */}
         <Row label="Endpoint">
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center">
             <input
               value={endpoint}
               onChange={(e) => useTunnel ? setTunnelEndpoint(e.target.value) : setLocalEndpoint(e.target.value)}
-              className="w-full min-w-0 flex-1 px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary font-mono"
-              placeholder="http://localhost:3000"
+              className="w-full min-w-0 flex-1 px-3 py-2 text-xs sm:text-sm border border-[var(--color-hairline)] rounded-[4px] bg-[var(--color-surface-soft)] text-[var(--color-ink)] focus:bg-[var(--color-canvas)] focus:border-[var(--color-ink)] focus:outline-none min-h-[38px] transition-colors"
+              placeholder="http://localhost:20128"
             />
-            {/* Tunnel toggle — only show if tunnel URL is available */}
             {tunnelEndpoint && (
               <button
+                type="button"
                 onClick={() => setUseTunnel((v) => !v)}
                 title={useTunnel ? "Using tunnel" : "Using local"}
-                className={`flex items-center gap-1 text-xs px-2 py-1.5 rounded-lg border shrink-0 transition-colors ${
-                  useTunnel ? "border-primary/40 bg-primary/10 text-primary" : "border-border text-text-muted hover:text-primary"
+                className={`flex items-center justify-center gap-1 text-xs px-3 py-2 rounded-[4px] border shrink-0 transition-colors min-h-[38px] ${
+                  useTunnel
+                    ? "border-[var(--color-ink)] bg-[var(--color-surface-card)] text-[var(--color-ink)] font-bold"
+                    : "border-[var(--color-hairline)] text-[var(--color-mute)] hover:text-[var(--color-ink)]"
                 }`}
               >
-                <span className="material-symbols-outlined text-[14px]">wifi_tethering</span>
-                Tunnel
+                [tunnel]
               </button>
             )}
           </div>
@@ -162,31 +177,31 @@ export function EmbeddingExampleCard({ providerId, customAlias }) {
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
             placeholder="sk-..."
-            className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary font-mono"
+            className="w-full px-3 py-2 text-xs sm:text-sm border border-[var(--color-hairline)] rounded-[4px] bg-[var(--color-surface-soft)] text-[var(--color-ink)] focus:bg-[var(--color-canvas)] focus:border-[var(--color-ink)] focus:outline-none min-h-[38px] transition-colors"
           />
         </Row>
 
         {/* Input */}
         <Row label="Input">
-          <div className="relative">
+          <div className="relative w-full">
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              className="w-full px-3 py-1.5 pr-7 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
+              className="w-full px-3 py-2 pr-8 text-xs sm:text-sm border border-[var(--color-hairline)] rounded-[4px] bg-[var(--color-surface-soft)] text-[var(--color-ink)] focus:bg-[var(--color-canvas)] focus:border-[var(--color-ink)] focus:outline-none min-h-[38px] transition-colors"
             />
             {input && (
               <button
                 type="button"
                 onClick={() => setInput("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-primary transition-colors"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-mute)] hover:text-[var(--color-ink)] text-xs p-1"
               >
-                <span className="material-symbols-outlined text-[14px]">close</span>
+                [x]
               </button>
             )}
           </div>
         </Row>
 
-        {/* Dimensions (optional) — truncate embedding vector length */}
+        {/* Dimensions */}
         <Row label="Dimensions">
           <input
             type="number"
@@ -194,61 +209,67 @@ export function EmbeddingExampleCard({ providerId, customAlias }) {
             value={dimensions}
             onChange={(e) => setDimensions(e.target.value)}
             placeholder="optional, e.g. 512, 1024 (leave empty for default)"
-            className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
+            className="w-full px-3 py-2 text-xs sm:text-sm border border-[var(--color-hairline)] rounded-[4px] bg-[var(--color-surface-soft)] text-[var(--color-ink)] focus:bg-[var(--color-canvas)] focus:border-[var(--color-ink)] focus:outline-none min-h-[38px] transition-colors"
           />
         </Row>
 
-        {/* Curl + Run */}
-        <div className="mt-1">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-1.5">
-            <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">Request</span>
-            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+        {/* Request snippet & Run CTA */}
+        <div className="mt-1 flex flex-col gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <span className="text-xs text-[var(--color-mute)] uppercase tracking-wider">
+              &gt; Request (cURL)
+            </span>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
               <button
+                type="button"
                 onClick={() => copyCurl(curlSnippet)}
-                className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-primary transition-colors"
+                className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1 text-xs border border-[var(--color-hairline)] rounded-[4px] bg-[var(--color-surface-soft)] hover:bg-[var(--color-surface-card)] px-3 py-1.5 min-h-[36px] text-[var(--color-ink)] transition-colors"
               >
-                <span className="material-symbols-outlined text-[14px]">{copiedCurl ? "check" : "content_copy"}</span>
-                {copiedCurl ? "Copied" : "Copy"}
+                {copiedCurl ? "[copied]" : "[copy]"}
               </button>
               <button
+                type="button"
                 onClick={handleRun}
                 disabled={running || !input.trim() || !modelFull}
-                className="flex w-full sm:w-auto items-center justify-center gap-1.5 px-3 py-1 rounded-lg bg-primary text-white text-xs font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 text-xs rounded-[4px] bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-[var(--color-on-primary)] px-4 py-1.5 min-h-[36px] font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
               >
-                <span className="material-symbols-outlined text-[14px]" style={running ? { animation: "spin 1s linear infinite" } : undefined}>
-                  play_arrow
-                </span>
-                {running ? "Running..." : "Run"}
+                {running ? "[running...]" : "[run]"}
               </button>
             </div>
           </div>
-          <pre className="bg-sidebar rounded-lg px-3 py-2.5 text-xs font-mono text-text-main overflow-x-auto whitespace-pre-wrap break-all">{curlSnippet}</pre>
+          <pre className="bg-[var(--color-surface-card)] border border-[var(--color-hairline)] rounded-[4px] p-3 text-xs text-[var(--color-ink)] overflow-x-auto whitespace-pre-wrap break-all leading-relaxed">
+            {curlSnippet}
+          </pre>
         </div>
 
         {/* Error */}
-        {error && <p className="text-xs text-red-500 break-words">{error}</p>}
+        {error && (
+          <div className="border border-[var(--color-danger)]/40 bg-[var(--color-danger)]/10 text-[var(--color-danger)] p-3 rounded-[4px] text-xs break-words">
+            {error}
+          </div>
+        )}
 
-        {/* Response — default example or real result */}
-        <div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-1.5">
-            <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">
-              Response {result && <span className="font-normal normal-case">&#9889; {result.latencyMs}ms</span>}
+        {/* Response */}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-[var(--color-mute)] uppercase tracking-wider">
+              &gt; Response
             </span>
             {result && (
               <button
+                type="button"
                 onClick={() => copyRes(resultJson)}
-                className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-primary transition-colors"
+                className="inline-flex items-center gap-1 text-xs border border-[var(--color-hairline)] rounded-[4px] bg-[var(--color-surface-soft)] hover:bg-[var(--color-surface-card)] px-2.5 py-1 text-[var(--color-ink)] transition-colors"
               >
-                <span className="material-symbols-outlined text-[14px]">{copiedRes ? "check" : "content_copy"}</span>
-                {copiedRes ? "Copied" : "Copy"}
+                {copiedRes ? "[copied]" : "[copy]"}
               </button>
             )}
           </div>
-          <pre className="bg-sidebar rounded-lg px-3 py-2.5 text-xs font-mono text-text-main overflow-x-auto whitespace-pre-wrap break-all opacity-70">
+          <pre className="bg-[var(--color-surface-card)] border border-[var(--color-hairline)] rounded-[4px] p-3 text-xs text-[var(--color-ink)] overflow-x-auto whitespace-pre-wrap break-all leading-relaxed opacity-90">
             {formatResultJson(result?.data)}
           </pre>
         </div>
       </div>
-    </Card>
+    </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
-import { Card, Button, Toggle, Input, Select } from "@/shared/components";
+import { Card, Button, Toggle, Input, Select, CardSkeleton } from "@/shared/components";
 import Modal, { ConfirmModal } from "@/shared/components/Modal";
 import LanguageSwitcher from "@/shared/components/LanguageSwitcher";
 import { useTheme } from "@/shared/hooks/useTheme";
@@ -52,7 +52,7 @@ function telegramFormFromSettings(data) {
 }
 
 export default function ProfilePage() {
-  const { theme, setTheme, isDark } = useTheme();
+  const { theme, setTheme } = useTheme();
   const { timeZone, setTimeZone } = useTimezone();
   const [locale, setLocale] = useState(() => getLocaleFromCookie());
   const [langOpen, setLangOpen] = useState(false);
@@ -89,7 +89,7 @@ export default function ProfilePage() {
   const oidcRedirectUri = origin ? `${origin}/api/auth/oidc/callback` : "/api/auth/oidc/callback";
   const samlAcsUrl = origin ? `${origin}/api/auth/saml/acs` : "/api/auth/saml/acs";
   const samlMetadataUrl = origin ? `${origin}/api/auth/saml/metadata` : "/api/auth/saml/metadata";
-  
+
   // SAML State
   const [ssoTypeTab, setSsoTypeTab] = useState("saml");
   const [samlForm, setSamlForm] = useState({
@@ -120,8 +120,12 @@ export default function ProfilePage() {
 
   const [isRemoteHost, setIsRemoteHost] = useState(false);
   useEffect(() => {
-    if (typeof window !== "undefined")
-      setIsRemoteHost(!["localhost", "127.0.0.1", "::1"].includes(window.location.hostname));
+    const t = setTimeout(() => {
+      if (typeof window !== "undefined") {
+        setIsRemoteHost(!["localhost", "127.0.0.1", "::1"].includes(window.location.hostname));
+      }
+    }, 0);
+    return () => clearTimeout(t);
   }, []);
 
   // Timezone options + live preview clock (tick state so preview recomputes each second)
@@ -134,8 +138,6 @@ export default function ProfilePage() {
   );
   const [tzTick, setTzTick] = useState(0);
   useEffect(() => {
-    // Async callbacks (not sync setState in effect body) → no cascading render,
-    // and SSR/hydration both see tzTick=0 so the preview renders "—" identically.
     const t = setTimeout(() => setTzTick(1), 0);
     const id = setInterval(() => setTzTick((n) => n + 1), 1000);
     return () => {
@@ -230,7 +232,7 @@ export default function ProfilePage() {
       } else {
         setProxyStatus({ type: "error", message: data.error || "Failed to update proxy settings" });
       }
-    } catch (err) {
+    } catch {
       setProxyStatus({ type: "error", message: "An error occurred" });
     } finally {
       setProxyLoading(false);
@@ -268,7 +270,7 @@ export default function ProfilePage() {
           message: data?.error || "Proxy test failed",
         });
       }
-    } catch (err) {
+    } catch {
       setProxyStatus({ type: "error", message: "An error occurred" });
     } finally {
       setProxyTestLoading(false);
@@ -297,7 +299,7 @@ export default function ProfilePage() {
       } else {
         setProxyStatus({ type: "error", message: data.error || "Failed to update proxy settings" });
       }
-    } catch (err) {
+    } catch {
       setProxyStatus({ type: "error", message: "An error occurred" });
     } finally {
       setProxyLoading(false);
@@ -332,7 +334,7 @@ export default function ProfilePage() {
       } else {
         setPassStatus({ type: "error", message: data.error || "Failed to update password" });
       }
-    } catch (err) {
+    } catch {
       setPassStatus({ type: "error", message: "An error occurred" });
     } finally {
       setPassLoading(false);
@@ -347,7 +349,7 @@ export default function ProfilePage() {
         body: JSON.stringify({ fallbackStrategy: strategy }),
       });
       if (res.ok) {
-        setSettings(prev => ({ ...prev, fallbackStrategy: strategy }));
+        setSettings((prev) => ({ ...prev, fallbackStrategy: strategy }));
       }
     } catch (err) {
       console.error("Failed to update settings:", err);
@@ -362,7 +364,7 @@ export default function ProfilePage() {
         body: JSON.stringify({ comboStrategy: strategy }),
       });
       if (res.ok) {
-        setSettings(prev => ({ ...prev, comboStrategy: strategy }));
+        setSettings((prev) => ({ ...prev, comboStrategy: strategy }));
       }
     } catch (err) {
       console.error("Failed to update combo strategy:", err);
@@ -370,7 +372,7 @@ export default function ProfilePage() {
   };
 
   const updateStickyLimit = async (limit) => {
-    const numLimit = parseInt(limit);
+    const numLimit = parseInt(limit, 10);
     if (isNaN(numLimit) || numLimit < 1) return;
 
     try {
@@ -380,7 +382,7 @@ export default function ProfilePage() {
         body: JSON.stringify({ stickyRoundRobinLimit: numLimit }),
       });
       if (res.ok) {
-        setSettings(prev => ({ ...prev, stickyRoundRobinLimit: numLimit }));
+        setSettings((prev) => ({ ...prev, stickyRoundRobinLimit: numLimit }));
       }
     } catch (err) {
       console.error("Failed to update sticky limit:", err);
@@ -388,7 +390,7 @@ export default function ProfilePage() {
   };
 
   const updateComboStickyLimit = async (limit) => {
-    const numLimit = parseInt(limit);
+    const numLimit = parseInt(limit, 10);
     if (isNaN(numLimit) || numLimit < 1) return;
 
     try {
@@ -398,7 +400,7 @@ export default function ProfilePage() {
         body: JSON.stringify({ comboStickyRoundRobinLimit: numLimit }),
       });
       if (res.ok) {
-        setSettings(prev => ({ ...prev, comboStickyRoundRobinLimit: numLimit }));
+        setSettings((prev) => ({ ...prev, comboStickyRoundRobinLimit: numLimit }));
       }
     } catch (err) {
       console.error("Failed to update combo sticky limit:", err);
@@ -413,7 +415,7 @@ export default function ProfilePage() {
         body: JSON.stringify({ requireLogin }),
       });
       if (res.ok) {
-        setSettings(prev => ({ ...prev, requireLogin }));
+        setSettings((prev) => ({ ...prev, requireLogin }));
       }
     } catch (err) {
       console.error("Failed to update require login:", err);
@@ -482,7 +484,7 @@ export default function ProfilePage() {
       } else {
         setOidcStatus({ type: "error", message: data.error || "Failed to save OIDC settings" });
       }
-    } catch (err) {
+    } catch {
       setOidcStatus({ type: "error", message: "An error occurred" });
     } finally {
       setOidcLoading(false);
@@ -551,7 +553,7 @@ export default function ProfilePage() {
       } else {
         setOidcTestStatus({ type: "error", message: data.error || "OIDC connection test failed" });
       }
-    } catch (err) {
+    } catch {
       setOidcTestStatus({ type: "error", message: "An error occurred" });
     } finally {
       setOidcTestLoading(false);
@@ -608,7 +610,7 @@ export default function ProfilePage() {
           type: "success",
           message: `IdP Metadata imported! (SSO URL: ${ssoUrl ? "found" : "not found"}, EntityID: ${entityID ? "found" : "not found"}, Cert: ${certStr ? "found" : "not found"})`,
         });
-      } catch (err) {
+      } catch {
         setSamlStatus({ type: "error", message: "Error reading IdP Metadata XML file" });
       }
     };
@@ -719,7 +721,7 @@ export default function ProfilePage() {
         body: JSON.stringify({ enableObservability: enabled }),
       });
       if (res.ok) {
-        setSettings(prev => ({ ...prev, enableObservability: enabled }));
+        setSettings((prev) => ({ ...prev, enableObservability: enabled }));
       }
     } catch (err) {
       console.error("Failed to update enableObservability:", err);
@@ -783,7 +785,7 @@ export default function ProfilePage() {
       } else {
         setTgStatus({ type: "error", message: data.error || "Failed to save Telegram backup settings" });
       }
-    } catch (err) {
+    } catch {
       setTgStatus({ type: "error", message: "An error occurred" });
     } finally {
       setTgLoading(false);
@@ -897,7 +899,7 @@ export default function ProfilePage() {
     setIsShuttingDown(true);
     try {
       await fetch("/api/version/shutdown", { method: "POST" });
-    } catch (e) {
+    } catch {
       // Expected to fail as server shuts down; ignore error
     }
     setIsShuttingDown(false);
@@ -915,138 +917,197 @@ export default function ProfilePage() {
     }
   };
 
-  return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-0">
-      <div className="flex flex-col gap-6">
-        {/* Local Mode Info */}
-        <Card>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-            <div className="flex items-center gap-3 sm:gap-4">
-              <div className="size-10 sm:size-12 rounded-lg bg-green-500/10 text-green-500 flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-xl sm:text-2xl">computer</span>
-              </div>
-              <div>
-                <h2 className="text-lg sm:text-xl font-semibold">Local Mode</h2>
-                <p className="text-sm text-text-muted">Running on your machine</p>
-              </div>
+  if (loading) {
+    return (
+      <div className="w-full max-w-4xl mx-auto px-3 py-4 sm:px-6 sm:py-6 flex flex-col gap-4 sm:gap-6 font-mono text-[var(--color-ink)]">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-3 border-b border-[var(--color-hairline)]">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-[var(--color-ink)] text-sm font-bold">[&gt;]</span>
+              <h1 className="text-base sm:text-lg font-bold uppercase tracking-tight">System Settings</h1>
             </div>
-            <div className="inline-flex p-1 rounded-lg bg-black/5 dark:bg-white/5 w-full sm:w-auto">
-              {["light", "dark", "system"].map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() => setTheme(option)}
-                  className={cn(
-                    "flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-md font-medium transition-all flex-1 sm:flex-initial",
-                    theme === option
-                      ? "bg-white dark:bg-white/10 text-text-main shadow-sm"
-                      : "text-text-muted hover:text-text-main"
-                  )}
-                >
-                  <span className="material-symbols-outlined text-[18px]">
-                    {option === "light" ? "light_mode" : option === "dark" ? "dark_mode" : "contrast"}
-                  </span>
-                  <span className="capitalize text-xs sm:text-sm">{option}</span>
-                </button>
-              ))}
-            </div>
+            <p className="text-xs text-[var(--color-mute)] mt-0.5">
+              Runtime configuration, persistence, fallback policies &amp; authentication.
+            </p>
           </div>
-          <div className="flex flex-col gap-3 pt-4 border-t border-border">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 rounded-lg bg-bg border border-border gap-2">
-              <div>
-                <p className="font-medium text-sm sm:text-base">Database Location</p>
-                <p className="text-xs sm:text-sm text-text-muted font-mono break-all">~/.9router/db/data.sqlite</p>
-              </div>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Button
-                variant="secondary"
-                icon="download"
-                onClick={() => setDbAuth({ open: true, mode: "export", password: "" })}
-                loading={dbLoading}
-                className="w-full sm:w-auto"
-              >
-                Download Backup
-              </Button>
-              <Button
-                variant="outline"
-                icon="upload"
-                onClick={() => importFileRef.current?.click()}
-                disabled={dbLoading}
-                className="w-full sm:w-auto"
-              >
-                Import Backup
-              </Button>
-              <input
-                ref={importFileRef}
-                type="file"
-                accept="application/json,.json"
-                className="hidden"
-                onChange={handleImportDatabase}
-              />
-            </div>
-            {dbStatus.message && (
-              <p className={`text-sm ${dbStatus.type === "error" ? "text-red-500" : "text-green-600 dark:text-green-400"}`}>
-                {dbStatus.message}
-              </p>
-            )}
-          </div>
-        </Card>
+        </div>
+        <CardSkeleton />
+        <CardSkeleton />
+        <CardSkeleton />
+      </div>
+    );
+  }
 
-        {/* Telegram Auto Backup */}
-        <Card>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="size-10 sm:size-12 rounded-lg bg-sky-500/10 text-sky-500 flex items-center justify-center shrink-0">
-              <span className="material-symbols-outlined text-xl sm:text-2xl">send</span>
+  return (
+    <div className="w-full max-w-4xl mx-auto px-3 py-4 sm:px-6 sm:py-6 flex flex-col gap-4 sm:gap-6 font-mono text-[var(--color-ink)]">
+      {/* Header bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-3 border-b border-[var(--color-hairline)]">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="text-[var(--color-ink)] text-sm font-bold">[&gt;]</span>
+            <h1 className="text-base sm:text-lg font-bold uppercase tracking-tight">System Settings</h1>
+          </div>
+          <p className="text-xs text-[var(--color-mute)] mt-0.5">
+            Runtime configuration, persistence, fallback policies &amp; authentication.
+          </p>
+        </div>
+        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[var(--color-surface-soft)] border border-[var(--color-hairline)] text-xs text-[var(--color-mute)] w-fit rounded-[4px]">
+          <span className="text-[var(--color-success)] font-bold">[o]</span>
+          <span>GATEWAY ACTIVE</span>
+        </div>
+      </div>
+
+      {/* Local Mode / System Info */}
+      <Card className="rounded-none border border-[var(--color-hairline)] bg-[var(--color-canvas)] p-3.5 sm:p-5 shadow-none flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <span className="text-xs text-[var(--color-ink)] font-bold">[o]</span>
+            <div>
+              <h2 className="text-sm sm:text-base font-bold uppercase">Local Mode</h2>
+              <p className="text-xs text-[var(--color-mute)]">Host runtime &amp; storage interface</p>
             </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="text-base sm:text-lg font-semibold">Telegram Auto Backup</h3>
-              <p className="text-xs text-text-muted">
-                Send a config + usage-totals backup to a Telegram chat on a custom interval.
+          </div>
+
+          {/* Theme switcher with touch targets */}
+          <div className="grid grid-cols-3 gap-1 p-1 bg-[var(--color-surface-soft)] border border-[var(--color-hairline)] rounded-[4px] w-full sm:w-auto">
+            {["light", "dark", "system"].map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setTheme(option)}
+                className={cn(
+                  "min-h-[38px] px-3 py-1.5 rounded-[4px] text-xs font-mono font-medium transition-colors cursor-pointer flex items-center justify-center gap-1.5",
+                  theme === option
+                    ? "bg-[var(--color-canvas)] text-[var(--color-ink)] border border-[var(--color-hairline-strong)] font-bold"
+                    : "text-[var(--color-mute)] hover:text-[var(--color-ink)] border border-transparent"
+                )}
+              >
+                <span className="material-symbols-outlined text-[16px]">
+                  {option === "light" ? "light_mode" : option === "dark" ? "dark_mode" : "contrast"}
+                </span>
+                <span className="capitalize">{option}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3 pt-3 border-t border-[var(--color-hairline)]">
+          <div className="p-3 bg-[var(--color-surface-soft)] border border-[var(--color-hairline)] rounded-none flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <p className="text-xs font-bold uppercase text-[var(--color-mute)]">Database Path</p>
+              <p className="text-xs sm:text-sm font-mono break-all text-[var(--color-ink)] mt-0.5">
+                ~/.9router/db/data.sqlite
               </p>
             </div>
-            <Toggle
-              checked={tgForm.enabled === true}
-              onChange={() => setTgForm((prev) => ({ ...prev, enabled: !prev.enabled }))}
-              disabled={loading || tgLoading}
+            <span className="text-[11px] text-[var(--color-mute)] border border-[var(--color-hairline)] px-2 py-0.5 rounded-[4px] bg-[var(--color-canvas)] w-fit">
+              SQLite (WAL)
+            </span>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2.5">
+            <Button
+              variant="secondary"
+              icon="download"
+              onClick={() => setDbAuth({ open: true, mode: "export", password: "" })}
+              loading={dbLoading}
+              className="w-full sm:w-auto min-h-[38px] rounded-[4px] font-mono text-xs sm:text-sm"
+            >
+              Download Backup
+            </Button>
+            <Button
+              variant="outline"
+              icon="upload"
+              onClick={() => importFileRef.current?.click()}
+              disabled={dbLoading}
+              className="w-full sm:w-auto min-h-[38px] rounded-[4px] font-mono text-xs sm:text-sm"
+            >
+              Import Backup
+            </Button>
+            <input
+              ref={importFileRef}
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={handleImportDatabase}
             />
           </div>
 
-          <form onSubmit={saveTelegramBackup} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
-              <label className="text-xs sm:text-sm font-medium">Bot Token</label>
-              <Input
-                type="password"
-                placeholder={tgInfo.hasToken ? "Leave blank to keep existing token" : "123456:ABC-DEF..."}
-                value={tgForm.botToken}
-                onChange={(e) => setTgForm((prev) => ({ ...prev, botToken: e.target.value }))}
-                disabled={loading || tgLoading}
-              />
-              <p className="text-xs text-text-muted">Write-only after saving. Create a bot with @BotFather.</p>
-            </div>
+          {dbStatus.message && (
+            <p className={cn(
+              "text-xs sm:text-sm font-mono p-2.5 border rounded-[4px]",
+              dbStatus.type === "error"
+                ? "bg-[rgba(255,59,48,0.06)] border-[var(--color-danger)] text-[var(--color-danger)]"
+                : "bg-[rgba(48,209,88,0.06)] border-[var(--color-success)] text-[var(--color-success)]"
+            )}>
+              {dbStatus.type === "error" ? "[x] " : "[+] "}
+              {dbStatus.message}
+            </p>
+          )}
+        </div>
+      </Card>
 
-            <div className="flex flex-col gap-2">
-              <label className="text-xs sm:text-sm font-medium">Chat ID</label>
-              <Input
-                placeholder="123456789 or -1001234567890"
-                value={tgForm.chatId}
-                onChange={(e) => setTgForm((prev) => ({ ...prev, chatId: e.target.value }))}
-                disabled={loading || tgLoading}
-              />
-              <p className="text-xs text-text-muted">Message @userinfobot to get your chat ID.</p>
+      {/* Telegram Auto Backup */}
+      <Card className="rounded-none border border-[var(--color-hairline)] bg-[var(--color-canvas)] p-3.5 sm:p-5 shadow-none flex flex-col gap-4">
+        <div className="flex items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <span className="text-xs text-[var(--color-ink)] font-bold">[+]</span>
+            <div>
+              <h3 className="text-sm sm:text-base font-bold uppercase">Telegram Auto Backup</h3>
+              <p className="text-xs text-[var(--color-mute)]">
+                Scheduled snapshot dispatch to custom Telegram chat
+              </p>
             </div>
+          </div>
+          <Toggle
+            checked={tgForm.enabled === true}
+            onChange={() => setTgForm((prev) => ({ ...prev, enabled: !prev.enabled }))}
+            disabled={loading || tgLoading}
+          />
+        </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="flex flex-col gap-2">
-                <label className="text-xs sm:text-sm font-medium">Interval</label>
-                <Input
-                  type="number"
-                  min="1"
-                  value={tgForm.intervalValue}
-                  onChange={(e) => setTgForm((prev) => ({ ...prev, intervalValue: e.target.value }))}
-                  disabled={loading || tgLoading}
-                />
-              </div>
+        <form onSubmit={saveTelegramBackup} className="flex flex-col gap-3.5">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-bold uppercase text-[var(--color-ink)]">Bot Token</label>
+            <Input
+              type="password"
+              placeholder={tgInfo.hasToken ? "Leave blank to keep existing token" : "123456:ABC-DEF..."}
+              value={tgForm.botToken}
+              onChange={(e) => setTgForm((prev) => ({ ...prev, botToken: e.target.value }))}
+              disabled={loading || tgLoading}
+              className="w-full"
+            />
+            <p className="text-[11px] text-[var(--color-mute)]">
+              Write-only after saving. Create via @BotFather.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-bold uppercase text-[var(--color-ink)]">Chat ID</label>
+            <Input
+              placeholder="123456789 or -1001234567890"
+              value={tgForm.chatId}
+              onChange={(e) => setTgForm((prev) => ({ ...prev, chatId: e.target.value }))}
+              disabled={loading || tgLoading}
+              className="w-full"
+            />
+            <p className="text-[11px] text-[var(--color-mute)]">
+              Send message to @userinfobot to inspect your chat ID.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-bold uppercase text-[var(--color-ink)]">Interval</label>
+              <Input
+                type="number"
+                min="1"
+                value={tgForm.intervalValue}
+                onChange={(e) => setTgForm((prev) => ({ ...prev, intervalValue: e.target.value }))}
+                disabled={loading || tgLoading}
+                className="w-full"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
               <Select
                 label="Unit"
                 value={tgForm.intervalUnit}
@@ -1059,908 +1120,987 @@ export default function ProfilePage() {
                 disabled={loading || tgLoading}
               />
             </div>
+          </div>
 
-            <p className="text-xs text-text-muted">
-              Backup includes settings, providers, keys, combos, aliases, pricing, and usage totals
-              (daily rollups + lifetime counters). Per-request history is not included.
+          <div className="p-3 bg-[var(--color-surface-soft)] border border-[var(--color-hairline)] rounded-none text-xs text-[var(--color-body)] flex flex-col gap-2">
+            <p className="text-[11px] text-[var(--color-mute)]">
+              Backup includes settings, providers, keys, combos, aliases, pricing, and aggregate usage totals. Per-request history excluded.
             </p>
-            <p className="text-xs text-amber-600 dark:text-amber-400">
-              ⚠️ The backup contains provider credentials (OAuth tokens, API keys) and is uploaded to
-              Telegram — a third party. Dashboard password, OIDC secret, and the bot token itself are
-              stripped before sending. Use a private chat.
+            <p className="text-[11px] text-[var(--color-ink)] font-semibold border-t border-[var(--color-hairline)] pt-2">
+              [!] NOTICE: Backup contains provider credentials (OAuth tokens, API keys) uploaded to Telegram. Password, OIDC secret, and bot token are stripped. Use a private chat.
             </p>
-
-            <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-border/50">
-              <Button type="submit" variant="primary" loading={tgLoading} className="w-full sm:w-auto">
-                Save
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={loading || tgLoading || !tgInfo.configured}
-                onClick={() => setDbAuth({ open: true, mode: "telegram-test", password: "" })}
-                className="w-full sm:w-auto"
-              >
-                Send test
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={loading || tgLoading || !tgInfo.configured}
-                onClick={() => setDbAuth({ open: true, mode: "telegram", password: "" })}
-                className="w-full sm:w-auto"
-              >
-                Send backup now
-              </Button>
-            </div>
-
-            {(tgStatus.message || tgInfo.lastRunAt) && (
-              <div className="flex flex-col gap-1 pt-2 border-t border-border/50 text-xs sm:text-sm">
-                {tgStatus.message && (
-                  <p className={tgStatus.type === "error" ? "text-red-500" : "text-green-600 dark:text-green-400"}>
-                    {tgStatus.message}
-                  </p>
-                )}
-                {tgInfo.lastRunAt && (
-                  <p className="text-text-muted">
-                    Last run: {new Date(tgInfo.lastRunAt).toLocaleString()} — {tgInfo.lastStatus || "—"}
-                  </p>
-                )}
-                {tgInfo.nextRunAt && (
-                  <p className="text-text-muted">Next run: {new Date(tgInfo.nextRunAt).toLocaleString()}</p>
-                )}
-              </div>
-            )}
-          </form>
-        </Card>
-
-        {/* Language */}
-        <Card>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="size-10 rounded-[4px] bg-[var(--color-primary)]/10 text-[var(--color-primary)] flex items-center justify-center shrink-0">
-              <span className="material-symbols-outlined text-[20px]">language</span>
-            </div>
-            <div>
-              <h3 className="text-base sm:text-lg font-semibold text-[var(--color-ink)]">Language</h3>
-              <p className="text-xs text-[var(--color-mute)]">
-                Select your preferred interface display language.
-              </p>
-            </div>
           </div>
-          <button
-            onClick={() => setLangOpen(true)}
-            className="flex items-center justify-between w-full p-3 rounded-[4px] bg-[var(--color-surface)] border border-[var(--color-hairline)] hover:border-[var(--color-primary)] transition-colors cursor-pointer"
-          >
-            <div className="flex items-center gap-2.5" data-i18n-skip="true">
-              <span className="text-xl leading-none">{LOCALE_FLAGS[locale] || "🌐"}</span>
-              <span className="text-sm font-medium text-[var(--color-ink)] font-mono">
-                {LOCALE_NAMES[locale] || locale}
-              </span>
-            </div>
-            <span className="text-xs font-mono text-[var(--color-mute)] border border-[var(--color-hairline)] px-2.5 py-1 rounded-[4px] bg-[var(--color-canvas)]">
-              Change language
-            </span>
-          </button>
-        </Card>
 
-        {/* Time Zone */}
-        <Card>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="size-10 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
-              <span className="material-symbols-outlined text-[20px]">schedule</span>
-            </div>
-            <div>
-              <h3 className="text-base sm:text-lg font-semibold">Time Zone</h3>
-              <p className="text-xs text-text-muted">
-                Overrides timestamps (logs, usage, quotas) when server time differs from yours.
-              </p>
-            </div>
+          <div className="flex flex-col sm:flex-row gap-2.5 pt-2 border-t border-[var(--color-hairline)]">
+            <Button
+              type="submit"
+              variant="primary"
+              loading={tgLoading}
+              className="w-full sm:w-auto min-h-[38px] rounded-[4px] font-mono text-xs sm:text-sm"
+            >
+              Save Configuration
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={loading || tgLoading || !tgInfo.configured}
+              onClick={() => setDbAuth({ open: true, mode: "telegram-test", password: "" })}
+              className="w-full sm:w-auto min-h-[38px] rounded-[4px] font-mono text-xs sm:text-sm"
+            >
+              Send Test
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={loading || tgLoading || !tgInfo.configured}
+              onClick={() => setDbAuth({ open: true, mode: "telegram", password: "" })}
+              className="w-full sm:w-auto min-h-[38px] rounded-[4px] font-mono text-xs sm:text-sm"
+            >
+              Backup Now
+            </Button>
           </div>
-          <div className="flex flex-col gap-3">
-            <Select
-              label="Display time zone"
-              value={timeZone || TZ_BROWSER}
-              onChange={(e) => setTimeZone(e.target.value === TZ_BROWSER ? "" : e.target.value)}
-              options={tzOptions}
-              hint="Browser default follows this device's time zone."
-            />
-            <div className="flex items-center justify-between p-3 rounded-lg bg-bg border border-border">
-              <span className="text-xs sm:text-sm text-text-muted">Current time here</span>
-              <span className="text-xs sm:text-sm font-mono">{tzPreview || "—"}</span>
-            </div>
-          </div>
-        </Card>
 
-        {/* Security */}
-        <Card>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
-              <span className="material-symbols-outlined text-[20px]">shield</span>
-            </div>
-            <h3 className="text-base sm:text-lg font-semibold">Security</h3>
-          </div>
-          <div className="flex flex-col gap-4">
-            <div className="flex items-start sm:items-center justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm sm:text-base">Require login</p>
-                <p className="text-xs sm:text-sm text-text-muted">
-                  When ON, dashboard requires password. When OFF, access without login.
+          {(tgStatus.message || tgInfo.lastRunAt) && (
+            <div className="flex flex-col gap-1.5 pt-2 border-t border-[var(--color-hairline)] text-xs font-mono">
+              {tgStatus.message && (
+                <p className={cn(
+                  "p-2.5 border rounded-[4px]",
+                  tgStatus.type === "error"
+                    ? "bg-[rgba(255,59,48,0.06)] border-[var(--color-danger)] text-[var(--color-danger)]"
+                    : "bg-[rgba(48,209,88,0.06)] border-[var(--color-success)] text-[var(--color-success)]"
+                )}>
+                  {tgStatus.type === "error" ? "[x] " : "[+] "}
+                  {tgStatus.message}
                 </p>
-              </div>
-              <Toggle
-                checked={settings.requireLogin === true}
-                onChange={() => updateRequireLogin(!settings.requireLogin)}
-                disabled={loading}
-              />
+              )}
+              {tgInfo.lastRunAt && (
+                <p className="text-[var(--color-mute)]">
+                  Last run: {new Date(tgInfo.lastRunAt).toLocaleString()} — {tgInfo.lastStatus || "—"}
+                </p>
+              )}
+              {tgInfo.nextRunAt && (
+                <p className="text-[var(--color-mute)]">
+                  Next scheduled: {new Date(tgInfo.nextRunAt).toLocaleString()}
+                </p>
+              )}
             </div>
-            {settings.requireLogin === true && (
-              <form onSubmit={handlePasswordChange} className="flex flex-col gap-4 pt-4 border-t border-border/50">
-                {settings.hasPassword && (
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs sm:text-sm font-medium">Current Password</label>
-                    <Input
-                      type="password"
-                      placeholder="Enter current password"
-                      value={passwords.current}
-                      onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
-                      required
-                    />
-                  </div>
-                )}
-                {/* {!settings.hasPassword && (
-                  <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                    <p className="text-sm text-blue-600 dark:text-blue-400">
-                      Setting password for the first time. Leave current password empty or use default: <code className="bg-blue-500/20 px-1 rounded">123456</code>
-                    </p>
-                  </div>
-                )} */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs sm:text-sm font-medium">New Password</label>
-                    <Input
-                      type="password"
-                      placeholder="Enter new password"
-                      value={passwords.new}
-                      onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs sm:text-sm font-medium">Confirm New Password</label>
-                    <Input
-                      type="password"
-                      placeholder="Confirm new password"
-                      value={passwords.confirm}
-                      onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
-                      required
-                    />
-                  </div>
-                </div>
+          )}
+        </form>
+      </Card>
 
-                {passStatus.message && (
-                  <p className={`text-xs sm:text-sm ${passStatus.type === "error" ? "text-red-500" : "text-green-500"}`}>
-                    {passStatus.message}
-                  </p>
-                )}
-
-                <div className="pt-2">
-                  <Button type="submit" variant="primary" loading={passLoading} className="w-full sm:w-auto">
-                    {settings.hasPassword ? "Update Password" : "Set Password"}
-                  </Button>
-                </div>
-              </form>
-            )}
+      {/* Language */}
+      <Card className="rounded-none border border-[var(--color-hairline)] bg-[var(--color-canvas)] p-3.5 sm:p-5 shadow-none flex flex-col gap-3">
+        <div className="flex items-center gap-2.5">
+          <span className="text-xs text-[var(--color-ink)] font-bold">[+]</span>
+          <div>
+            <h3 className="text-sm sm:text-base font-bold uppercase">Language</h3>
+            <p className="text-xs text-[var(--color-mute)]">Interface localization &amp; translations</p>
           </div>
-        </Card>
+        </div>
 
-        {/* Single Sign-On (SSO) */}
-        <Card>
-          <button
-            type="button"
-            onClick={() => setOidcExpanded((v) => !v)}
-            className="w-full flex items-center gap-3 text-left"
-          >
-            <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-500 shrink-0">
-              <span className="material-symbols-outlined text-[20px]">lock_open</span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="text-base sm:text-lg font-semibold">Single Sign-On (SSO)</h3>
-              <p className="text-xs text-text-muted">
-                {settings.authMode === "sso" || settings.authMode === "oidc" || settings.authMode === "saml"
-                  ? `${settings.ssoType === "saml" ? "SAML 2.0" : "OIDC"} SSO active`
-                  : settings.authMode === "both"
-                    ? `Password + ${settings.ssoType === "saml" ? "SAML 2.0" : "OIDC"} active`
-                    : "Optional SSO via Okta, Entra ID, Keycloak, or OIDC"}
-              </p>
-            </div>
-            <span className="material-symbols-outlined text-text-muted shrink-0">
-              {oidcExpanded ? "expand_less" : "expand_more"}
+        <button
+          type="button"
+          onClick={() => setLangOpen(true)}
+          className="flex items-center justify-between w-full min-h-[44px] p-3 rounded-[4px] bg-[var(--color-surface-soft)] border border-[var(--color-hairline)] hover:border-[var(--color-hairline-strong)] transition-colors cursor-pointer text-left"
+        >
+          <div className="flex items-center gap-2.5" data-i18n-skip="true">
+            <span className="text-xl leading-none">{LOCALE_FLAGS[locale] || "🌐"}</span>
+            <span className="text-xs sm:text-sm font-bold font-mono text-[var(--color-ink)]">
+              {LOCALE_NAMES[locale] || locale}
             </span>
-          </button>
-          {oidcExpanded && (
-            <div className="flex flex-col gap-4 mt-4">
-              <p className="text-xs sm:text-sm text-text-muted">
-                Configure enterprise Single Sign-On (SSO) for dashboard access using SAML 2.0 or OIDC.
+          </div>
+          <span className="text-xs font-mono text-[var(--color-mute)] border border-[var(--color-hairline)] px-2.5 py-1 rounded-[4px] bg-[var(--color-canvas)]">
+            Change [&gt;]
+          </span>
+        </button>
+      </Card>
+
+      {/* Time Zone */}
+      <Card className="rounded-none border border-[var(--color-hairline)] bg-[var(--color-canvas)] p-3.5 sm:p-5 shadow-none flex flex-col gap-3">
+        <div className="flex items-center gap-2.5">
+          <span className="text-xs text-[var(--color-ink)] font-bold">[+]</span>
+          <div>
+            <h3 className="text-sm sm:text-base font-bold uppercase">Time Zone</h3>
+            <p className="text-xs text-[var(--color-mute)]">
+              Timestamp offset override for audit logs, usage metrics &amp; quota windows
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3">
+          <Select
+            label="Display Time Zone"
+            value={timeZone || TZ_BROWSER}
+            onChange={(e) => setTimeZone(e.target.value === TZ_BROWSER ? "" : e.target.value)}
+            options={tzOptions}
+            hint="Browser default automatically tracks your current device time zone."
+          />
+          <div className="flex items-center justify-between p-3 rounded-none bg-[var(--color-surface-soft)] border border-[var(--color-hairline)] text-xs sm:text-sm">
+            <span className="text-[var(--color-mute)] uppercase font-medium">Local Clock</span>
+            <span className="font-mono font-bold text-[var(--color-ink)]">{tzPreview || "—"}</span>
+          </div>
+        </div>
+      </Card>
+
+      {/* Security */}
+      <Card className="rounded-none border border-[var(--color-hairline)] bg-[var(--color-canvas)] p-3.5 sm:p-5 shadow-none flex flex-col gap-4">
+        <div className="flex items-center gap-2.5">
+          <span className="text-xs text-[var(--color-ink)] font-bold">[+]</span>
+          <h3 className="text-sm sm:text-base font-bold uppercase">Security &amp; Authentication</h3>
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <div className="flex items-start sm:items-center justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-xs sm:text-sm uppercase text-[var(--color-ink)]">Require Login</p>
+              <p className="text-xs text-[var(--color-mute)] mt-0.5">
+                When active, dashboard requires authentication. When disabled, open access.
               </p>
+            </div>
+            <Toggle
+              checked={settings.requireLogin === true}
+              onChange={() => updateRequireLogin(!settings.requireLogin)}
+              disabled={loading}
+            />
+          </div>
 
-              {/* SSO Protocol Switcher Tabs */}
-              <div className="flex flex-col gap-2">
-                <label className="font-medium text-sm sm:text-base">SSO Protocol</label>
-                <div className="flex p-1 rounded-lg bg-black/5 dark:bg-white/5 border border-border">
-                  <button
-                    type="button"
-                    onClick={() => setSsoTypeTab("saml")}
-                    className={cn(
-                      "flex-1 py-1.5 px-3 rounded-md font-medium text-xs sm:text-sm transition-all text-center",
-                      ssoTypeTab === "saml"
-                        ? "bg-white dark:bg-white/10 text-text-main shadow-sm"
-                        : "text-text-muted hover:text-text-main"
-                    )}
-                  >
-                    SAML 2.0
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSsoTypeTab("oidc")}
-                    className={cn(
-                      "flex-1 py-1.5 px-3 rounded-md font-medium text-xs sm:text-sm transition-all text-center",
-                      ssoTypeTab === "oidc"
-                        ? "bg-white dark:bg-white/10 text-text-main shadow-sm"
-                        : "text-text-muted hover:text-text-main"
-                    )}
-                  >
-                    OIDC
-                  </button>
+          {settings.requireLogin === true && (
+            <form onSubmit={handlePasswordChange} className="flex flex-col gap-3.5 pt-3 border-t border-[var(--color-hairline)]">
+              {settings.hasPassword && (
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold uppercase text-[var(--color-ink)]">Current Password</label>
+                  <Input
+                    type="password"
+                    placeholder="Enter current password"
+                    value={passwords.current}
+                    onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
+                    required
+                    className="w-full"
+                  />
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold uppercase text-[var(--color-ink)]">New Password</label>
+                  <Input
+                    type="password"
+                    placeholder="Enter new password"
+                    value={passwords.new}
+                    onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
+                    required
+                    className="w-full"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold uppercase text-[var(--color-ink)]">Confirm Password</label>
+                  <Input
+                    type="password"
+                    placeholder="Confirm new password"
+                    value={passwords.confirm}
+                    onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
+                    required
+                    className="w-full"
+                  />
                 </div>
               </div>
 
-              {/* Auth Mode selection */}
-              <div className="flex flex-col gap-2">
-                <label className="font-medium text-sm sm:text-base">Auth Mode</label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  {[
-                    {
-                      value: "password",
-                      title: "Password only",
-                      desc: "Keep legacy password login.",
-                    },
-                    {
-                      value: "sso",
-                      title: `${ssoTypeTab === "saml" ? "SAML" : "OIDC"} only`,
-                      desc: "Require SSO for dashboard access.",
-                    },
-                    {
-                      value: "both",
-                      title: "Both",
-                      desc: "Allow password or SSO login.",
-                    },
-                  ].map((option) => {
-                    const currentMode = oidcForm.authMode;
-                    const active =
-                      option.value === "password"
-                        ? currentMode === "password"
-                        : option.value === "sso"
-                          ? currentMode === "sso" || currentMode === "saml" || currentMode === "oidc"
-                          : currentMode === "both";
-                    return (
-                      <button
-                        key={option.value}
-                        type="button"
-                        onClick={() => updateOidcForm("authMode", option.value)}
-                        className={cn(
-                          "text-left rounded-lg border p-3 transition-colors",
-                          active
-                            ? "border-primary bg-primary/5"
-                            : "border-border bg-bg hover:bg-black/5 dark:hover:bg-white/5"
-                        )}
-                        disabled={loading || oidcLoading || samlLoading}
-                      >
-                        <p className="font-medium text-sm sm:text-base">{option.title}</p>
-                        <p className="text-xs sm:text-sm text-text-muted mt-1">{option.desc}</p>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              {passStatus.message && (
+                <p className={cn(
+                  "text-xs sm:text-sm font-mono p-2.5 border rounded-[4px]",
+                  passStatus.type === "error"
+                    ? "bg-[rgba(255,59,48,0.06)] border-[var(--color-danger)] text-[var(--color-danger)]"
+                    : "bg-[rgba(48,209,88,0.06)] border-[var(--color-success)] text-[var(--color-success)]"
+                )}>
+                  {passStatus.type === "error" ? "[x] " : "[+] "}
+                  {passStatus.message}
+                </p>
+              )}
 
-              {ssoTypeTab === "saml" ? (
-                /* SAML Configuration Panel */
-                <div className="flex flex-col gap-4 pt-2 border-t border-border/50">
-                  {/* IdP Setup Guidelines Banner & Collapsible Drawer */}
-                  <div className="rounded-lg border border-border bg-bg/80 overflow-hidden">
+              <div className="pt-1">
+                <Button
+                  type="submit"
+                  variant="primary"
+                  loading={passLoading}
+                  className="w-full sm:w-auto min-h-[38px] rounded-[4px] font-mono text-xs sm:text-sm"
+                >
+                  {settings.hasPassword ? "Update Password" : "Set Password"}
+                </Button>
+              </div>
+            </form>
+          )}
+        </div>
+      </Card>
+
+      {/* Single Sign-On (SSO) */}
+      <Card className="rounded-none border border-[var(--color-hairline)] bg-[var(--color-canvas)] p-3.5 sm:p-5 shadow-none flex flex-col gap-4">
+        <button
+          type="button"
+          onClick={() => setOidcExpanded((v) => !v)}
+          className="w-full flex items-center justify-between text-left cursor-pointer"
+        >
+          <div className="flex items-center gap-2.5">
+            <span className="text-xs text-[var(--color-ink)] font-bold">[+]</span>
+            <div>
+              <h3 className="text-sm sm:text-base font-bold uppercase">Single Sign-On (SSO)</h3>
+              <p className="text-xs text-[var(--color-mute)] mt-0.5">
+                {settings.authMode === "sso" || settings.authMode === "oidc" || settings.authMode === "saml"
+                  ? `[o] ${settings.ssoType === "saml" ? "SAML 2.0" : "OIDC"} SSO active`
+                  : settings.authMode === "both"
+                    ? `[o] Password + ${settings.ssoType === "saml" ? "SAML 2.0" : "OIDC"} active`
+                    : "[-] Enterprise federation via Okta, Entra ID, Keycloak, or OIDC"}
+              </p>
+            </div>
+          </div>
+          <span className="text-xs font-mono text-[var(--color-mute)] border border-[var(--color-hairline)] px-2 py-1 rounded-[4px] bg-[var(--color-surface-soft)]">
+            {oidcExpanded ? "[-] Collapse" : "[+] Configure"}
+          </span>
+        </button>
+
+        {oidcExpanded && (
+          <div className="flex flex-col gap-4 pt-3 border-t border-[var(--color-hairline)]">
+            <p className="text-xs text-[var(--color-mute)]">
+              Configure enterprise Single Sign-On (SSO) for dashboard access using SAML 2.0 or OIDC.
+            </p>
+
+            {/* SSO Protocol Switcher */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-bold uppercase text-[var(--color-ink)]">SSO Protocol</label>
+              <div className="grid grid-cols-2 gap-1 p-1 bg-[var(--color-surface-soft)] border border-[var(--color-hairline)] rounded-[4px]">
+                <button
+                  type="button"
+                  onClick={() => setSsoTypeTab("saml")}
+                  className={cn(
+                    "min-h-[38px] px-3 py-1.5 rounded-[4px] text-xs font-mono font-medium transition-colors cursor-pointer text-center",
+                    ssoTypeTab === "saml"
+                      ? "bg-[var(--color-canvas)] text-[var(--color-ink)] border border-[var(--color-hairline-strong)] font-bold"
+                      : "text-[var(--color-mute)] hover:text-[var(--color-ink)] border border-transparent"
+                  )}
+                >
+                  SAML 2.0
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSsoTypeTab("oidc")}
+                  className={cn(
+                    "min-h-[38px] px-3 py-1.5 rounded-[4px] text-xs font-mono font-medium transition-colors cursor-pointer text-center",
+                    ssoTypeTab === "oidc"
+                      ? "bg-[var(--color-canvas)] text-[var(--color-ink)] border border-[var(--color-hairline-strong)] font-bold"
+                      : "text-[var(--color-mute)] hover:text-[var(--color-ink)] border border-transparent"
+                  )}
+                >
+                  OIDC
+                </button>
+              </div>
+            </div>
+
+            {/* Auth Mode selection */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-bold uppercase text-[var(--color-ink)]">Auth Mode</label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {[
+                  {
+                    value: "password",
+                    title: "Password only",
+                    desc: "Keep legacy password login.",
+                  },
+                  {
+                    value: "sso",
+                    title: `${ssoTypeTab === "saml" ? "SAML" : "OIDC"} only`,
+                    desc: "Require SSO for dashboard access.",
+                  },
+                  {
+                    value: "both",
+                    title: "Both",
+                    desc: "Allow password or SSO login.",
+                  },
+                ].map((option) => {
+                  const currentMode = oidcForm.authMode;
+                  const active =
+                    option.value === "password"
+                      ? currentMode === "password"
+                      : option.value === "sso"
+                        ? currentMode === "sso" || currentMode === "saml" || currentMode === "oidc"
+                        : currentMode === "both";
+                  return (
                     <button
+                      key={option.value}
                       type="button"
-                      onClick={() => setShowSamlGuide((prev) => !prev)}
-                      className="w-full p-3 flex items-center justify-between gap-2 text-left hover:bg-surface/50 transition-colors"
+                      onClick={() => updateOidcForm("authMode", option.value)}
+                      className={cn(
+                        "text-left rounded-[4px] border p-3 transition-colors cursor-pointer min-h-[44px]",
+                        active
+                          ? "border-[var(--color-ink)] bg-[var(--color-surface-card)] font-bold text-[var(--color-ink)]"
+                          : "border-[var(--color-hairline)] bg-[var(--color-surface-soft)] hover:border-[var(--color-hairline-strong)] text-[var(--color-mute)]"
+                      )}
+                      disabled={loading || oidcLoading || samlLoading}
                     >
-                      <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-primary text-lg">menu_book</span>
-                        <div>
-                          <p className="font-semibold text-xs sm:text-sm text-text-main">
-                            IdP Setup Guidelines & Provider Configuration Instructions
-                          </p>
-                          <p className="text-[11px] text-text-muted">
-                            Click to view setup steps for AWS IAM Identity Center, Okta, Entra ID, Keycloak, & Authentik
-                          </p>
-                        </div>
-                      </div>
-                      <span
-                        className="material-symbols-outlined text-text-muted transition-transform text-lg"
-                        style={{ transform: showSamlGuide ? "rotate(180deg)" : "none" }}
-                      >
-                        expand_more
-                      </span>
+                      <p className="text-xs sm:text-sm uppercase font-bold text-[var(--color-ink)]">
+                        {active ? "[o] " : "[-] "}
+                        {option.title}
+                      </p>
+                      <p className="text-[11px] text-[var(--color-mute)] mt-1 font-normal">{option.desc}</p>
                     </button>
+                  );
+                })}
+              </div>
+            </div>
 
-                    {showSamlGuide && (
-                      <div className="p-4 border-t border-border bg-surface/30 text-xs text-text-main flex flex-col gap-3">
-                        <div className="p-2.5 rounded border border-primary/20 bg-primary/5 text-primary text-xs">
-                          <p className="font-semibold mb-1">🔑 Required Service Provider (SP) Values for your IdP Setup:</p>
-                          <ul className="list-disc pl-4 space-y-1 font-mono text-[11px]">
-                            <li>
-                              <b>Assertion Consumer Service (ACS) URL:</b>{" "}
-                              <code className="bg-bg px-1 py-0.5 rounded break-all">{samlAcsUrl}</code>
-                            </li>
-                            <li>
-                              <b>SP Entity ID / Audience URI:</b>{" "}
-                              <code className="bg-bg px-1 py-0.5 rounded break-all">{samlForm.samlIssuer || "urn:9router:sp"}</code>
-                            </li>
-                            <li>
-                              <b>NameID Format:</b>{" "}
-                              <code className="bg-bg px-1 py-0.5 rounded">EmailAddress</code> or <code className="bg-bg px-1 py-0.5 rounded">Unspecified</code>
-                            </li>
-                          </ul>
+            {ssoTypeTab === "saml" ? (
+              /* SAML Configuration Panel */
+              <div className="flex flex-col gap-3.5 pt-2 border-t border-[var(--color-hairline)]">
+                {/* IdP Setup Guidelines */}
+                <div className="rounded-none border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setShowSamlGuide((prev) => !prev)}
+                    className="w-full p-3 flex items-center justify-between gap-2 text-left hover:bg-[var(--color-surface-card)] transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-[var(--color-ink)]">[?]</span>
+                      <div>
+                        <p className="font-bold text-xs sm:text-sm text-[var(--color-ink)] uppercase">
+                          IdP Setup Guidelines &amp; Provider Instructions
+                        </p>
+                        <p className="text-[11px] text-[var(--color-mute)]">
+                          AWS IAM Identity Center, Okta, Microsoft Entra ID, Keycloak, Authentik
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-xs font-mono text-[var(--color-mute)]">
+                      {showSamlGuide ? "[-] Hide" : "[+] View"}
+                    </span>
+                  </button>
+
+                  {showSamlGuide && (
+                    <div className="p-3.5 border-t border-[var(--color-hairline)] bg-[var(--color-canvas)] text-xs text-[var(--color-ink)] flex flex-col gap-3">
+                      <div className="p-2.5 rounded-[4px] border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] text-xs">
+                        <p className="font-bold uppercase text-[11px] mb-1.5 text-[var(--color-ink)]">
+                          Service Provider (SP) Metadata Values:
+                        </p>
+                        <ul className="space-y-1 font-mono text-[11px] text-[var(--color-body)]">
+                          <li>
+                            <b>ACS URL:</b>{" "}
+                            <code className="bg-[var(--color-canvas)] px-1 py-0.5 border border-[var(--color-hairline)] break-all rounded-[2px]">{samlAcsUrl}</code>
+                          </li>
+                          <li>
+                            <b>Audience URI (Entity ID):</b>{" "}
+                            <code className="bg-[var(--color-canvas)] px-1 py-0.5 border border-[var(--color-hairline)] break-all rounded-[2px]">{samlForm.samlIssuer || "urn:9router:sp"}</code>
+                          </li>
+                          <li>
+                            <b>NameID Format:</b>{" "}
+                            <code className="bg-[var(--color-canvas)] px-1 py-0.5 border border-[var(--color-hairline)] rounded-[2px]">EmailAddress</code> or <code className="bg-[var(--color-canvas)] px-1 py-0.5 border border-[var(--color-hairline)] rounded-[2px]">Unspecified</code>
+                          </li>
+                        </ul>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-1">
+                        <div className="p-3 rounded-none border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] flex flex-col gap-1.5">
+                          <p className="font-bold text-[11px] uppercase text-[var(--color-ink)]">&gt; AWS IAM Identity Center</p>
+                          <ol className="list-decimal pl-4 text-[11px] text-[var(--color-mute)] space-y-1">
+                            <li>Applications &rarr; Add application &rarr; Add custom SAML 2.0 app.</li>
+                            <li>Set Application ACS URL to <code className="text-[var(--color-ink)]">{samlAcsUrl}</code>.</li>
+                            <li>Set Application SAML audience to <code className="text-[var(--color-ink)]">{samlForm.samlIssuer || "urn:9router:sp"}</code>.</li>
+                            <li>Map Subject or email to <code className="text-[var(--color-ink)]">${`{user:email}`}</code>.</li>
+                            <li>Download metadata XML and use 1-Click Import below.</li>
+                          </ol>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-                          <div className="p-3 rounded border border-border bg-bg/50 flex flex-col gap-1.5">
-                            <p className="font-semibold text-text-main flex items-center gap-1.5">
-                              <span>☁️</span> AWS IAM Identity Center
-                            </p>
-                            <ol className="list-decimal pl-4 text-text-muted space-y-1">
-                              <li>Applications → <b>Add application</b> → Select <b>Add custom SAML 2.0 application</b>.</li>
-                              <li>Set <b>Application ACS URL</b> to <code className="text-text-main font-mono">{samlAcsUrl}</code>.</li>
-                              <li>Set <b>Application SAML audience</b> to <code className="text-text-main font-mono">{samlForm.samlIssuer || "urn:9router:sp"}</code>.</li>
-                              <li>Under <i>Attribute mappings</i>, map <code className="text-text-main font-mono">Subject</code> or <code className="text-text-main font-mono">email</code> to <code className="text-text-main font-mono">${`{user:email}`}</code>.</li>
-                              <li>Download <b>IAM Identity Center SAML metadata XML</b> file and use 1-Click Import below!</li>
-                            </ol>
-                          </div>
+                        <div className="p-3 rounded-none border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] flex flex-col gap-1.5">
+                          <p className="font-bold text-[11px] uppercase text-[var(--color-ink)]">&gt; Microsoft Entra ID</p>
+                          <ol className="list-decimal pl-4 text-[11px] text-[var(--color-mute)] space-y-1">
+                            <li>Enterprise Apps &rarr; New app &rarr; Create your own application.</li>
+                            <li>Single sign-on &rarr; SAML.</li>
+                            <li>Entity ID: <code className="text-[var(--color-ink)]">{samlForm.samlIssuer || "urn:9router:sp"}</code></li>
+                            <li>Reply URL (ACS): <code className="text-[var(--color-ink)]">{samlAcsUrl}</code></li>
+                            <li>Download Federation Metadata XML or export X.509 Cert.</li>
+                          </ol>
+                        </div>
 
-                          <div className="p-3 rounded border border-border bg-bg/50 flex flex-col gap-1.5">
-                            <p className="font-semibold text-text-main flex items-center gap-1.5">
-                              <span>🔷</span> Microsoft Entra ID (Azure AD)
-                            </p>
-                            <ol className="list-decimal pl-4 text-text-muted space-y-1">
-                              <li>Enterprise Applications → <b>New application</b> → <b>Create your own application</b>.</li>
-                              <li>Select <b>Single sign-on</b> → <b>SAML</b>.</li>
-                              <li><b>Identifier (Entity ID):</b> <code className="text-text-main font-mono">{samlForm.samlIssuer || "urn:9router:sp"}</code></li>
-                              <li><b>Reply URL (ACS):</b> <code className="text-text-main font-mono">{samlAcsUrl}</code></li>
-                              <li>Download <b>Federation Metadata XML</b> and import or copy X.509 Certificate.</li>
-                            </ol>
-                          </div>
+                        <div className="p-3 rounded-none border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] flex flex-col gap-1.5">
+                          <p className="font-bold text-[11px] uppercase text-[var(--color-ink)]">&gt; Okta / Auth0</p>
+                          <ol className="list-decimal pl-4 text-[11px] text-[var(--color-mute)] space-y-1">
+                            <li>Applications &rarr; Create App Integration &rarr; SAML 2.0.</li>
+                            <li>SSO URL: <code className="text-[var(--color-ink)]">{samlAcsUrl}</code></li>
+                            <li>Audience URI: <code className="text-[var(--color-ink)]">{samlForm.samlIssuer || "urn:9router:sp"}</code></li>
+                            <li>Name ID format: EmailAddress.</li>
+                            <li>Download IdP metadata XML or copy X.509 cert.</li>
+                          </ol>
+                        </div>
 
-                          <div className="p-3 rounded border border-border bg-bg/50 flex flex-col gap-1.5">
-                            <p className="font-semibold text-text-main flex items-center gap-1.5">
-                              <span>🟢</span> Okta / Auth0
-                            </p>
-                            <ol className="list-decimal pl-4 text-text-muted space-y-1">
-                              <li>Applications → <b>Create App Integration</b> → Select <b>SAML 2.0</b>.</li>
-                              <li><b>Single Sign-On URL:</b> <code className="text-text-main font-mono">{samlAcsUrl}</code></li>
-                              <li><b>Audience URI (SP Entity ID):</b> <code className="text-text-main font-mono">{samlForm.samlIssuer || "urn:9router:sp"}</code></li>
-                              <li>Name ID format: <i>EmailAddress</i>.</li>
-                              <li>Download Identity Provider metadata XML or copy the X.509 cert.</li>
-                            </ol>
-                          </div>
-
-                          <div className="p-3 rounded border border-border bg-bg/50 flex flex-col gap-1.5">
-                            <p className="font-semibold text-text-main flex items-center gap-1.5">
-                              <span>🛡️</span> Keycloak / Authentik
-                            </p>
-                            <ol className="list-decimal pl-4 text-text-muted space-y-1">
-                              <li>Clients → <b>Create client</b> → Select <b>SAML</b>.</li>
-                              <li><b>Client ID:</b> <code className="text-text-main font-mono">{samlForm.samlIssuer || "urn:9router:sp"}</code></li>
-                              <li><b>Master SAML Processing URL:</b> <code className="text-text-main font-mono">{samlAcsUrl}</code></li>
-                              <li>Export SAML Descriptor XML or copy IDP Certificate PEM.</li>
-                            </ol>
-                          </div>
+                        <div className="p-3 rounded-none border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] flex flex-col gap-1.5">
+                          <p className="font-bold text-[11px] uppercase text-[var(--color-ink)]">&gt; Keycloak / Authentik</p>
+                          <ol className="list-decimal pl-4 text-[11px] text-[var(--color-mute)] space-y-1">
+                            <li>Clients &rarr; Create client &rarr; SAML protocol.</li>
+                            <li>Client ID: <code className="text-[var(--color-ink)]">{samlForm.samlIssuer || "urn:9router:sp"}</code></li>
+                            <li>Master SAML Processing URL: <code className="text-[var(--color-ink)]">{samlAcsUrl}</code></li>
+                            <li>Export SAML descriptor XML or copy Certificate PEM.</li>
+                          </ol>
                         </div>
                       </div>
-                    )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Quick Import Card */}
+                <div className="p-3 rounded-[4px] border border-dashed border-[var(--color-hairline-strong)] bg-[var(--color-surface-soft)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <p className="font-bold text-xs uppercase text-[var(--color-ink)]">1-Click IdP Metadata XML Import</p>
+                    <p className="text-[11px] text-[var(--color-mute)]">Auto-populate SSO URL, Issuer &amp; Certificate</p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    icon="upload_file"
+                    onClick={() => idpMetadataFileRef.current?.click()}
+                    className="w-full sm:w-auto min-h-[36px] rounded-[4px] font-mono text-xs"
+                  >
+                    Upload Metadata XML
+                  </Button>
+                  <input
+                    ref={idpMetadataFileRef}
+                    type="file"
+                    accept=".xml,application/xml,text/xml"
+                    className="hidden"
+                    onChange={handleIdpMetadataUpload}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div className="flex flex-col gap-1.5 sm:col-span-2">
+                    <label className="text-xs font-bold uppercase text-[var(--color-ink)]">
+                      Single Sign-On Service URL (samlEntryPoint)
+                    </label>
+                    <Input
+                      placeholder="https://idp.example.com/app/saml/sso/..."
+                      value={samlForm.samlEntryPoint}
+                      onChange={(e) => updateSamlForm("samlEntryPoint", e.target.value)}
+                      disabled={loading || samlLoading}
+                      className="w-full"
+                    />
                   </div>
 
-                  {/* Quick Import Card */}
-                  <div className="p-3 rounded-lg border border-dashed border-primary/40 bg-primary/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                      <p className="font-medium text-sm text-text-main">1-Click IdP Metadata XML Import</p>
-                      <p className="text-xs text-text-muted">Auto-fill SSO URL, Issuer & Cert from XML metadata</p>
+                  <div className="flex flex-col gap-1.5 sm:col-span-2">
+                    <label className="text-xs font-bold uppercase text-[var(--color-ink)]">
+                      SP Entity ID / Audience (samlIssuer)
+                    </label>
+                    <Input
+                      placeholder="urn:9router:sp"
+                      value={samlForm.samlIssuer}
+                      onChange={(e) => updateSamlForm("samlIssuer", e.target.value)}
+                      disabled={loading || samlLoading}
+                      className="w-full"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5 sm:col-span-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <label className="text-xs font-bold uppercase text-[var(--color-ink)]">
+                        IdP X.509 Certificate (samlCert)
+                      </label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="xs"
+                        icon="file_upload"
+                        onClick={() => certFileRef.current?.click()}
+                        className="rounded-[4px] font-mono"
+                      >
+                        Upload Cert
+                      </Button>
+                      <input
+                        ref={certFileRef}
+                        type="file"
+                        accept=".crt,.pem,.cer,text/plain"
+                        className="hidden"
+                        onChange={handleCertFileUpload}
+                      />
+                    </div>
+                    <textarea
+                      rows={4}
+                      placeholder="-----BEGIN CERTIFICATE-----&#10;MIIC...&#10;-----END CERTIFICATE-----"
+                      value={samlForm.samlCert}
+                      onChange={(e) => updateSamlForm("samlCert", e.target.value)}
+                      className="w-full p-2.5 rounded-[4px] border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] text-xs font-mono text-[var(--color-ink)] focus:outline-none focus:border-[var(--color-hairline-strong)]"
+                      disabled={loading || samlLoading}
+                    />
+                    <p className="text-[11px] text-[var(--color-mute)]">Paste raw Base64 certificate or PEM block.</p>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold uppercase text-[var(--color-ink)]">Login Button Label</label>
+                    <Input
+                      placeholder="Sign in with SAML SSO"
+                      value={samlForm.samlLoginLabel}
+                      onChange={(e) => updateSamlForm("samlLoginLabel", e.target.value)}
+                      disabled={loading || samlLoading}
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold uppercase text-[var(--color-ink)]">Email Claim Attribute</label>
+                    <Input
+                      placeholder="email"
+                      value={samlForm.samlAttributeEmail}
+                      onChange={(e) => updateSamlForm("samlAttributeEmail", e.target.value)}
+                      disabled={loading || samlLoading}
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5 sm:col-span-2">
+                    <label className="text-xs font-bold uppercase text-[var(--color-ink)]">Display Name Claim</label>
+                    <Input
+                      placeholder="name"
+                      value={samlForm.samlAttributeName}
+                      onChange={(e) => updateSamlForm("samlAttributeName", e.target.value)}
+                      disabled={loading || samlLoading}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2 p-3 rounded-none border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] text-xs text-[var(--color-mute)]">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-bold uppercase text-[11px] text-[var(--color-ink)]">ACS Callback URL</p>
+                      <code className="block break-all font-mono text-xs text-[var(--color-body)] mt-0.5">{samlAcsUrl}</code>
                     </div>
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      icon="upload_file"
-                      onClick={() => idpMetadataFileRef.current?.click()}
+                      icon="content_copy"
+                      onClick={() => {
+                        navigator.clipboard.writeText(samlAcsUrl);
+                        setSamlStatus({ type: "success", message: "ACS URL copied to clipboard!" });
+                      }}
+                      className="w-full sm:w-auto min-h-[36px] rounded-[4px] font-mono text-xs"
                     >
-                      Upload Metadata XML
+                      Copy
                     </Button>
-                    <input
-                      ref={idpMetadataFileRef}
-                      type="file"
-                      accept=".xml,application/xml,text/xml"
-                      className="hidden"
-                      onChange={handleIdpMetadataUpload}
+                  </div>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-[var(--color-hairline)]">
+                    <div className="min-w-0">
+                      <p className="font-bold uppercase text-[11px] text-[var(--color-ink)]">SP XML Metadata</p>
+                      <code className="block break-all font-mono text-xs text-[var(--color-body)] mt-0.5">{samlMetadataUrl}</code>
+                    </div>
+                    <a
+                      href={samlMetadataUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      download="9router-sp-metadata.xml"
+                      className="inline-flex items-center justify-center gap-1.5 h-9 px-3.5 border border-[var(--color-hairline)] bg-[var(--color-canvas)] text-xs font-mono font-medium text-[var(--color-ink)] hover:bg-[var(--color-surface-soft)] rounded-[4px] transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">download</span>
+                      Download XML
+                    </a>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2.5 pt-2 border-t border-[var(--color-hairline)]">
+                  <Button
+                    type="button"
+                    variant="primary"
+                    loading={samlLoading}
+                    onClick={() => saveSamlSettings(oidcForm.authMode)}
+                    className="w-full sm:w-auto min-h-[38px] rounded-[4px] font-mono text-xs sm:text-sm"
+                  >
+                    Save SAML Settings
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    loading={samlTestLoading}
+                    onClick={testSamlConnection}
+                    className="w-full sm:w-auto min-h-[38px] rounded-[4px] font-mono text-xs sm:text-sm"
+                  >
+                    Test SAML Connection
+                  </Button>
+                </div>
+
+                {samlTestStatus.message && (
+                  <p className={cn(
+                    "text-xs sm:text-sm font-mono p-2.5 border rounded-[4px]",
+                    samlTestStatus.type === "error"
+                      ? "bg-[rgba(255,59,48,0.06)] border-[var(--color-danger)] text-[var(--color-danger)]"
+                      : "bg-[rgba(48,209,88,0.06)] border-[var(--color-success)] text-[var(--color-success)]"
+                  )}>
+                    {samlTestStatus.type === "error" ? "[x] " : "[+] "}
+                    {samlTestStatus.message}
+                  </p>
+                )}
+
+                {samlStatus.message && (
+                  <p className={cn(
+                    "text-xs sm:text-sm font-mono p-2.5 border rounded-[4px]",
+                    samlStatus.type === "error"
+                      ? "bg-[rgba(255,59,48,0.06)] border-[var(--color-danger)] text-[var(--color-danger)]"
+                      : "bg-[rgba(48,209,88,0.06)] border-[var(--color-success)] text-[var(--color-success)]"
+                  )}>
+                    {samlStatus.type === "error" ? "[x] " : "[+] "}
+                    {samlStatus.message}
+                  </p>
+                )}
+              </div>
+            ) : (
+              /* OIDC Panel */
+              <div className="flex flex-col gap-3.5 pt-2 border-t border-[var(--color-hairline)]">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div className="flex flex-col gap-1.5 sm:col-span-2">
+                    <label className="text-xs font-bold uppercase text-[var(--color-ink)]">Issuer URL</label>
+                    <Input
+                      placeholder="https://auth.example.com/application/o/9router/"
+                      value={oidcForm.oidcIssuerUrl}
+                      onChange={(e) => updateOidcForm("oidcIssuerUrl", e.target.value)}
+                      disabled={loading || oidcLoading}
+                      className="w-full"
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 gap-4">
-                    <div className="flex flex-col gap-2">
-                      <label className="font-medium text-sm sm:text-base">Single Sign-On Service URL (samlEntryPoint)</label>
-                      <Input
-                        placeholder="https://idp.example.com/app/saml/sso/..."
-                        value={samlForm.samlEntryPoint}
-                        onChange={(e) => updateSamlForm("samlEntryPoint", e.target.value)}
-                        disabled={loading || samlLoading}
-                      />
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                      <label className="font-medium text-sm sm:text-base">SP Entity ID / Audience (samlIssuer)</label>
-                      <Input
-                        placeholder="urn:9router:sp"
-                        value={samlForm.samlIssuer}
-                        onChange={(e) => updateSamlForm("samlIssuer", e.target.value)}
-                        disabled={loading || samlLoading}
-                      />
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                      <div className="flex items-center justify-between">
-                        <label className="font-medium text-sm sm:text-base">IdP X.509 Certificate (samlCert)</label>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          icon="file_upload"
-                          onClick={() => certFileRef.current?.click()}
-                        >
-                          Upload Certificate
-                        </Button>
-                        <input
-                          ref={certFileRef}
-                          type="file"
-                          accept=".crt,.pem,.cer,text/plain"
-                          className="hidden"
-                          onChange={handleCertFileUpload}
-                        />
-                      </div>
-                      <textarea
-                        rows={4}
-                        placeholder="-----BEGIN CERTIFICATE-----&#10;MIIC...&#10;-----END CERTIFICATE-----"
-                        value={samlForm.samlCert}
-                        onChange={(e) => updateSamlForm("samlCert", e.target.value)}
-                        className="w-full p-2.5 rounded-lg border border-border bg-bg text-xs font-mono text-text-main focus:outline-none focus:border-primary"
-                        disabled={loading || samlLoading}
-                      />
-                      <p className="text-xs text-text-muted">Paste raw Base64 certificate or PEM block.</p>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      <div className="flex flex-col gap-2">
-                        <label className="font-medium text-sm sm:text-base">Login Button Label</label>
-                        <Input
-                          placeholder="Sign in with SAML SSO"
-                          value={samlForm.samlLoginLabel}
-                          onChange={(e) => updateSamlForm("samlLoginLabel", e.target.value)}
-                          disabled={loading || samlLoading}
-                        />
-                      </div>
-
-                      <div className="flex flex-col gap-2">
-                        <label className="font-medium text-sm sm:text-base">Email Claim Attribute</label>
-                        <Input
-                          placeholder="email"
-                          value={samlForm.samlAttributeEmail}
-                          onChange={(e) => updateSamlForm("samlAttributeEmail", e.target.value)}
-                          disabled={loading || samlLoading}
-                        />
-                      </div>
-
-                      <div className="flex flex-col gap-2">
-                        <label className="font-medium text-sm sm:text-base">Display Name Claim</label>
-                        <Input
-                          placeholder="name"
-                          value={samlForm.samlAttributeName}
-                          onChange={(e) => updateSamlForm("samlAttributeName", e.target.value)}
-                          disabled={loading || samlLoading}
-                        />
-                      </div>
-                    </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold uppercase text-[var(--color-ink)]">Client ID</label>
+                    <Input
+                      placeholder="9router-dashboard"
+                      value={oidcForm.oidcClientId}
+                      onChange={(e) => updateOidcForm("oidcClientId", e.target.value)}
+                      disabled={loading || oidcLoading}
+                      className="w-full"
+                    />
                   </div>
 
-                  <div className="flex flex-col gap-2 p-3 rounded-lg border border-border bg-bg text-xs sm:text-sm text-text-muted">
-                    <div className="flex items-center justify-between gap-2">
-                      <div>
-                        <p className="font-medium text-text-main">ACS Callback URL</p>
-                        <code className="block break-all font-mono text-xs">{samlAcsUrl}</code>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        icon="content_copy"
-                        onClick={() => {
-                          navigator.clipboard.writeText(samlAcsUrl);
-                          setSamlStatus({ type: "success", message: "ACS URL copied to clipboard!" });
-                        }}
-                      >
-                        Copy
-                      </Button>
-                    </div>
-                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/50">
-                      <div>
-                        <p className="font-medium text-text-main">SP XML Metadata</p>
-                        <code className="block break-all font-mono text-xs">{samlMetadataUrl}</code>
-                      </div>
-                      <a
-                        href={samlMetadataUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        download="9router-sp-metadata.xml"
-                        className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-                      >
-                        <span className="material-symbols-outlined text-[16px]">download</span>
-                        Download XML
-                      </a>
-                    </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold uppercase text-[var(--color-ink)]">Client Secret</label>
+                    <Input
+                      type="password"
+                      placeholder="Leave blank to keep existing secret"
+                      value={oidcClientSecret}
+                      onChange={(e) => setOidcClientSecret(e.target.value)}
+                      disabled={loading || oidcLoading}
+                      className="w-full"
+                    />
+                    <p className="text-[11px] text-[var(--color-mute)]">Write-only after saving.</p>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-border/50">
-                    <Button
-                      type="button"
-                      variant="primary"
-                      loading={samlLoading}
-                      onClick={() => saveSamlSettings(oidcForm.authMode)}
-                      className="w-full sm:w-auto"
-                    >
-                      Save SAML settings
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      loading={samlTestLoading}
-                      onClick={testSamlConnection}
-                      className="w-full sm:w-auto"
-                    >
-                      Test SAML settings
-                    </Button>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold uppercase text-[var(--color-ink)]">Scopes</label>
+                    <Input
+                      placeholder="openid profile email"
+                      value={oidcForm.oidcScopes}
+                      onChange={(e) => updateOidcForm("oidcScopes", e.target.value)}
+                      disabled={loading || oidcLoading}
+                      className="w-full"
+                    />
                   </div>
 
-                  {samlTestStatus.message && (
-                    <p className={`text-xs sm:text-sm ${samlTestStatus.type === "error" ? "text-red-500" : "text-green-500"}`}>
-                      {samlTestStatus.message}
-                    </p>
-                  )}
-
-                  {samlStatus.message && (
-                    <p className={`text-xs sm:text-sm ${samlStatus.type === "error" ? "text-red-500" : "text-green-500"}`}>
-                      {samlStatus.message}
-                    </p>
-                  )}
-                </div>
-              ) : (
-                /* OIDC Panel */
-                <div className="flex flex-col gap-4 pt-2 border-t border-border/50">
-                  <div className="grid grid-cols-1 gap-4">
-                    <div className="flex flex-col gap-2">
-                      <label className="font-medium text-sm sm:text-base">Issuer URL</label>
-                      <Input
-                        placeholder="https://auth.example.com/application/o/9router/"
-                        value={oidcForm.oidcIssuerUrl}
-                        onChange={(e) => updateOidcForm("oidcIssuerUrl", e.target.value)}
-                        disabled={loading || oidcLoading}
-                      />
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                      <label className="font-medium text-sm sm:text-base">Client ID</label>
-                      <Input
-                        placeholder="9router-dashboard"
-                        value={oidcForm.oidcClientId}
-                        onChange={(e) => updateOidcForm("oidcClientId", e.target.value)}
-                        disabled={loading || oidcLoading}
-                      />
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                      <label className="font-medium text-sm sm:text-base">Client Secret</label>
-                      <Input
-                        type="password"
-                        placeholder="Leave blank to keep existing secret"
-                        value={oidcClientSecret}
-                        onChange={(e) => setOidcClientSecret(e.target.value)}
-                        disabled={loading || oidcLoading}
-                      />
-                      <p className="text-xs sm:text-sm text-text-muted">This value is write-only after saving.</p>
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                      <label className="font-medium text-sm sm:text-base">Scopes</label>
-                      <Input
-                        placeholder="openid profile email"
-                        value={oidcForm.oidcScopes}
-                        onChange={(e) => updateOidcForm("oidcScopes", e.target.value)}
-                        disabled={loading || oidcLoading}
-                      />
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                      <label className="font-medium text-sm sm:text-base">Login Button Label</label>
-                      <Input
-                        placeholder="Sign in with OIDC"
-                        value={oidcForm.oidcLoginLabel}
-                        onChange={(e) => updateOidcForm("oidcLoginLabel", e.target.value)}
-                        disabled={loading || oidcLoading}
-                      />
-                    </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold uppercase text-[var(--color-ink)]">Login Button Label</label>
+                    <Input
+                      placeholder="Sign in with OIDC"
+                      value={oidcForm.oidcLoginLabel}
+                      onChange={(e) => updateOidcForm("oidcLoginLabel", e.target.value)}
+                      disabled={loading || oidcLoading}
+                      className="w-full"
+                    />
                   </div>
-
-                  <div className="rounded-lg border border-border bg-bg p-3 text-xs sm:text-sm text-text-muted">
-                    <p className="font-medium text-text-main mb-1">Redirect URI</p>
-                    <code className="block break-all font-mono">{oidcRedirectUri}</code>
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-border/50">
-                    <Button type="button" variant="primary" loading={oidcLoading} onClick={() => saveOidcSettings()} className="w-full sm:w-auto">
-                      Save OIDC settings
-                    </Button>
-                    <Button type="button" variant="outline" loading={oidcTestLoading} onClick={testOidcConnection} className="w-full sm:w-auto">
-                      Test connection
-                    </Button>
-                  </div>
-
-                  {oidcTestStatus.message && (
-                    <p className={`text-xs sm:text-sm ${oidcTestStatus.type === "error" ? "text-red-500" : "text-green-500"}`}>
-                      {oidcTestStatus.message}
-                    </p>
-                  )}
-
-                  {oidcStatus.message && (
-                    <p className={`text-xs sm:text-sm ${oidcStatus.type === "error" ? "text-red-500" : "text-green-500"}`}>
-                      {oidcStatus.message}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {settings.authMode === "oidc" || settings.authMode === "saml" || settings.authMode === "sso" ? (
-                <p className="text-xs sm:text-sm text-amber-600 dark:text-amber-400">
-                  SSO login ({settings.ssoType === "saml" ? "SAML 2.0" : "OIDC"}) is currently active. Password login is disabled until you switch back.
-                </p>
-              ) : null}
-
-              {settings.authMode === "both" && (
-                <p className="text-xs sm:text-sm text-amber-600 dark:text-amber-400">
-                  Password and SSO login ({settings.ssoType === "saml" ? "SAML 2.0" : "OIDC"}) are both active.
-                </p>
-              )}
-            </div>
-          )}
-        </Card>
-
-        {/* Routing Preferences */}
-        <Card>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 rounded-lg bg-blue-500/10 text-blue-500 shrink-0">
-              <span className="material-symbols-outlined text-[20px]">route</span>
-            </div>
-            <h3 className="text-base sm:text-lg font-semibold">Routing Strategy</h3>
-          </div>
-          <div className="flex flex-col gap-4">
-            <div className="flex items-start sm:items-center justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm sm:text-base">Round Robin</p>
-                <p className="text-xs sm:text-sm text-text-muted">
-                  Cycle through accounts to distribute load
-                </p>
-              </div>
-              <Toggle
-                checked={settings.fallbackStrategy === "round-robin"}
-                onChange={() => updateFallbackStrategy(settings.fallbackStrategy === "round-robin" ? "fill-first" : "round-robin")}
-                disabled={loading}
-              />
-            </div>
-
-            {/* Sticky Round Robin Limit */}
-            {settings.fallbackStrategy === "round-robin" && (
-              <div className="flex items-start sm:items-center justify-between gap-4 pt-2 border-t border-border/50">
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm sm:text-base">Sticky Limit</p>
-                  <p className="text-xs sm:text-sm text-text-muted">
-                    Calls per account before switching
-                  </p>
-                </div>
-                <Input
-                  type="number"
-                  min="1"
-                  max="10"
-                  value={settings.stickyRoundRobinLimit || 3}
-                  onChange={(e) => updateStickyLimit(e.target.value)}
-                  disabled={loading}
-                  className="w-16 sm:w-20 text-center shrink-0"
-                />
-              </div>
-            )}
-
-            {/* Combo Round Robin */}
-            <div className="flex items-start sm:items-center justify-between gap-4 pt-4 border-t border-border/50">
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm sm:text-base">Combo Round Robin</p>
-                <p className="text-xs sm:text-sm text-text-muted">
-                  Cycle through providers in combos instead of always starting with first
-                </p>
-              </div>
-              <Toggle
-                checked={settings.comboStrategy === "round-robin"}
-                onChange={() => updateComboStrategy(settings.comboStrategy === "round-robin" ? "fallback" : "round-robin")}
-                disabled={loading}
-              />
-            </div>
-
-            {/* Combo Sticky Round Robin Limit */}
-            {settings.comboStrategy === "round-robin" && (
-              <div className="flex items-center justify-between pt-2 border-t border-border/50">
-                <div>
-                  <p className="font-medium">Combo Sticky Limit</p>
-                  <p className="text-sm text-text-muted">
-                    Calls per combo model before switching
-                  </p>
-                </div>
-                <Input
-                  type="number"
-                  min="1"
-                  max="100"
-                  value={settings.comboStickyRoundRobinLimit || 1}
-                  onChange={(e) => updateComboStickyLimit(e.target.value)}
-                  disabled={loading}
-                  className="w-20 text-center"
-                />
-              </div>
-            )}
-
-            <p className="text-xs text-text-muted italic pt-2 border-t border-border/50">
-              {settings.fallbackStrategy === "round-robin"
-                ? `Currently distributing requests across all available accounts with ${settings.stickyRoundRobinLimit || 3} calls per account.`
-                : "Currently using accounts in priority order (Fill First)."}
-              {settings.comboStrategy === "round-robin"
-                ? ` Combos rotate after ${settings.comboStickyRoundRobinLimit || 1} call${(settings.comboStickyRoundRobinLimit || 1) === 1 ? "" : "s"} per model.`
-                : " Combos always start with their first model."}
-            </p>
-          </div>
-        </Card>
-
-        {/* Network */}
-        <Card>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 rounded-lg bg-purple-500/10 text-purple-500 shrink-0">
-              <span className="material-symbols-outlined text-[20px]">wifi</span>
-            </div>
-            <h3 className="text-base sm:text-lg font-semibold">Network</h3>
-          </div>
-
-          <div className="flex flex-col gap-4">
-            <div className="flex items-start sm:items-center justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm sm:text-base">Outbound Proxy</p>
-                <p className="text-xs sm:text-sm text-text-muted">Enable proxy for OAuth + provider outbound requests.</p>
-              </div>
-              <Toggle
-                checked={settings.outboundProxyEnabled === true}
-                onChange={() => updateOutboundProxyEnabled(!(settings.outboundProxyEnabled === true))}
-                disabled={loading || proxyLoading}
-              />
-            </div>
-
-            {settings.outboundProxyEnabled === true && (
-              <form onSubmit={updateOutboundProxy} className="flex flex-col gap-4 pt-2 border-t border-border/50">
-                <div className="flex flex-col gap-2">
-                  <label className="font-medium text-sm sm:text-base">Proxy URL</label>
-                  <Input
-                    placeholder="http://127.0.0.1:7897"
-                    value={proxyForm.outboundProxyUrl}
-                    onChange={(e) => setProxyForm((prev) => ({ ...prev, outboundProxyUrl: e.target.value }))}
-                    disabled={loading || proxyLoading}
-                  />
-                  <p className="text-xs sm:text-sm text-text-muted">Leave empty to inherit existing env proxy (if any).</p>
                 </div>
 
-                <div className="flex flex-col gap-2 pt-2 border-t border-border/50">
-                  <label className="font-medium text-sm sm:text-base">No Proxy</label>
-                  <Input
-                    placeholder="localhost,127.0.0.1"
-                    value={proxyForm.outboundNoProxy}
-                    onChange={(e) => setProxyForm((prev) => ({ ...prev, outboundNoProxy: e.target.value }))}
-                    disabled={loading || proxyLoading}
-                  />
-                  <p className="text-xs sm:text-sm text-text-muted">Comma-separated hostnames/domains to bypass the proxy.</p>
+                <div className="rounded-none border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] p-3 text-xs text-[var(--color-mute)]">
+                  <p className="font-bold uppercase text-[11px] text-[var(--color-ink)] mb-1">Redirect URI</p>
+                  <code className="block break-all font-mono text-xs text-[var(--color-body)]">{oidcRedirectUri}</code>
                 </div>
 
-                <div className="pt-2 border-t border-border/50 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <div className="flex flex-col sm:flex-row gap-2.5 pt-2 border-t border-[var(--color-hairline)]">
                   <Button
                     type="button"
-                    variant="secondary"
-                    loading={proxyTestLoading}
-                    disabled={loading || proxyLoading}
-                    onClick={testOutboundProxy}
-                    className="w-full sm:w-auto"
+                    variant="primary"
+                    loading={oidcLoading}
+                    onClick={() => saveOidcSettings()}
+                    className="w-full sm:w-auto min-h-[38px] rounded-[4px] font-mono text-xs sm:text-sm"
                   >
-                    Test proxy URL
+                    Save OIDC Settings
                   </Button>
-                  <Button type="submit" variant="primary" loading={proxyLoading} className="w-full sm:w-auto">
-                    Apply
+                  <Button
+                    type="button"
+                    variant="outline"
+                    loading={oidcTestLoading}
+                    onClick={testOidcConnection}
+                    className="w-full sm:w-auto min-h-[38px] rounded-[4px] font-mono text-xs sm:text-sm"
+                  >
+                    Test Connection
                   </Button>
                 </div>
-              </form>
+
+                {oidcTestStatus.message && (
+                  <p className={cn(
+                    "text-xs sm:text-sm font-mono p-2.5 border rounded-[4px]",
+                    oidcTestStatus.type === "error"
+                      ? "bg-[rgba(255,59,48,0.06)] border-[var(--color-danger)] text-[var(--color-danger)]"
+                      : "bg-[rgba(48,209,88,0.06)] border-[var(--color-success)] text-[var(--color-success)]"
+                  )}>
+                    {oidcTestStatus.type === "error" ? "[x] " : "[+] "}
+                    {oidcTestStatus.message}
+                  </p>
+                )}
+
+                {oidcStatus.message && (
+                  <p className={cn(
+                    "text-xs sm:text-sm font-mono p-2.5 border rounded-[4px]",
+                    oidcStatus.type === "error"
+                      ? "bg-[rgba(255,59,48,0.06)] border-[var(--color-danger)] text-[var(--color-danger)]"
+                      : "bg-[rgba(48,209,88,0.06)] border-[var(--color-success)] text-[var(--color-success)]"
+                  )}>
+                    {oidcStatus.type === "error" ? "[x] " : "[+] "}
+                    {oidcStatus.message}
+                  </p>
+                )}
+              </div>
             )}
 
-            {proxyStatus.message && (
-              <p className={`text-xs sm:text-sm ${proxyStatus.type === "error" ? "text-red-500" : "text-green-500"} pt-2 border-t border-border/50`}>
-                {proxyStatus.message}
+            {settings.authMode === "oidc" || settings.authMode === "saml" || settings.authMode === "sso" ? (
+              <p className="text-xs font-mono p-2.5 bg-[var(--color-surface-soft)] border border-[var(--color-hairline-strong)] text-[var(--color-ink)]">
+                [!] SSO login ({settings.ssoType === "saml" ? "SAML 2.0" : "OIDC"}) active. Password authentication disabled until switched.
+              </p>
+            ) : null}
+
+            {settings.authMode === "both" && (
+              <p className="text-xs font-mono p-2.5 bg-[var(--color-surface-soft)] border border-[var(--color-hairline-strong)] text-[var(--color-ink)]">
+                [i] Dual login active: both password and {settings.ssoType === "saml" ? "SAML 2.0" : "OIDC"} SSO permitted.
               </p>
             )}
           </div>
-        </Card>
+        )}
+      </Card>
 
-        {/* Observability Settings */}
-        <Card>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 rounded-lg bg-orange-500/10 text-orange-500 shrink-0">
-              <span className="material-symbols-outlined text-[20px]">monitoring</span>
-            </div>
-            <h3 className="text-base sm:text-lg font-semibold">Observability</h3>
-          </div>
-          <div className="flex items-start sm:items-center justify-between gap-4">
+      {/* Routing Preferences */}
+      <Card className="rounded-none border border-[var(--color-hairline)] bg-[var(--color-canvas)] p-3.5 sm:p-5 shadow-none flex flex-col gap-4">
+        <div className="flex items-center gap-2.5">
+          <span className="text-xs text-[var(--color-ink)] font-bold">[+]</span>
+          <h3 className="text-sm sm:text-base font-bold uppercase">Routing Strategy &amp; Dispatch</h3>
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <div className="flex items-start sm:items-center justify-between gap-3">
             <div className="flex-1 min-w-0">
-              <p className="font-medium text-sm sm:text-base">Enable Observability</p>
-              <p className="text-xs sm:text-sm text-text-muted">
-                Record request details for inspection in the logs view
+              <p className="font-bold text-xs sm:text-sm uppercase text-[var(--color-ink)]">Round Robin</p>
+              <p className="text-xs text-[var(--color-mute)] mt-0.5">
+                Cycle through provider accounts to distribute traffic load evenly
               </p>
             </div>
             <Toggle
-              checked={observabilityEnabled}
-              onChange={updateObservabilityEnabled}
+              checked={settings.fallbackStrategy === "round-robin"}
+              onChange={() => updateFallbackStrategy(settings.fallbackStrategy === "round-robin" ? "fill-first" : "round-robin")}
               disabled={loading}
             />
           </div>
-        </Card>
 
-        {/* Account actions */}
-        <div className="flex flex-col sm:flex-row gap-2">
-          <Button
-            variant="outline"
-            fullWidth
-            icon="power_settings_new"
-            onClick={() => setShutdownOpen(true)}
-            className="text-red-500 border-red-200 hover:bg-red-50 hover:border-red-300"
-          >
-            Shutdown
-          </Button>
-          <Button
-            variant="outline"
-            fullWidth
-            icon="logout"
-            onClick={handleLogout}
-          >
-            Logout
-          </Button>
+          {/* Sticky Round Robin Limit */}
+          {settings.fallbackStrategy === "round-robin" && (
+            <div className="flex items-center justify-between gap-3 pt-2 border-t border-[var(--color-hairline)]">
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-xs sm:text-sm uppercase text-[var(--color-ink)]">Account Sticky Limit</p>
+                <p className="text-xs text-[var(--color-mute)] mt-0.5">
+                  Sequential calls per account before advancing
+                </p>
+              </div>
+              <Input
+                type="number"
+                min="1"
+                max="10"
+                value={settings.stickyRoundRobinLimit || 3}
+                onChange={(e) => updateStickyLimit(e.target.value)}
+                disabled={loading}
+                className="w-20 text-center shrink-0"
+              />
+            </div>
+          )}
+
+          {/* Combo Round Robin */}
+          <div className="flex items-start sm:items-center justify-between gap-3 pt-3 border-t border-[var(--color-hairline)]">
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-xs sm:text-sm uppercase text-[var(--color-ink)]">Combo Round Robin</p>
+              <p className="text-xs text-[var(--color-mute)] mt-0.5">
+                Rotate through combo targets rather than restarting at first model
+              </p>
+            </div>
+            <Toggle
+              checked={settings.comboStrategy === "round-robin"}
+              onChange={() => updateComboStrategy(settings.comboStrategy === "round-robin" ? "fallback" : "round-robin")}
+              disabled={loading}
+            />
+          </div>
+
+          {/* Combo Sticky Round Robin Limit */}
+          {settings.comboStrategy === "round-robin" && (
+            <div className="flex items-center justify-between gap-3 pt-2 border-t border-[var(--color-hairline)]">
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-xs sm:text-sm uppercase text-[var(--color-ink)]">Combo Sticky Limit</p>
+                <p className="text-xs text-[var(--color-mute)] mt-0.5">
+                  Sequential calls per combo model before rotation
+                </p>
+              </div>
+              <Input
+                type="number"
+                min="1"
+                max="100"
+                value={settings.comboStickyRoundRobinLimit || 1}
+                onChange={(e) => updateComboStickyLimit(e.target.value)}
+                disabled={loading}
+                className="w-20 text-center shrink-0"
+              />
+            </div>
+          )}
+
+          <div className="p-3 bg-[var(--color-surface-soft)] border border-[var(--color-hairline)] rounded-none text-xs text-[var(--color-mute)] font-mono">
+            &gt;{" "}
+            {settings.fallbackStrategy === "round-robin"
+              ? `Distributing across accounts with ${settings.stickyRoundRobinLimit || 3} calls/account.`
+              : "Strict priority fallback: primary account until rate limited (Fill First)."}
+            {settings.comboStrategy === "round-robin"
+              ? ` Combos rotate after ${settings.comboStickyRoundRobinLimit || 1} call${(settings.comboStickyRoundRobinLimit || 1) === 1 ? "" : "s"}.`
+              : " Combos always evaluate from primary candidate."}
+          </div>
+        </div>
+      </Card>
+
+      {/* Network / Outbound Proxy */}
+      <Card className="rounded-none border border-[var(--color-hairline)] bg-[var(--color-canvas)] p-3.5 sm:p-5 shadow-none flex flex-col gap-4">
+        <div className="flex items-center gap-2.5">
+          <span className="text-xs text-[var(--color-ink)] font-bold">[+]</span>
+          <h3 className="text-sm sm:text-base font-bold uppercase">Network &amp; Outbound Proxy</h3>
         </div>
 
-        {/* App Info */}
-        <div className="text-center text-xs sm:text-sm text-text-muted py-4">
-          <p>{APP_CONFIG.name} v{APP_CONFIG.version}</p>
-          <p className="mt-1">{isRemoteHost ? "Remote Mode" : "Local Mode - All data stored on your machine"}</p>
+        <div className="flex flex-col gap-4">
+          <div className="flex items-start sm:items-center justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-xs sm:text-sm uppercase text-[var(--color-ink)]">Outbound Proxy</p>
+              <p className="text-xs text-[var(--color-mute)] mt-0.5">
+                Route provider egress &amp; OAuth refreshes through an HTTP/HTTPS/SOCKS5 proxy
+              </p>
+            </div>
+            <Toggle
+              checked={settings.outboundProxyEnabled === true}
+              onChange={() => updateOutboundProxyEnabled(!(settings.outboundProxyEnabled === true))}
+              disabled={loading || proxyLoading}
+            />
+          </div>
+
+          {settings.outboundProxyEnabled === true && (
+            <form onSubmit={updateOutboundProxy} className="flex flex-col gap-3.5 pt-3 border-t border-[var(--color-hairline)]">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold uppercase text-[var(--color-ink)]">Proxy URL</label>
+                <Input
+                  placeholder="http://127.0.0.1:7897"
+                  value={proxyForm.outboundProxyUrl}
+                  onChange={(e) => setProxyForm((prev) => ({ ...prev, outboundProxyUrl: e.target.value }))}
+                  disabled={loading || proxyLoading}
+                  className="w-full"
+                />
+                <p className="text-[11px] text-[var(--color-mute)]">Leave empty to inherit system HTTP_PROXY environment.</p>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold uppercase text-[var(--color-ink)]">No Proxy</label>
+                <Input
+                  placeholder="localhost,127.0.0.1"
+                  value={proxyForm.outboundNoProxy}
+                  onChange={(e) => setProxyForm((prev) => ({ ...prev, outboundNoProxy: e.target.value }))}
+                  disabled={loading || proxyLoading}
+                  className="w-full"
+                />
+                <p className="text-[11px] text-[var(--color-mute)]">Comma-separated hostnames/domains to bypass proxy.</p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-2.5 pt-2 border-t border-[var(--color-hairline)]">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  loading={proxyTestLoading}
+                  disabled={loading || proxyLoading}
+                  onClick={testOutboundProxy}
+                  className="w-full sm:w-auto min-h-[38px] rounded-[4px] font-mono text-xs sm:text-sm"
+                >
+                  Test Proxy URL
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  loading={proxyLoading}
+                  className="w-full sm:w-auto min-h-[38px] rounded-[4px] font-mono text-xs sm:text-sm"
+                >
+                  Apply Settings
+                </Button>
+              </div>
+            </form>
+          )}
+
+          {proxyStatus.message && (
+            <p className={cn(
+              "text-xs sm:text-sm font-mono p-2.5 border rounded-[4px]",
+              proxyStatus.type === "error"
+                ? "bg-[rgba(255,59,48,0.06)] border-[var(--color-danger)] text-[var(--color-danger)]"
+                : "bg-[rgba(48,209,88,0.06)] border-[var(--color-success)] text-[var(--color-success)]"
+            )}>
+              {proxyStatus.type === "error" ? "[x] " : "[+] "}
+              {proxyStatus.message}
+            </p>
+          )}
         </div>
+      </Card>
+
+      {/* Observability */}
+      <Card className="rounded-none border border-[var(--color-hairline)] bg-[var(--color-canvas)] p-3.5 sm:p-5 shadow-none flex flex-col gap-4">
+        <div className="flex items-center gap-2.5">
+          <span className="text-xs text-[var(--color-ink)] font-bold">[+]</span>
+          <h3 className="text-sm sm:text-base font-bold uppercase">Observability &amp; Traces</h3>
+        </div>
+        <div className="flex items-start sm:items-center justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-xs sm:text-sm uppercase text-[var(--color-ink)]">Enable Observability</p>
+            <p className="text-xs text-[var(--color-mute)] mt-0.5">
+              Record full request headers, payload previews &amp; upstream timing into SQLite log table
+            </p>
+          </div>
+          <Toggle
+            checked={observabilityEnabled}
+            onChange={updateObservabilityEnabled}
+            disabled={loading}
+          />
+        </div>
+      </Card>
+
+      {/* Account Actions */}
+      <div className="flex flex-col sm:flex-row gap-2.5">
+        <Button
+          variant="outline"
+          fullWidth
+          icon="power_settings_new"
+          onClick={() => setShutdownOpen(true)}
+          className="min-h-[44px] rounded-[4px] font-mono text-xs sm:text-sm border-[var(--color-danger)] text-[var(--color-danger)] hover:bg-[var(--color-danger)] hover:text-white transition-colors"
+        >
+          [!] Shutdown Gateway
+        </Button>
+        <Button
+          variant="outline"
+          fullWidth
+          icon="logout"
+          onClick={handleLogout}
+          className="min-h-[44px] rounded-[4px] font-mono text-xs sm:text-sm border-[var(--color-hairline-strong)] text-[var(--color-ink)] hover:bg-[var(--color-surface-card)] transition-colors"
+        >
+          [-&gt;] Terminate Session
+        </Button>
       </div>
 
+      {/* System Footer Info */}
+      <div className="text-center text-xs font-mono text-[var(--color-mute)] py-4 flex flex-col gap-1 border-t border-[var(--color-hairline)]">
+        <p className="text-[var(--color-ink)] font-bold">
+          {APP_CONFIG.name} v{APP_CONFIG.version}
+        </p>
+        <p>
+          {isRemoteHost ? "[o] REMOTE_MODE (NETWORK DAEMON)" : "[o] LOCAL_MODE (LOOPBACK_HOST)"}
+        </p>
+      </div>
+
+      {/* Modals */}
       <LanguageSwitcher
         hideTrigger
         isOpen={langOpen}
@@ -1973,9 +2113,9 @@ export default function ProfilePage() {
         isOpen={shutdownOpen}
         onClose={() => setShutdownOpen(false)}
         onConfirm={handleShutdown}
-        title="Close Proxy"
-        message="Are you sure you want to close the proxy server?"
-        confirmText="Close"
+        title="Shutdown Gateway"
+        message="Terminate 9Router proxy process on this machine? Active connections will be dropped."
+        confirmText="Shutdown"
         cancelText="Cancel"
         variant="danger"
         loading={isShuttingDown}
@@ -1984,38 +2124,56 @@ export default function ProfilePage() {
       <Modal
         isOpen={dbAuth.open}
         onClose={() => setDbAuth({ open: false, mode: "", password: "" })}
-        title="Confirm Password"
+        title="Authentication Required"
         size="sm"
         footer={
-          <>
-            <Button variant="ghost" onClick={() => setDbAuth({ open: false, mode: "", password: "" })} disabled={dbLoading}>
+          <div className="flex flex-col sm:flex-row sm:justify-end gap-2 w-full">
+            <Button
+              variant="ghost"
+              onClick={() => setDbAuth({ open: false, mode: "", password: "" })}
+              disabled={dbLoading}
+              className="w-full sm:w-auto min-h-[38px] rounded-[4px] font-mono text-xs"
+            >
               Cancel
             </Button>
-            <Button variant="primary" onClick={handleDbAuthConfirm} loading={dbLoading} disabled={!dbAuth.password}>
-              Confirm
+            <Button
+              variant="primary"
+              onClick={handleDbAuthConfirm}
+              loading={dbLoading}
+              disabled={!dbAuth.password}
+              className="w-full sm:w-auto min-h-[38px] rounded-[4px] font-mono text-xs"
+            >
+              Verify &amp; Execute
             </Button>
-          </>
+          </div>
         }
       >
-        <p className="text-text-muted mb-3 text-sm">
-          Enter your current password to{" "}
-          {dbAuth.mode === "export"
-            ? "export the database"
-            : dbAuth.mode === "import"
-              ? "import the database"
-              : dbAuth.mode === "telegram-test"
-                ? "send a Telegram test message"
-                : "send the backup to Telegram"}
-          .
-        </p>
-        <Input
-          type="password"
-          value={dbAuth.password}
-          onChange={(e) => setDbAuth((s) => ({ ...s, password: e.target.value }))}
-          onKeyDown={(e) => { if (e.key === "Enter" && dbAuth.password) handleDbAuthConfirm(); }}
-          placeholder="Current password"
-          autoFocus
-        />
+        <div className="flex flex-col gap-3 font-mono">
+          <p className="text-xs text-[var(--color-mute)]">
+            Enter administrative password to authorize{" "}
+            <span className="font-bold text-[var(--color-ink)]">
+              {dbAuth.mode === "export"
+                ? "database export"
+                : dbAuth.mode === "import"
+                  ? "database restore"
+                  : dbAuth.mode === "telegram-test"
+                    ? "Telegram test message"
+                    : "Telegram backup dispatch"}
+            </span>
+            :
+          </p>
+          <Input
+            type="password"
+            value={dbAuth.password}
+            onChange={(e) => setDbAuth((s) => ({ ...s, password: e.target.value }))}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && dbAuth.password) handleDbAuthConfirm();
+            }}
+            placeholder="Admin password"
+            autoFocus
+            className="w-full"
+          />
+        </div>
       </Modal>
     </div>
   );

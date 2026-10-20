@@ -60,11 +60,31 @@ export function CardSkeleton() {
   );
 }
 
+export function PageSkeleton() {
+  return (
+    <div className="w-full flex flex-col gap-4 font-mono animate-pulse">
+      <div className="flex items-center justify-between pb-3 border-b border-[var(--color-hairline)]">
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-4 w-4" />
+          <Skeleton className="h-5 w-32 sm:w-48" />
+        </div>
+        <Skeleton className="h-8 w-24" style={{ borderRadius: "4px" }} />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+        <CardSkeleton />
+        <CardSkeleton />
+        <CardSkeleton />
+      </div>
+    </div>
+  );
+}
+
 export default function Loading({ type = "spinner", ...props }) {
   switch (type) {
     case "page":     return <PageLoading {...props} />;
     case "skeleton": return <Skeleton {...props} />;
     case "card":     return <CardSkeleton {...props} />;
+    case "page-skeleton": return <PageSkeleton {...props} />;
     default:         return <Spinner {...props} />;
   }
 }

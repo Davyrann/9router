@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card } from "@/shared/components";
 import { getProviderAlias } from "@/shared/constants/providers";
-import { getModelKind } from "@/shared/constants/models";
-import { getModelsByProviderId } from "@/shared/constants/models";
+import { getModelKind, getModelsByProviderId } from "@/shared/constants/models";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { Row } from "./exampleShared";
+
+const getTimestamp = () => Date.now();
 
 export function SttExampleCard({ providerId }) {
   const providerAlias = getProviderAlias(providerId);
@@ -29,7 +29,9 @@ export function SttExampleCard({ providerId }) {
   const [numSpeakers, setNumSpeakers] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [useTunnel, setUseTunnel] = useState(false);
-  const [localEndpoint, setLocalEndpoint] = useState("");
+  const [localEndpoint, setLocalEndpoint] = useState(() =>
+    typeof window !== "undefined" ? window.location.origin : ""
+  );
   const [tunnelEndpoint, setTunnelEndpoint] = useState("");
   const [result, setResult] = useState(null);
   const [latency, setLatency] = useState(null);
@@ -39,7 +41,6 @@ export function SttExampleCard({ providerId }) {
   const { copied: copiedRes, copy: copyRes } = useCopyToClipboard();
 
   useEffect(() => {
-    setLocalEndpoint(window.location.origin);
     fetch("/api/keys")
       .then((r) => r.json())
       .then((d) => { setApiKey((d.keys || []).find((k) => k.isActive !== false)?.key || ""); })
@@ -79,7 +80,7 @@ export function SttExampleCard({ providerId }) {
     setRunning(true);
     setError("");
     setResult(null);
-    const start = Date.now();
+    const start = getTimestamp();
     try {
       const fd = new FormData();
       fd.append("file", audioFile);
@@ -104,7 +105,7 @@ export function SttExampleCard({ providerId }) {
       const headers = {};
       if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
       const res = await fetch("/api/v1/audio/transcriptions", { method: "POST", headers, body: fd });
-      setLatency(Date.now() - start);
+      setLatency(getTimestamp() - start);
       const ct = res.headers.get("content-type") || "";
       const data = ct.includes("application/json") ? await res.json() : await res.text();
       if (!res.ok) {
@@ -122,16 +123,29 @@ export function SttExampleCard({ providerId }) {
   const resultStr = typeof result === "string" ? result : (result ? JSON.stringify(result, null, 2) : `{\n  "text": "Hello world..."\n}`);
 
   return (
-    <Card>
-      <h2 className="text-lg font-semibold mb-4">Example</h2>
-      <div className="flex flex-col gap-2.5">
+    <div className="border border-[var(--color-hairline)] bg-[var(--color-canvas)] p-3.5 sm:p-5 rounded-none font-mono">
+      <div className="flex items-center justify-between mb-4 pb-2.5 border-b border-[var(--color-hairline)]">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-[var(--color-mute)]">[test]</span>
+          <h2 className="text-sm sm:text-base font-bold text-[var(--color-ink)]">
+            STT Transcription Example
+          </h2>
+        </div>
+        {result && latency && (
+          <span className="text-xs text-[var(--color-success)] font-medium">
+            [{latency}ms]
+          </span>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-3">
         {/* Model */}
         {sttModels.length > 0 ? (
           <Row label="Model">
             <select
               value={selectedModel}
               onChange={(e) => setSelectedModel(e.target.value)}
-              className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
+              className="w-full px-3 py-2 text-xs sm:text-sm border border-[var(--color-hairline)] rounded-[4px] bg-[var(--color-surface-soft)] text-[var(--color-ink)] focus:bg-[var(--color-canvas)] focus:border-[var(--color-ink)] focus:outline-none min-h-[38px] transition-colors"
             >
               {sttModels.map((m) => (
                 <option key={m.id} value={m.id}>{m.name || m.id}</option>
@@ -144,27 +158,29 @@ export function SttExampleCard({ providerId }) {
               value={selectedModel}
               onChange={(e) => setSelectedModel(e.target.value)}
               placeholder="Enter model id"
-              className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary font-mono"
+              className="w-full px-3 py-2 text-xs sm:text-sm border border-[var(--color-hairline)] rounded-[4px] bg-[var(--color-surface-soft)] text-[var(--color-ink)] focus:bg-[var(--color-canvas)] focus:border-[var(--color-ink)] focus:outline-none min-h-[38px] transition-colors"
             />
           </Row>
         )}
 
         {/* Endpoint */}
         <Row label="Endpoint">
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-            <span className="w-full min-w-0 flex-1 px-3 py-1.5 text-sm font-mono text-text-main bg-sidebar rounded-lg truncate">
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center">
+            <span className="w-full min-w-0 flex-1 px-3 py-2 text-xs sm:text-sm border border-[var(--color-hairline)] rounded-[4px] bg-[var(--color-surface-soft)] text-[var(--color-ink)] truncate min-h-[38px] flex items-center">
               {endpoint}/v1/audio/transcriptions
             </span>
             {tunnelEndpoint && (
               <button
+                type="button"
                 onClick={() => setUseTunnel((v) => !v)}
                 title={useTunnel ? "Using tunnel" : "Using local"}
-                className={`flex items-center gap-1 text-xs px-2 py-1.5 rounded-lg border shrink-0 transition-colors ${
-                  useTunnel ? "border-primary/40 bg-primary/10 text-primary" : "border-border text-text-muted hover:text-primary"
+                className={`flex items-center justify-center gap-1 text-xs px-3 py-2 rounded-[4px] border shrink-0 transition-colors min-h-[38px] ${
+                  useTunnel
+                    ? "border-[var(--color-ink)] bg-[var(--color-surface-card)] text-[var(--color-ink)] font-bold"
+                    : "border-[var(--color-hairline)] text-[var(--color-mute)] hover:text-[var(--color-ink)]"
                 }`}
               >
-                <span className="material-symbols-outlined text-[14px]">wifi_tethering</span>
-                Tunnel
+                [tunnel]
               </button>
             )}
           </div>
@@ -172,23 +188,23 @@ export function SttExampleCard({ providerId }) {
 
         {/* API Key */}
         <Row label="API Key">
-          <span className="px-3 py-1.5 text-sm font-mono text-text-main bg-sidebar rounded-lg truncate block">
-            {apiKey ? `${apiKey.slice(0, 8)}${"\u2022".repeat(Math.min(20, Math.max(0, apiKey.length - 8)))}` : <span className="text-text-muted italic">No key configured</span>}
+          <span className="w-full px-3 py-2 text-xs sm:text-sm border border-[var(--color-hairline)] rounded-[4px] bg-[var(--color-surface-soft)] text-[var(--color-ink)] truncate block min-h-[38px] flex items-center">
+            {apiKey ? `${apiKey.slice(0, 8)}${"\u2022".repeat(Math.min(20, Math.max(0, apiKey.length - 8)))}` : <span className="text-[var(--color-ash)]">[-] No key configured</span>}
           </span>
         </Row>
 
         {/* Audio file */}
         <Row label="Audio File">
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 w-full">
             <input
               type="file"
               accept="audio/*,video/mp4,.m4a,.mp3,.wav,.ogg,.flac,.webm,.opus"
               onChange={(e) => setAudioFile(e.target.files?.[0] || null)}
-              className="w-full text-xs text-text-muted file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border file:border-border file:bg-background file:text-text-main hover:file:bg-sidebar file:cursor-pointer"
+              className="w-full text-xs text-[var(--color-mute)] file:mr-3 file:py-1.5 file:px-3 file:rounded-[4px] file:border file:border-[var(--color-hairline)] file:bg-[var(--color-surface-soft)] file:text-[var(--color-ink)] file:font-mono hover:file:bg-[var(--color-surface-card)] file:cursor-pointer min-h-[38px]"
             />
             {audioFile && (
-              <span className="text-xs text-text-muted font-mono">
-                {audioFile.name} · {(audioFile.size / 1024).toFixed(1)} KB
+              <span className="text-xs text-[var(--color-mute)] font-mono">
+                [file] {audioFile.name} · {(audioFile.size / 1024).toFixed(1)} KB
               </span>
             )}
           </div>
@@ -201,7 +217,7 @@ export function SttExampleCard({ providerId }) {
               value={language}
               onChange={(e) => setLanguage(e.target.value)}
               placeholder="e.g. en, vi, ja (auto-detect if empty)"
-              className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary font-mono"
+              className="w-full px-3 py-2 text-xs sm:text-sm border border-[var(--color-hairline)] rounded-[4px] bg-[var(--color-surface-soft)] text-[var(--color-ink)] focus:bg-[var(--color-canvas)] focus:border-[var(--color-ink)] focus:outline-none min-h-[38px] transition-colors"
             />
           </Row>
         )}
@@ -213,7 +229,7 @@ export function SttExampleCard({ providerId }) {
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="optional context to improve accuracy"
-              className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
+              className="w-full px-3 py-2 text-xs sm:text-sm border border-[var(--color-hairline)] rounded-[4px] bg-[var(--color-surface-soft)] text-[var(--color-ink)] focus:bg-[var(--color-canvas)] focus:border-[var(--color-ink)] focus:outline-none min-h-[38px] transition-colors"
             />
           </Row>
         )}
@@ -229,18 +245,18 @@ export function SttExampleCard({ providerId }) {
               value={temperature}
               onChange={(e) => setTemperature(e.target.value)}
               placeholder="0 - 1 (default 0)"
-              className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
+              className="w-full px-3 py-2 text-xs sm:text-sm border border-[var(--color-hairline)] rounded-[4px] bg-[var(--color-surface-soft)] text-[var(--color-ink)] focus:bg-[var(--color-canvas)] focus:border-[var(--color-ink)] focus:outline-none min-h-[38px] transition-colors"
             />
           </Row>
         )}
 
         {/* Response format (if model supports) */}
         {allowedParams.includes("response_format") && (
-          <Row label="Response Format">
+          <Row label="Format">
             <select
               value={responseFormat}
               onChange={(e) => setResponseFormat(e.target.value)}
-              className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
+              className="w-full px-3 py-2 text-xs sm:text-sm border border-[var(--color-hairline)] rounded-[4px] bg-[var(--color-surface-soft)] text-[var(--color-ink)] focus:bg-[var(--color-canvas)] focus:border-[var(--color-ink)] focus:outline-none min-h-[38px] transition-colors"
             >
               <option value="json">json</option>
               <option value="text">text</option>
@@ -251,13 +267,13 @@ export function SttExampleCard({ providerId }) {
           </Row>
         )}
 
-        {/* Scribe-style extras — shown only when the model declares the param */}
+        {/* Timestamps */}
         {allowedParams.includes("timestamps_granularity") && (
           <Row label="Timestamps">
             <select
               value={granularity}
               onChange={(e) => setGranularity(e.target.value)}
-              className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
+              className="w-full px-3 py-2 text-xs sm:text-sm border border-[var(--color-hairline)] rounded-[4px] bg-[var(--color-surface-soft)] text-[var(--color-ink)] focus:bg-[var(--color-canvas)] focus:border-[var(--color-ink)] focus:outline-none min-h-[38px] transition-colors"
             >
               <option value="">provider default</option>
               <option value="word">word</option>
@@ -267,36 +283,39 @@ export function SttExampleCard({ providerId }) {
           </Row>
         )}
 
+        {/* Tag audio events */}
         {allowedParams.includes("tag_audio_events") && (
-          <Row label="Tag audio events">
-            <label className="flex items-center gap-2 text-sm text-text-muted">
+          <Row label="Audio events">
+            <label className="flex items-center gap-2 text-xs sm:text-sm text-[var(--color-ink)] cursor-pointer">
               <input
                 type="checkbox"
                 checked={tagAudioEvents}
                 onChange={(e) => setTagAudioEvents(e.target.checked)}
-                className="accent-primary"
+                className="rounded-[4px] accent-[var(--color-ink)]"
               />
-              Label non-speech sounds as [laughter], [applause], ...
+              <span>[+] Non-speech sounds ([laughter], [applause])</span>
             </label>
           </Row>
         )}
 
+        {/* Speaker labels */}
         {allowedParams.includes("diarize") && (
-          <Row label="Speaker labels">
-            <label className="flex items-center gap-2 text-sm text-text-muted">
+          <Row label="Diarize">
+            <label className="flex items-center gap-2 text-xs sm:text-sm text-[var(--color-ink)] cursor-pointer">
               <input
                 type="checkbox"
                 checked={diarize}
                 onChange={(e) => setDiarize(e.target.checked)}
-                className="accent-primary"
+                className="rounded-[4px] accent-[var(--color-ink)]"
               />
-              Detect speakers automatically (overrides speaker count)
+              <span>[+] Auto-detect speakers (overrides count)</span>
             </label>
           </Row>
         )}
 
+        {/* Speaker count */}
         {allowedParams.includes("num_speakers") && (
-          <Row label="Speaker count">
+          <Row label="Speakers">
             <input
               type="number"
               step="1"
@@ -306,61 +325,67 @@ export function SttExampleCard({ providerId }) {
               onChange={(e) => setNumSpeakers(e.target.value)}
               disabled={diarize}
               placeholder="auto-detect"
-              className="w-full px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary disabled:opacity-50"
+              className="w-full px-3 py-2 text-xs sm:text-sm border border-[var(--color-hairline)] rounded-[4px] bg-[var(--color-surface-soft)] text-[var(--color-ink)] focus:bg-[var(--color-canvas)] focus:border-[var(--color-ink)] focus:outline-none min-h-[38px] transition-colors disabled:opacity-50"
             />
           </Row>
         )}
 
-        {/* Curl + Run */}
-        <div className="mt-1">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-1.5">
-            <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">Request</span>
-            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+        {/* Request snippet & Run */}
+        <div className="mt-1 flex flex-col gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <span className="text-xs text-[var(--color-mute)] uppercase tracking-wider">
+              &gt; Request (cURL)
+            </span>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
               <button
+                type="button"
                 onClick={() => copyCurl(curlSnippet)}
-                className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-primary transition-colors"
+                className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1 text-xs border border-[var(--color-hairline)] rounded-[4px] bg-[var(--color-surface-soft)] hover:bg-[var(--color-surface-card)] px-3 py-1.5 min-h-[36px] text-[var(--color-ink)] transition-colors"
               >
-                <span className="material-symbols-outlined text-[14px]">{copiedCurl ? "check" : "content_copy"}</span>
-                {copiedCurl ? "Copied" : "Copy"}
+                {copiedCurl ? "[copied]" : "[copy]"}
               </button>
               <button
+                type="button"
                 onClick={handleRun}
                 disabled={running || !audioFile || !modelFull}
-                className="flex w-full sm:w-auto items-center justify-center gap-1.5 px-3 py-1 rounded-lg bg-primary text-white text-xs font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 text-xs rounded-[4px] bg-[var(--color-primary)] hover:bg-[var(--color-primary-hover)] text-[var(--color-on-primary)] px-4 py-1.5 min-h-[36px] font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
               >
-                <span className="material-symbols-outlined text-[14px]" style={running ? { animation: "spin 1s linear infinite" } : undefined}>
-                  play_arrow
-                </span>
-                {running ? "Transcribing..." : "Run"}
+                {running ? "[transcribing...]" : "[transcribe]"}
               </button>
             </div>
           </div>
-          <pre className="bg-sidebar rounded-lg px-3 py-2.5 text-xs font-mono text-text-main overflow-x-auto whitespace-pre-wrap break-all">{curlSnippet}</pre>
+          <pre className="bg-[var(--color-surface-card)] border border-[var(--color-hairline)] rounded-[4px] p-3 text-xs text-[var(--color-ink)] overflow-x-auto whitespace-pre-wrap break-all leading-relaxed">
+            {curlSnippet}
+          </pre>
         </div>
 
-        {error && <p className="text-xs text-red-500 break-words">{error}</p>}
+        {error && (
+          <div className="border border-[var(--color-danger)]/40 bg-[var(--color-danger)]/10 text-[var(--color-danger)] p-3 rounded-[4px] text-xs break-words">
+            {error}
+          </div>
+        )}
 
         {/* Response */}
-        <div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-1.5">
-            <span className="text-xs font-semibold text-text-muted uppercase tracking-wider">
-              Response {result && latency && <span className="font-normal normal-case">&#9889; {latency}ms</span>}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-[var(--color-mute)] uppercase tracking-wider">
+              &gt; Response
             </span>
             {result && (
               <button
+                type="button"
                 onClick={() => copyRes(resultStr)}
-                className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-primary transition-colors"
+                className="inline-flex items-center gap-1 text-xs border border-[var(--color-hairline)] rounded-[4px] bg-[var(--color-surface-soft)] hover:bg-[var(--color-surface-card)] px-2.5 py-1 text-[var(--color-ink)] transition-colors"
               >
-                <span className="material-symbols-outlined text-[14px]">{copiedRes ? "check" : "content_copy"}</span>
-                {copiedRes ? "Copied" : "Copy"}
+                {copiedRes ? "[copied]" : "[copy]"}
               </button>
             )}
           </div>
-          <pre className="bg-sidebar rounded-lg px-3 py-2.5 text-xs font-mono text-text-main overflow-x-auto whitespace-pre-wrap break-all opacity-70">
+          <pre className="bg-[var(--color-surface-card)] border border-[var(--color-hairline)] rounded-[4px] p-3 text-xs text-[var(--color-ink)] overflow-x-auto whitespace-pre-wrap break-all leading-relaxed opacity-90">
             {resultStr}
           </pre>
         </div>
       </div>
-    </Card>
+    </div>
   );
 }
