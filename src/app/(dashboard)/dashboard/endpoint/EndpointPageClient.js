@@ -21,6 +21,7 @@ import StatusAlert from "./components/StatusAlert";
 import Tooltip from "./components/Tooltip";
 import SecurityWarning from "./components/SecurityWarning";
 import KeyAccessControls from "./components/KeyAccessControls";
+import EditKeyModal from "./components/EditKeyModal";
 
 // Compact token counts (2.1K / 3.4M) for the per-key usage line.
 function fmtTokens(n) {
@@ -82,7 +83,11 @@ export default function APIPageClient({ machineId }) {
   const [newKeyExpiry, setNewKeyExpiry] = useState("");
   const [newKeyQuota, setNewKeyQuota] = useState("");
   const [newKeyQuotaWindow, setNewKeyQuotaWindow] = useState("daily");
-  const [quotaEditing, setQuotaEditing] = useState(null); // { id, limit, window }
+  const [editingKey, setEditingKey] = useState(null);
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [keyPage, setKeyPage] = useState(1);
+  const [activeProviders, setActiveProviders] = useState([]);
+  const [modelAliases, setModelAliases] = useState({});
 
   const [requireApiKey, setRequireApiKey] = useState(false);
   const [requireLogin, setRequireLogin] = useState(true);
@@ -325,6 +330,20 @@ export default function APIPageClient({ machineId }) {
         } catch { /* fall through to empty render */ }
       }
       setKeys(existing);
+      try {
+        const [provRes, aliasRes] = await Promise.all([
+          fetch("/api/providers"),
+          fetch("/api/models/alias"),
+        ]);
+        if (provRes.ok) {
+          const pData = await provRes.json();
+          if (pData.connections) setActiveProviders(pData.connections);
+        }
+        if (aliasRes.ok) {
+          const aData = await aliasRes.json();
+          if (aData.aliases) setModelAliases(aData.aliases);
+        }
+      } catch {}
     } catch (error) {
       console.log("Error fetching data:", error);
     } finally {
@@ -685,7 +704,9 @@ export default function APIPageClient({ machineId }) {
           name: newKeyName,
           ...(newKeyExpiry ? { expiresAt: `${newKeyExpiry}T23:59:59.999Z` } : {}),
           ...(newKeyQuota.trim()
-            ? { quotaLimit: Number(newKeyQuota), quotaWindow: newKeyQuotaWindow === "monthly" ? "monthly" : "daily" }
+            ? (newKeyQuotaWindow === "onetime"
+                ? { quotaTokenLimit: Number(newKeyQuota), quotaWindow: "onetime" }
+                : { quotaLimit: Number(newKeyQuota), quotaWindow: newKeyQuotaWindow === "monthly" ? "monthly" : "daily" })
             : {}),
         }),
       });
@@ -764,35 +785,20 @@ export default function APIPageClient({ machineId }) {
     }
   };
 
-  // Per-key quota: save (empty limit = unlimited) or reset the counter now.
-  const saveQuota = async (id, overrideBody = null) => {
-    let body;
-    if (overrideBody) {
-      body = overrideBody;
-    } else {
-      const rawReq = (quotaEditing?.limit || "").trim();
-      const rawTok = (quotaEditing?.tokenLimit || "").trim();
-      const hasLimit = rawReq || rawTok;
-      body = {
-        quotaLimit: rawReq ? Number(rawReq) : null,
-        quotaTokenLimit: rawTok ? Number(rawTok) : null,
-        quotaWindow: hasLimit ? (quotaEditing?.window === "monthly" ? "monthly" : "daily") : null,
-      };
+  // Update key settings from EditKeyModal
+  const handleSaveKeySettings = async (payload) => {
+    if (!editingKey) return;
+    const res = await fetch(`/api/keys/${editingKey.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.error || "Failed to update key");
     }
-    try {
-      const res = await fetch(`/api/keys/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setKeys(prev => prev.map(k => (k.id === id ? { ...k, ...data.key } : k)));
-        setQuotaEditing(null);
-      }
-    } catch (error) {
-      console.log("Error saving quota:", error);
-    }
+    setKeys((prev) => prev.map((k) => (k.id === editingKey.id ? { ...k, ...data.key } : k)));
+    setEditingKey(null);
   };
 
   const resetQuota = async (id) => {
@@ -864,9 +870,34 @@ export default function APIPageClient({ machineId }) {
 
   const currentEndpoint = baseUrl;
 
-  // Client-side name filter (search box above the key list).
+  const isKeyExhausted = (k) => {
+    if (k.quotaTokenLimit && (k.quotaTokensUsed || 0) >= k.quotaTokenLimit) return true;
+    if (k.quotaLimit && (k.quotaUsed || 0) >= k.quotaLimit) return true;
+    return false;
+  };
+
   const search = keySearch.trim().toLowerCase();
-  const visibleKeysList = search ? keys.filter((k) => k.name.toLowerCase().includes(search)) : keys;
+  const filteredKeys = keys.filter((k) => {
+    if (filterStatus === "active" && (k.isActive === false || isKeyExhausted(k))) return false;
+    if (filterStatus === "paused" && k.isActive !== false) return false;
+    if (filterStatus === "exhausted" && !isKeyExhausted(k)) return false;
+
+    if (search) {
+      const nameMatch = (k.name || "").toLowerCase().includes(search);
+      const keyMatch = (k.key || "").toLowerCase().includes(search);
+      if (!nameMatch && !keyMatch) return false;
+    }
+    return true;
+  });
+
+  const keysPerPage = 10;
+  const totalKeyPages = Math.max(1, Math.ceil(filteredKeys.length / keysPerPage));
+  const currentKeyPage = Math.min(keyPage, totalKeyPages);
+  const paginatedKeys = filteredKeys.slice((currentKeyPage - 1) * keysPerPage, currentKeyPage * keysPerPage);
+
+  const countActive = keys.filter((k) => k.isActive !== false && !isKeyExhausted(k)).length;
+  const countExhausted = keys.filter((k) => isKeyExhausted(k)).length;
+  const countPaused = keys.filter((k) => k.isActive === false).length;
 
   return (
     <div className="flex flex-col gap-8">
@@ -1238,21 +1269,83 @@ export default function APIPageClient({ machineId }) {
               API Keys
             </h2>
           </div>
-          <Button size="sm" icon="add" onClick={() => setShowAddModal(true)} className="w-full sm:w-auto">
+          <Button size="sm" icon="add" onClick={() => setShowAddModal(true)} className="w-full sm:w-auto h-8 text-xs font-mono">
             Create Key
           </Button>
         </div>
 
-        {keys.length > 1 && (
-          <div className="mb-4">
+        {/* Search & Filter Bar (Mobile-First) */}
+        <div className="flex flex-col gap-2.5 mb-4">
+          <div className="flex items-center gap-2">
             <Input
               value={keySearch}
-              onChange={(e) => setKeySearch(e.target.value)}
-              placeholder="Search keys by name…"
-              className="w-full sm:max-w-xs"
+              onChange={(e) => {
+                setKeySearch(e.target.value);
+                setKeyPage(1);
+              }}
+              placeholder="Search keys by name or 9r-..."
+              className="flex-1"
+              inputClassName="h-9 text-xs font-mono rounded-[4px]"
             />
+            {keySearch && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setKeySearch("");
+                  setKeyPage(1);
+                }}
+                className="h-9 px-2 text-xs font-mono shrink-0"
+              >
+                Clear
+              </Button>
+            )}
           </div>
-        )}
+
+          {/* Filter Pills with Counts */}
+          <div className="flex items-center gap-1.5 overflow-x-auto scroll-thin-x pb-1 text-xs font-mono">
+            <button
+              onClick={() => { setFilterStatus("all"); setKeyPage(1); }}
+              className={`h-7 px-2.5 rounded-[4px] border transition-colors whitespace-nowrap cursor-pointer ${
+                filterStatus === "all"
+                  ? "bg-[var(--color-ink)] text-[var(--color-on-primary,#fdfcfc)] border-[var(--color-ink)] font-bold"
+                  : "bg-[var(--color-surface-soft)] text-[var(--color-mute)] border-[var(--color-hairline)] hover:text-[var(--color-ink)]"
+              }`}
+            >
+              All ({keys.length})
+            </button>
+            <button
+              onClick={() => { setFilterStatus("active"); setKeyPage(1); }}
+              className={`h-7 px-2.5 rounded-[4px] border transition-colors whitespace-nowrap cursor-pointer ${
+                filterStatus === "active"
+                  ? "bg-[var(--color-ink)] text-[var(--color-on-primary,#fdfcfc)] border-[var(--color-ink)] font-bold"
+                  : "bg-[var(--color-surface-soft)] text-[var(--color-mute)] border-[var(--color-hairline)] hover:text-[var(--color-ink)]"
+              }`}
+            >
+              Active ({countActive})
+            </button>
+            <button
+              onClick={() => { setFilterStatus("exhausted"); setKeyPage(1); }}
+              className={`h-7 px-2.5 rounded-[4px] border transition-colors whitespace-nowrap cursor-pointer ${
+                filterStatus === "exhausted"
+                  ? "bg-[var(--color-danger)] text-white border-[var(--color-danger)] font-bold"
+                  : "bg-[var(--color-surface-soft)] text-[var(--color-mute)] border-[var(--color-hairline)] hover:text-[var(--color-danger)]"
+              }`}
+            >
+              Exhausted ({countExhausted})
+            </button>
+            <button
+              onClick={() => { setFilterStatus("paused"); setKeyPage(1); }}
+              className={`h-7 px-2.5 rounded-[4px] border transition-colors whitespace-nowrap cursor-pointer ${
+                filterStatus === "paused"
+                  ? "bg-[var(--color-warning)] text-white border-[var(--color-warning)] font-bold"
+                  : "bg-[var(--color-surface-soft)] text-[var(--color-mute)] border-[var(--color-hairline)] hover:text-[var(--color-warning)]"
+              }`}
+            >
+              Paused ({countPaused})
+            </button>
+          </div>
+        </div>
 
         <div className="flex items-center justify-between gap-3 pb-3.5 mb-4 border-b border-[var(--color-hairline)]">
           <div className="min-w-0 pr-2">
@@ -1286,398 +1379,400 @@ export default function APIPageClient({ machineId }) {
               Create Key
             </Button>
           </div>
-        ) : visibleKeysList.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-sm text-text-muted">No keys match &quot;{keySearch}&quot;</p>
-            <Button variant="ghost" size="sm" className="mt-2" onClick={() => setKeySearch("")}>
-              Clear search
+        ) : filteredKeys.length === 0 ? (
+          <div className="text-center py-12 font-mono">
+            <p className="text-sm text-[var(--color-mute)]">No keys match the current filter</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="mt-2 text-xs"
+              onClick={() => {
+                setKeySearch("");
+                setFilterStatus("all");
+                setKeyPage(1);
+              }}
+            >
+              Reset filters
             </Button>
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            {visibleKeysList.map((key) => {
+            {paginatedKeys.map((key) => {
               const keyExpiry = expiryLabel(key);
+              const exhausted = isKeyExhausted(key);
+              const isOnetime = key.quotaWindow === "onetime";
+
               return (
-              <div
-                key={key.id}
-                className={cn(
-                  "p-4 border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] transition-colors",
-                  key.isActive === false && "opacity-70"
-                )}
-                style={{ borderRadius: "4px" }}
-              >
-                {/* Header: Name, Rename, Pause indicator, Active toggle, Delete */}
-                <div className="flex items-center justify-between gap-3 pb-3 border-b border-[var(--color-hairline)]">
-                  <div className="flex items-center gap-2 min-w-0">
-                    {renaming.id === key.id ? (
-                      <div className="flex items-center gap-2">
-                        <Input
-                          value={renaming.name}
-                          onChange={(e) => setRenaming({ id: key.id, name: e.target.value })}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") saveRename(key.id);
-                            if (e.key === "Escape") cancelRename();
-                          }}
-                          autoFocus
-                          placeholder="Key name"
-                          className="w-48"
-                        />
-                        <Button size="xs" onClick={() => saveRename(key.id)} disabled={!renaming.name.trim()}>
-                          Save
-                        </Button>
-                        <Button size="xs" variant="ghost" onClick={cancelRename}>
-                          Cancel
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2 group/name">
-                        <span className="text-[15px] font-bold text-[var(--color-ink)] truncate font-mono">
-                          {key.name}
-                        </span>
-                        <button
-                          onClick={() => startRename(key)}
-                          className="p-1 rounded text-[var(--color-mute)] hover:text-[var(--color-ink)] hover:bg-[var(--color-surface-card)] transition-colors"
-                          title="Rename key"
-                        >
-                          <span className="material-symbols-outlined text-[14px]">edit</span>
-                        </button>
-                        {key.isActive === false && (
-                          <span className="px-1.5 py-0.2 text-[10px] font-mono text-[var(--color-warning)] border border-[var(--color-warning)]/40 rounded">
-                            PAUSED
+                <div
+                  key={key.id}
+                  className={cn(
+                    "p-4 border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] transition-colors",
+                    key.isActive === false && "opacity-70",
+                    exhausted && "border-[var(--color-danger)]/50 bg-[rgba(239,68,68,0.02)]"
+                  )}
+                  style={{ borderRadius: "4px" }}
+                >
+                  {/* Header: Name, Rename, Status Pill, Edit, Toggle, Delete */}
+                  <div className="flex items-center justify-between gap-3 pb-3 border-b border-[var(--color-hairline)]">
+                    <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                      {renaming.id === key.id ? (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={renaming.name}
+                            onChange={(e) => setRenaming({ id: key.id, name: e.target.value })}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") saveRename(key.id);
+                              if (e.key === "Escape") cancelRename();
+                            }}
+                            autoFocus
+                            placeholder="Key name"
+                            className="w-48"
+                          />
+                          <Button size="xs" onClick={() => saveRename(key.id)} disabled={!renaming.name.trim()}>
+                            Save
+                          </Button>
+                          <Button size="xs" variant="ghost" onClick={cancelRename}>
+                            Cancel
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 group/name min-w-0">
+                          <span className="text-[15px] font-bold text-[var(--color-ink)] truncate font-mono">
+                            {key.name}
                           </span>
-                        )}
+                          <button
+                            onClick={() => startRename(key)}
+                            className="p-1 rounded text-[var(--color-mute)] hover:text-[var(--color-ink)] hover:bg-[var(--color-surface-card)] transition-colors"
+                            title="Rename key"
+                          >
+                            <span className="material-symbols-outlined text-[14px]">edit</span>
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Status Badges */}
+                      {key.isActive === false ? (
+                        <span className="px-1.5 py-0.5 text-[10px] font-mono text-[var(--color-warning)] border border-[var(--color-warning)]/40 rounded-[4px] font-bold">
+                          [PAUSED]
+                        </span>
+                      ) : exhausted ? (
+                        <span className="px-1.5 py-0.5 text-[10px] font-mono text-[var(--color-danger)] border border-[var(--color-danger)]/40 rounded-[4px] font-bold bg-[rgba(239,68,68,0.08)]">
+                          [EXHAUSTED (429)]
+                        </span>
+                      ) : (
+                        <span className="px-1.5 py-0.5 text-[10px] font-mono text-[var(--color-success)] border border-[rgba(48,209,88,0.4)] rounded-[4px] font-bold">
+                          [ACTIVE]
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => setEditingKey(key)}
+                        className="inline-flex items-center gap-1 h-7 px-2.5 rounded-[4px] border border-[var(--color-hairline)] bg-[var(--color-canvas)] text-[11px] font-mono font-medium text-[var(--color-ink)] hover:border-[var(--color-primary)] transition-colors cursor-pointer"
+                        title="Edit key settings, models and token limits"
+                      >
+                        <span className="material-symbols-outlined text-[13px]">tune</span>
+                        Edit
+                      </button>
+                      <Toggle
+                        size="sm"
+                        checked={key.isActive ?? true}
+                        onChange={(checked) => {
+                          if (key.isActive && !checked) {
+                            setConfirmState({
+                              title: "Pause API Key",
+                              message: `Pause API key "${key.name}"?\n\nThis key will stop working immediately but can be resumed later.`,
+                              onConfirm: async () => {
+                                setConfirmState(null);
+                                handleToggleKey(key.id, checked);
+                              },
+                            });
+                          } else {
+                            handleToggleKey(key.id, checked);
+                          }
+                        }}
+                        title={key.isActive ? "Pause key" : "Resume key"}
+                      />
+                      <button
+                        onClick={() => handleDeleteKey(key.id)}
+                        className="flex items-center justify-center size-7 rounded text-[var(--color-mute)] hover:text-[var(--color-danger)] hover:bg-[var(--color-surface-card)] transition-colors cursor-pointer"
+                        title="Delete key"
+                        aria-label="Delete key"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">delete</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Secret Key Snippet */}
+                  <div className="my-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 sm:px-3 sm:py-2 bg-[var(--color-surface-card)] border border-[var(--color-hairline)] rounded-[4px]">
+                    <div className="min-w-0 flex-1 overflow-x-auto scroll-thin-x py-0.5">
+                      <code className="text-[13px] text-[var(--color-ink)] font-mono whitespace-nowrap select-all block">
+                        {visibleKeys.has(key.id) ? key.key : maskKey(key.key)}
+                      </code>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto pt-1 sm:pt-0 border-t sm:border-t-0 border-[var(--color-hairline)] w-full sm:w-auto justify-end">
+                      <button
+                        onClick={() => toggleKeyVisibility(key.id)}
+                        className="flex items-center justify-center h-7 px-2 border border-[var(--color-hairline)] bg-[var(--color-canvas)] text-[var(--color-mute)] hover:text-[var(--color-ink)] rounded-[4px] text-[12px] font-mono transition-colors cursor-pointer"
+                        title={visibleKeys.has(key.id) ? "Hide key" : "Show key"}
+                      >
+                        <span className="material-symbols-outlined text-[14px] mr-1">
+                          {visibleKeys.has(key.id) ? "visibility_off" : "visibility"}
+                        </span>
+                        {visibleKeys.has(key.id) ? "Hide" : "Show"}
+                      </button>
+                      <button
+                        onClick={() => copy(key.key, key.id)}
+                        className="flex items-center justify-center h-7 px-2 border border-[var(--color-hairline)] bg-[var(--color-canvas)] text-[var(--color-mute)] hover:text-[var(--color-ink)] rounded-[4px] text-[12px] font-mono transition-colors cursor-pointer"
+                        title="Copy key"
+                      >
+                        <span className="material-symbols-outlined text-[14px] mr-1">
+                          {copied === key.id ? "check" : "content_copy"}
+                        </span>
+                        {copied === key.id ? "Copied" : "Copy"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Specs & Attributes */}
+                  <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[4px] bg-[var(--color-canvas)] border border-[var(--color-hairline)] text-[var(--color-mute)]">
+                      <span className="text-[var(--color-ash)]">Created:</span>
+                      <span className="text-[var(--color-ink)] font-medium whitespace-nowrap">{fmtDate(key.createdAt)}</span>
+                    </div>
+
+                    {keyExpiry && (
+                      <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[4px] border ${
+                        keyExpiry.variant === "error"
+                          ? "bg-[rgba(239,68,68,0.08)] border-[var(--color-danger)] text-[var(--color-danger)]"
+                          : "bg-[var(--color-canvas)] border-[var(--color-hairline)] text-[var(--color-mute)]"
+                      }`}>
+                        <span className={keyExpiry.variant === "error" ? "text-[var(--color-danger)] opacity-80" : "text-[var(--color-ash)]"}>Expires:</span>
+                        <span className={keyExpiry.variant === "error" ? "font-semibold whitespace-nowrap" : "text-[var(--color-ink)] font-medium whitespace-nowrap"}>
+                          {keyExpiry.text}
+                        </span>
                       </div>
+                    )}
+
+                    {isKeyStale(key) && key.isActive !== false && (
+                      <button
+                        onClick={() => handleToggleKey(key.id, false)}
+                        title={key.usage ? "Unused for over 90 days — click to pause" : "Created over 90 days ago and never used — click to pause"}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[4px] bg-[rgba(245,158,11,0.08)] border border-[var(--color-warning)] text-[var(--color-warning)] hover:opacity-80 font-medium whitespace-nowrap cursor-pointer"
+                      >
+                        [!] Stale (pause)
+                      </button>
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Toggle
-                      size="sm"
-                      checked={key.isActive ?? true}
-                      onChange={(checked) => {
-                        if (key.isActive && !checked) {
-                          setConfirmState({
-                            title: "Pause API Key",
-                            message: `Pause API key "${key.name}"?\n\nThis key will stop working immediately but can be resumed later.`,
-                            onConfirm: async () => {
-                              setConfirmState(null);
-                              handleToggleKey(key.id, checked);
-                            }
-                          });
-                        } else {
-                          handleToggleKey(key.id, checked);
-                        }
-                      }}
-                      title={key.isActive ? "Pause key" : "Resume key"}
-                    />
-                    <button
-                      onClick={() => handleDeleteKey(key.id)}
-                      className="flex items-center justify-center size-7 rounded text-[var(--color-mute)] hover:text-[var(--color-danger)] hover:bg-[var(--color-surface-card)] transition-colors cursor-pointer"
-                      title="Delete key"
-                      aria-label="Delete key"
-                    >
-                      <span className="material-symbols-outlined text-[16px]">delete</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Secret Key Snippet */}
-                <div className="my-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 sm:px-3 sm:py-2 bg-[var(--color-surface-card)] border border-[var(--color-hairline)] rounded">
-                  <div className="min-w-0 flex-1 overflow-x-auto scroll-thin-x py-0.5">
-                    <code className="text-[13px] text-[var(--color-ink)] font-mono whitespace-nowrap select-all block">
-                      {visibleKeys.has(key.id) ? key.key : maskKey(key.key)}
-                    </code>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto pt-1 sm:pt-0 border-t sm:border-t-0 border-[var(--color-hairline)] w-full sm:w-auto justify-end">
-                    <button
-                      onClick={() => toggleKeyVisibility(key.id)}
-                      className="flex items-center justify-center h-7 px-2 border border-[var(--color-hairline)] bg-[var(--color-canvas)] text-[var(--color-mute)] hover:text-[var(--color-ink)] rounded text-[12px] font-mono transition-colors cursor-pointer"
-                      title={visibleKeys.has(key.id) ? "Hide key" : "Show key"}
-                    >
-                      <span className="material-symbols-outlined text-[14px] mr-1">
-                        {visibleKeys.has(key.id) ? "visibility_off" : "visibility"}
-                      </span>
-                      {visibleKeys.has(key.id) ? "Hide" : "Show"}
-                    </button>
-                    <button
-                      onClick={() => copy(key.key, key.id)}
-                      className="flex items-center justify-center h-7 px-2 border border-[var(--color-hairline)] bg-[var(--color-canvas)] text-[var(--color-mute)] hover:text-[var(--color-ink)] rounded text-[12px] font-mono transition-colors cursor-pointer"
-                      title="Copy key"
-                    >
-                      <span className="material-symbols-outlined text-[14px] mr-1">
-                        {copied === key.id ? "check" : "content_copy"}
-                      </span>
-                      {copied === key.id ? "Copied" : "Copy"}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Specs / Details */}
-                <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono">
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[4px] bg-[var(--color-canvas)] border border-[var(--color-hairline)] text-[var(--color-mute)]">
-                    <span className="text-[var(--color-ash)]">Created:</span>
-                    <span className="text-[var(--color-ink)] font-medium whitespace-nowrap">{fmtDate(key.createdAt)}</span>
-                  </div>
-
-                  {keyExpiry && (
-                    <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[4px] border ${
-                      keyExpiry.variant === "error"
-                        ? "bg-[rgba(239,68,68,0.08)] border-[var(--color-danger)] text-[var(--color-danger)]"
-                        : "bg-[var(--color-canvas)] border-[var(--color-hairline)] text-[var(--color-mute)]"
-                    }`}>
-                      <span className={keyExpiry.variant === "error" ? "text-[var(--color-danger)] opacity-80" : "text-[var(--color-ash)]"}>Expires:</span>
-                      <span className={keyExpiry.variant === "error" ? "font-semibold whitespace-nowrap" : "text-[var(--color-ink)] font-medium whitespace-nowrap"}>
-                        {keyExpiry.text}
-                      </span>
-                    </div>
-                  )}
-
-                  {isKeyStale(key) && key.isActive !== false && (
-                    <button
-                      onClick={() => handleToggleKey(key.id, false)}
-                      title={key.usage ? "Unused for over 90 days — click to pause" : "Created over 90 days ago and never used — click to pause"}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[4px] bg-[rgba(245,158,11,0.08)] border border-[var(--color-warning)] text-[var(--color-warning)] hover:opacity-80 font-medium whitespace-nowrap cursor-pointer"
-                    >
-                      [!] Stale (pause)
-                    </button>
-                  )}
-
-                  <button
-                    onClick={() => setQuotaEditing({
-                      id: key.id,
-                      limit: key.quotaLimit ? String(key.quotaLimit) : "",
-                      tokenLimit: key.quotaTokenLimit ? String(key.quotaTokenLimit) : "",
-                      window: key.quotaWindow || "daily"
-                    })}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[4px] bg-[var(--color-canvas)] border border-[var(--color-hairline)] text-[var(--color-ink)] hover:border-[var(--color-primary)] font-medium whitespace-nowrap cursor-pointer ml-auto"
-                  >
-                    <span className="material-symbols-outlined text-[13px]">tune</span>
-                    {(key.quotaLimit || key.quotaTokenLimit) ? "Edit Limits" : "Set Limits"}
-                  </button>
-                </div>
-
-                {/* Quota & Usage Bars */}
-                {quotaEditing?.id !== key.id && (
+                  {/* Quota & Usage Bar */}
                   <div className="mt-3 flex flex-col gap-2.5 font-mono text-xs">
-                    {/* 1. Request Quota / Usage Bar */}
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center justify-between text-[11px] tabular-nums">
-                        <span className="text-[var(--color-mute)]">
-                          <span className="text-[var(--color-ash)]">Requests: </span>
-                          {key.quotaLimit ? (
-                            <span className="font-bold text-[var(--color-ink)]">
-                              {key.quotaUsed || 0} / {key.quotaLimit} reqs ({key.quotaWindow === "monthly" ? "mo" : "day"})
-                            </span>
-                          ) : (
-                            <span className="text-[var(--color-ink)] font-medium">
-                              {key.usage?.requests || 0} reqs (unlimited)
-                            </span>
-                          )}
-                        </span>
-                        <span className={`font-bold ${
-                          key.quotaLimit && (key.quotaUsed || 0) >= key.quotaLimit
-                            ? "text-[var(--color-danger)]"
-                            : key.quotaLimit && ((key.quotaUsed || 0) / key.quotaLimit) >= 0.8
-                            ? "text-[var(--color-warning)]"
-                            : "text-[var(--color-ink)]"
-                        }`}>
-                          {key.quotaLimit
-                            ? `${Math.round(((key.quotaUsed || 0) / key.quotaLimit) * 100)}%`
-                            : "No Limit"}
-                        </span>
-                      </div>
-                      <div className="w-full h-2 bg-[var(--color-surface-soft)] border border-[var(--color-hairline)] overflow-hidden rounded-none">
-                        <div
-                          className={`h-full transition-all duration-300 ${
-                            key.quotaLimit && (key.quotaUsed || 0) >= key.quotaLimit
-                              ? "bg-[var(--color-danger)]"
-                              : key.quotaLimit && ((key.quotaUsed || 0) / key.quotaLimit) >= 0.8
-                              ? "bg-[var(--color-warning)]"
-                              : "bg-[var(--color-primary)]"
-                          }`}
-                          style={{
-                            width: key.quotaLimit
-                              ? `${Math.max(0, Math.min(100, ((key.quotaUsed || 0) / key.quotaLimit) * 100))}%`
-                              : "0%",
-                          }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* 2. Token Quota / Usage Bar */}
-                    {(() => {
-                      const totalTokensUsed = (key.usage?.promptTokens || 0) + (key.usage?.completionTokens || 0);
-                      const windowTokensUsed = key.quotaTokensUsed || 0;
-                      const hasTokenLimit = Boolean(key.quotaTokenLimit);
-                      const percent = hasTokenLimit
-                        ? Math.round((windowTokensUsed / key.quotaTokenLimit) * 100)
-                        : null;
-                      const isExceeded = hasTokenLimit && windowTokensUsed >= key.quotaTokenLimit;
-                      const isWarning = hasTokenLimit && !isExceeded && percent >= 80;
-
-                      return (
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center justify-between text-[11px] tabular-nums">
-                            <span className="text-[var(--color-mute)]">
-                              <span className="text-[var(--color-ash)]">Token Usage: </span>
-                              {hasTokenLimit ? (
+                    {/* Onetime token bar */}
+                    {isOnetime ? (
+                      (() => {
+                        const used = key.quotaTokensUsed || 0;
+                        const limit = key.quotaTokenLimit || 0;
+                        const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+                        const isEx = limit > 0 && used >= limit;
+                        return (
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center justify-between text-[11px] tabular-nums">
+                              <span className="text-[var(--color-mute)]">
+                                <span className="text-[var(--color-ash)]">Onetime Token Limit: </span>
                                 <span className="font-bold text-[var(--color-ink)]">
-                                  {fmtTokens(windowTokensUsed)} / {fmtTokens(key.quotaTokenLimit)} tok ({key.quotaWindow === "monthly" ? "mo" : "day"})
+                                  {fmtTokens(used)} / {fmtTokens(limit)} tok (Lifetime)
                                 </span>
-                              ) : (
-                                <span className="text-[var(--color-ink)] font-medium">
-                                  {fmtTokens(totalTokensUsed)} tok (unlimited)
+                              </span>
+                              <span className={`font-bold ${isEx ? "text-[var(--color-danger)]" : "text-[var(--color-ink)]"}`}>
+                                {isEx ? "[EXHAUSTED]" : `${pct}%`}
+                              </span>
+                            </div>
+                            <div className="w-full h-2 bg-[var(--color-canvas)] border border-[var(--color-hairline)] overflow-hidden rounded-none">
+                              <div
+                                className={`h-full transition-all duration-300 ${
+                                  isEx ? "bg-[var(--color-danger)]" : "bg-[var(--color-accent,#007aff)]"
+                                }`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })()
+                    ) : (
+                      /* Recurring or Unlimited */
+                      <>
+                        {key.quotaLimit && (
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center justify-between text-[11px] tabular-nums">
+                              <span className="text-[var(--color-mute)]">
+                                <span className="text-[var(--color-ash)]">Requests: </span>
+                                <span className="font-bold text-[var(--color-ink)]">
+                                  {key.quotaUsed || 0} / {key.quotaLimit} reqs ({key.quotaWindow === "monthly" ? "mo" : "day"})
+                                </span>
+                              </span>
+                              <span className={`font-bold ${
+                                (key.quotaUsed || 0) >= key.quotaLimit ? "text-[var(--color-danger)]" : "text-[var(--color-ink)]"
+                              }`}>
+                                {Math.round(((key.quotaUsed || 0) / key.quotaLimit) * 100)}%
+                              </span>
+                            </div>
+                            <div className="w-full h-2 bg-[var(--color-canvas)] border border-[var(--color-hairline)] overflow-hidden rounded-none">
+                              <div
+                                className={`h-full transition-all duration-300 ${
+                                  (key.quotaUsed || 0) >= key.quotaLimit ? "bg-[var(--color-danger)]" : "bg-[var(--color-primary)]"
+                                }`}
+                                style={{ width: `${Math.max(0, Math.min(100, ((key.quotaUsed || 0) / key.quotaLimit) * 100))}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {key.quotaTokenLimit ? (
+                          (() => {
+                            const used = key.quotaTokensUsed || 0;
+                            const limit = key.quotaTokenLimit;
+                            const pct = Math.round((used / limit) * 100);
+                            const isEx = used >= limit;
+                            return (
+                              <div className="flex flex-col gap-1">
+                                <div className="flex items-center justify-between text-[11px] tabular-nums">
+                                  <span className="text-[var(--color-mute)]">
+                                    <span className="text-[var(--color-ash)]">Token Usage: </span>
+                                    <span className="font-bold text-[var(--color-ink)]">
+                                      {fmtTokens(used)} / {fmtTokens(limit)} tok ({key.quotaWindow === "monthly" ? "mo" : "day"})
+                                    </span>
+                                  </span>
+                                  <span className={`font-bold ${isEx ? "text-[var(--color-danger)]" : "text-[var(--color-ink)]"}`}>
+                                    {pct}%
+                                  </span>
+                                </div>
+                                <div className="w-full h-2 bg-[var(--color-canvas)] border border-[var(--color-hairline)] overflow-hidden rounded-none">
+                                  <div
+                                    className={`h-full transition-all duration-300 ${
+                                      isEx ? "bg-[var(--color-danger)]" : "bg-[var(--color-accent,#007aff)]"
+                                    }`}
+                                    style={{ width: `${Math.max(0, Math.min(100, pct))}%` }}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })()
+                        ) : !key.quotaLimit ? (
+                          <div className="flex items-center justify-between text-[11px] text-[var(--color-mute)]">
+                            <span>
+                              <span className="text-[var(--color-ash)]">Token Usage: </span>
+                              <span className="text-[var(--color-ink)] font-medium">
+                                {fmtTokens((key.usage?.promptTokens || 0) + (key.usage?.completionTokens || 0))} tok (unlimited)
+                              </span>
+                            </span>
+                            <span className="font-medium text-[var(--color-ash)]">No Limit</span>
+                          </div>
+                        ) : null}
+
+                        {(key.quotaLimit || key.quotaTokenLimit) && (
+                          <div className="flex items-center justify-between pt-1 text-[11px] text-[var(--color-mute)]">
+                            <span>
+                              Window: <span className="text-[var(--color-ink)] font-medium">{key.quotaWindow === "monthly" ? "Monthly" : "Daily (UTC)"}</span>
+                              {key.quotaResetAt && (
+                                <span className="text-[var(--color-ash)] ml-2">
+                                  Resets: {new Date(key.quotaResetAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                                 </span>
                               )}
                             </span>
-                            <span className={`font-bold ${
-                              isExceeded
-                                ? "text-[var(--color-danger)]"
-                                : isWarning
-                                ? "text-[var(--color-warning)]"
-                                : "text-[var(--color-ink)]"
-                            }`}>
-                              {hasTokenLimit ? `${percent}%` : "No Limit"}
-                            </span>
+                            <button
+                              onClick={() => resetQuota(key.id)}
+                              className="text-[11px] font-mono text-[var(--color-mute)] underline hover:text-[var(--color-ink)] cursor-pointer"
+                              title="Zero the window counters and restart interval"
+                            >
+                              Reset counters
+                            </button>
                           </div>
-                          <div className="w-full h-2 bg-[var(--color-surface-soft)] border border-[var(--color-hairline)] overflow-hidden rounded-none">
-                            <div
-                              className={`h-full transition-all duration-300 ${
-                                isExceeded
-                                  ? "bg-[var(--color-danger)]"
-                                  : isWarning
-                                  ? "bg-[var(--color-warning)]"
-                                  : "bg-[var(--color-accent,#007aff)]"
-                              }`}
-                              style={{
-                                width: hasTokenLimit
-                                  ? `${Math.max(0, Math.min(100, (windowTokensUsed / key.quotaTokenLimit) * 100))}%`
-                                  : "0%",
-                              }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })()}
-
-                    {/* Reset telemetry & actions */}
-                    {(key.quotaLimit || key.quotaTokenLimit) && (
-                      <div className="flex items-center justify-between pt-1 text-[11px] text-[var(--color-mute)]">
-                        <span>
-                          Window: <span className="text-[var(--color-ink)] font-medium">{key.quotaWindow === "monthly" ? "Monthly" : "Daily (UTC)"}</span>
-                          {key.quotaResetAt && (
-                            <span className="text-[var(--color-ash)] ml-2">
-                              Resets: {new Date(key.quotaResetAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                            </span>
-                          )}
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => resetQuota(key.id)}
-                            className="text-[11px] font-mono text-[var(--color-mute)] underline hover:text-[var(--color-ink)] cursor-pointer"
-                            title="Zero the window counters and restart interval"
-                          >
-                            Reset counters
-                          </button>
-                        </div>
-                      </div>
+                        )}
+                      </>
                     )}
                   </div>
-                )}
 
-                {/* Quota editing panel */}
-                {quotaEditing?.id === key.id && (
-                  <div className="mt-3 p-3.5 bg-[var(--color-canvas)] border border-[var(--color-hairline)] rounded-none flex flex-col gap-3 font-mono text-xs">
-                    <div className="flex items-center justify-between pb-1 border-b border-[var(--color-hairline)]">
-                      <span className="font-bold text-[var(--color-ink)] uppercase tracking-wider text-[11px]">Configure Key Rate & Token Limits</span>
-                      <button
-                        onClick={() => setQuotaEditing(null)}
-                        className="text-[var(--color-mute)] hover:text-[var(--color-ink)] cursor-pointer"
-                      >
-                        <span className="material-symbols-outlined text-[15px]">close</span>
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
-                      <div className="flex flex-col gap-1">
-                        <label className="text-[11px] text-[var(--color-mute)]">Request Limit (reqs):</label>
-                        <Input
-                          type="number"
-                          min={1}
-                          placeholder="e.g. 500 (empty = unlimited)"
-                          value={quotaEditing.limit || ""}
-                          onChange={(e) => setQuotaEditing({ ...quotaEditing, limit: e.target.value })}
-                          className="w-full"
-                          inputClassName="h-8 text-xs py-1 font-mono rounded-[4px]"
-                        />
-                      </div>
-
-                      <div className="flex flex-col gap-1">
-                        <label className="text-[11px] text-[var(--color-mute)]">Token Limit (total tokens):</label>
-                        <Input
-                          type="number"
-                          min={1}
-                          placeholder="e.g. 1000000 (empty = unlimited)"
-                          value={quotaEditing.tokenLimit || ""}
-                          onChange={(e) => setQuotaEditing({ ...quotaEditing, tokenLimit: e.target.value })}
-                          className="w-full"
-                          inputClassName="h-8 text-xs py-1 font-mono rounded-[4px]"
-                        />
-                      </div>
-
-                      <div className="flex flex-col gap-1">
-                        <label className="text-[11px] text-[var(--color-mute)]">Limit Window:</label>
-                        <select
-                          value={quotaEditing.window || "daily"}
-                          onChange={(e) => setQuotaEditing({ ...quotaEditing, window: e.target.value })}
-                          className="h-8 rounded-[4px] border border-[var(--color-hairline)] bg-[var(--color-surface)] px-2.5 text-xs font-mono text-[var(--color-ink)] outline-none transition-colors hover:border-[var(--color-primary)] cursor-pointer w-full"
-                        >
-                          <option value="daily">Daily (per 24 hours)</option>
-                          <option value="monthly">Monthly (calendar month)</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 pt-1 border-t border-[var(--color-hairline)]">
-                      <Button size="sm" onClick={() => saveQuota(key.id)} className="h-7 text-xs font-bold rounded-[4px]">
-                        Save Limits
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setQuotaEditing(null)} className="h-7 text-xs rounded-[4px]">
-                        Cancel
-                      </Button>
-                      {(key.quotaLimit || key.quotaTokenLimit) && (
-                        <button
-                          onClick={() => saveQuota(key.id, { quotaLimit: null, quotaTokenLimit: null, quotaWindow: null })}
-                          className="text-[11px] font-mono text-[var(--color-danger)] underline hover:opacity-80 ml-auto cursor-pointer"
-                        >
-                          Clear all limits
-                        </button>
-                      )}
-                    </div>
+                  {/* Allowed Models Summary Preview */}
+                  <div className="mt-2.5 pt-2 border-t border-[var(--color-hairline)] flex items-center gap-1.5 flex-wrap text-[11px] font-mono">
+                    <span className="text-[var(--color-ash)]">Allowed Models:</span>
+                    {key.access?.restricted ? (
+                      (key.access.allow?.length || 0) === 0 ? (
+                        <span className="text-[var(--color-danger)] font-bold">
+                          [!] Blocked (No models allowed)
+                        </span>
+                      ) : (
+                        <div className="flex items-center gap-1 flex-wrap">
+                          {key.access.allow.slice(0, 3).map((m) => (
+                            <span
+                              key={m}
+                              className="px-1.5 py-0.2 rounded-[4px] bg-[var(--color-canvas)] border border-[var(--color-hairline)] text-[var(--color-ink)] text-[10px]"
+                            >
+                              {m}
+                            </span>
+                          ))}
+                          {key.access.allow.length > 3 && (
+                            <span className="text-[var(--color-mute)] text-[10px]">
+                              +{key.access.allow.length - 3} more
+                            </span>
+                          )}
+                        </div>
+                      )
+                    ) : (
+                      <span className="text-[var(--color-mute)]">
+                        All models permitted (Unrestricted)
+                      </span>
+                    )}
                   </div>
-                )}
-
-                {/* Key Access Controls */}
-                <div className="mt-3 pt-3 border-t border-[var(--color-hairline)]">
-                  <KeyAccessControls
-                    apiKey={key}
-                    onChange={(access) => handleUpdateKeyAccess(key.id, access)}
-                    onRequestRestrict={() => setConfirmState({
-                      title: "Restrict API Key",
-                      message: `Restrict API key "${key.name}"?\n\nIt will only be able to call the combos and models you add. Until you add one, it can call nothing.`,
-                      onConfirm: async () => {
-                        setConfirmState(null);
-                        handleUpdateKeyAccess(key.id, { restricted: true, allow: key.access?.allow || [] });
-                      }
-                    })}
-                  />
                 </div>
-              </div>
               );
             })}
+
+            {/* Pagination Controls */}
+            {totalKeyPages > 1 && (
+              <div className="flex items-center justify-between pt-3 mt-1 border-t border-[var(--color-hairline)] text-xs font-mono text-[var(--color-mute)]">
+                <span>
+                  Showing {(currentKeyPage - 1) * keysPerPage + 1}–{Math.min(currentKeyPage * keysPerPage, filteredKeys.length)} of {filteredKeys.length} keys
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="xs"
+                    variant="secondary"
+                    onClick={() => setKeyPage((p) => Math.max(1, p - 1))}
+                    disabled={currentKeyPage <= 1}
+                    className="h-7 px-2.5 rounded-[4px]"
+                  >
+                    &laquo; Prev
+                  </Button>
+                  <span className="text-[var(--color-ink)] font-bold">
+                    {currentKeyPage} / {totalKeyPages}
+                  </span>
+                  <Button
+                    size="xs"
+                    variant="secondary"
+                    onClick={() => setKeyPage((p) => Math.min(totalKeyPages, p + 1))}
+                    disabled={currentKeyPage >= totalKeyPages}
+                    className="h-7 px-2.5 rounded-[4px]"
+                  >
+                    Next &raquo;
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </Card>
+
+      {/* Edit Key Modal (Mobile First) */}
+      <EditKeyModal
+        isOpen={Boolean(editingKey)}
+        apiKey={editingKey}
+        onClose={() => setEditingKey(null)}
+        onSave={handleSaveKeySettings}
+        activeProviders={activeProviders}
+        modelAliases={modelAliases}
+      />
 
       {/* Add Key Modal */}
       <Modal
@@ -1751,6 +1846,7 @@ export default function APIPageClient({ machineId }) {
               >
                 <option value="daily">requests per day</option>
                 <option value="monthly">requests per month</option>
+                <option value="onetime">tokens onetime (lifetime)</option>
               </select>
             </div>
             <p className="text-[13px] text-[var(--color-mute)]" style={{ fontFamily: "var(--font-mono)" }}>
