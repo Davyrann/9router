@@ -14,6 +14,7 @@ function fmtTokens(n) {
 }
 
 function EditKeyForm({
+  isOpen,
   apiKey,
   onClose,
   onSave,
@@ -131,7 +132,32 @@ function EditKeyForm({
   const onetimePercent = limitNumber > 0 ? Math.min(100, Math.round((quotaTokensUsed / limitNumber) * 100)) : 0;
 
   return (
-    <>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={`Edit API Key: ${apiKey.name}`}
+      size="lg"
+      className="w-full sm:max-w-lg font-mono text-xs"
+      footer={
+        <>
+          <Button
+            variant="secondary"
+            onClick={onClose}
+            disabled={saving}
+            className="h-9 rounded-[4px] font-mono text-xs"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            loading={saving}
+            className="h-9 rounded-[4px] font-mono text-xs font-bold"
+          >
+            Save Changes
+          </Button>
+        </>
+      }
+    >
       <div className="flex flex-col gap-4 py-1">
         {error && (
           <div className="p-2.5 rounded-[4px] bg-[rgba(239,68,68,0.08)] border border-[var(--color-danger)] text-[var(--color-danger)] font-mono text-xs">
@@ -405,24 +431,6 @@ function EditKeyForm({
         </div>
       </div>
 
-      <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 w-full pt-4 mt-2 border-t border-[var(--color-hairline)]">
-        <Button
-          variant="secondary"
-          onClick={onClose}
-          disabled={saving}
-          className="h-9 rounded-[4px] font-mono text-xs"
-        >
-          Cancel
-        </Button>
-        <Button
-          onClick={handleSubmit}
-          loading={saving}
-          className="h-9 rounded-[4px] font-mono text-xs font-bold bg-[var(--color-ink)] text-[var(--color-on-primary,#fdfcfc)] hover:bg-[var(--color-ink-deep,#0f0000)]"
-        >
-          Save Changes
-        </Button>
-      </div>
-
       {/* Nested Model Picker */}
       {pickerOpen && (
         <ModelSelectModal
@@ -437,11 +445,12 @@ function EditKeyForm({
           closeOnSelect={false}
         />
       )}
-    </>
+    </Modal>
   );
 }
 
 EditKeyForm.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
   apiKey: PropTypes.object.isRequired,
   onClose: PropTypes.func.isRequired,
   onSave: PropTypes.func.isRequired,
@@ -460,22 +469,15 @@ export default function EditKeyModal({
   if (!isOpen || !apiKey) return null;
 
   return (
-    <Modal
+    <EditKeyForm
+      key={`${apiKey.id}-${isOpen}`}
       isOpen={isOpen}
+      apiKey={apiKey}
       onClose={onClose}
-      title={`Edit API Key: ${apiKey.name}`}
-      size="lg"
-      className="w-full sm:max-w-lg font-mono text-xs"
-    >
-      <EditKeyForm
-        key={`${apiKey.id}-${isOpen}`}
-        apiKey={apiKey}
-        onClose={onClose}
-        onSave={onSave}
-        activeProviders={activeProviders}
-        modelAliases={modelAliases}
-      />
-    </Modal>
+      onSave={onSave}
+      activeProviders={activeProviders}
+      modelAliases={modelAliases}
+    />
   );
 }
 

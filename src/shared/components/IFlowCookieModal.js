@@ -56,7 +56,27 @@ export default function IFlowCookieModal({ isOpen, onSuccess, onClose }) {
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="iFlow Cookie Authentication">
+    <Modal
+      isOpen={isOpen}
+      onClose={handleClose}
+      title="iFlow Cookie Authentication"
+      footer={
+        !success ? (
+          <>
+            <Button variant="secondary" onClick={handleClose} disabled={loading}>
+              Cancel
+            </Button>
+            <Button onClick={handleSubmit} loading={loading}>
+              Authenticate
+            </Button>
+          </>
+        ) : (
+          <Button onClick={handleClose}>
+            Done
+          </Button>
+        )
+      }
+    >
       <div className="space-y-4">
         {success ? (
           <div className="text-center py-8">
@@ -109,15 +129,6 @@ export default function IFlowCookieModal({ isOpen, onSuccess, onClose }) {
                 <p className="text-sm text-error">{error}</p>
               </div>
             )}
-
-            <div className="flex gap-3 pt-2">
-              <Button variant="secondary" onClick={handleClose} disabled={loading} fullWidth>
-                Cancel
-              </Button>
-              <Button onClick={handleSubmit} loading={loading} fullWidth>
-                Authenticate
-              </Button>
-            </div>
           </>
         )}
       </div>

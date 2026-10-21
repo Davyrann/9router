@@ -643,16 +643,16 @@ export default function ProxyPoolsPage() {
           </p>
         </div>
 
-        {/* Action buttons (mobile: full width stacked/grid, sm: inline flex) */}
-        <div className="grid grid-cols-1 gap-2 xs:grid-cols-3 sm:flex sm:flex-row sm:items-center sm:gap-2">
+        {/* Action buttons (responsive flex for mobile & desktop) */}
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           {/* Deploy Relay Popover */}
-          <div className="relative w-full sm:w-auto" ref={relayMenuRef}>
+          <div className="relative" ref={relayMenuRef}>
             <Button
               size="sm"
               variant="secondary"
               icon="rocket_launch"
               onClick={() => setShowRelayMenu(!showRelayMenu)}
-              className="w-full sm:w-auto min-h-[36px] justify-center"
+              className="min-h-[36px]"
             >
               Deploy Relay
               <span className="material-symbols-outlined ml-1 text-[16px] text-[var(--color-mute)]">
@@ -661,7 +661,7 @@ export default function ProxyPoolsPage() {
             </Button>
 
             {showRelayMenu && (
-              <div className="absolute left-0 top-full z-50 mt-1 w-full border border-[var(--color-hairline-strong)] bg-[var(--color-canvas)] rounded-none shadow-none p-1 sm:left-auto sm:right-0 sm:w-60">
+              <div className="absolute left-0 top-full z-50 mt-1 w-56 border border-[var(--color-hairline-strong)] bg-[var(--color-canvas)] rounded-none shadow-none p-1 sm:left-auto sm:right-0 sm:w-60">
                 <button
                   type="button"
                   onClick={() => {
@@ -727,7 +727,7 @@ export default function ProxyPoolsPage() {
             variant="secondary"
             icon="upload"
             onClick={openBatchImportModal}
-            className="w-full sm:w-auto min-h-[36px] justify-center"
+            className="min-h-[36px]"
           >
             Batch Import
           </Button>
@@ -737,7 +737,7 @@ export default function ProxyPoolsPage() {
             variant="primary"
             icon="add"
             onClick={openCreateModal}
-            className="w-full sm:w-auto min-h-[36px] justify-center"
+            className="min-h-[36px]"
           >
             Add Proxy Pool
           </Button>
@@ -1029,6 +1029,25 @@ export default function ProxyPoolsPage() {
         isOpen={showBatchImportModal}
         title="Batch Import Proxies"
         onClose={closeBatchImportModal}
+        footer={
+          <>
+            <Button
+              variant="ghost"
+              onClick={closeBatchImportModal}
+              disabled={importing}
+              className="min-h-[38px]"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleBatchImport}
+              disabled={!batchImportText.trim() || importing}
+              className="min-h-[38px]"
+            >
+              {importing ? "Importing..." : "Import"}
+            </Button>
+          </>
+        }
       >
         <div className="flex flex-col gap-4 font-mono">
           <div>
@@ -1046,25 +1065,6 @@ export default function ProxyPoolsPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <Button
-              fullWidth
-              onClick={handleBatchImport}
-              disabled={!batchImportText.trim() || importing}
-              className="min-h-[38px]"
-            >
-              {importing ? "Importing..." : "Import"}
-            </Button>
-            <Button
-              fullWidth
-              variant="ghost"
-              onClick={closeBatchImportModal}
-              disabled={importing}
-              className="min-h-[38px]"
-            >
-              Cancel
-            </Button>
-          </div>
         </div>
       </Modal>
 
@@ -1073,6 +1073,25 @@ export default function ProxyPoolsPage() {
         isOpen={showVercelModal}
         title="Deploy Vercel Relay"
         onClose={closeVercelModal}
+        footer={
+          <>
+            <Button
+              variant="ghost"
+              onClick={closeVercelModal}
+              disabled={deploying}
+              className="min-h-[38px]"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleVercelDeploy}
+              disabled={!vercelForm.vercelToken.trim() || deploying}
+              className="min-h-[38px]"
+            >
+              {deploying ? "Deploying... (~1 min)" : "Deploy"}
+            </Button>
+          </>
+        }
       >
         <div className="flex flex-col gap-4 font-mono">
           <div className="rounded-none bg-[var(--color-surface-soft)] border border-[var(--color-hairline)] p-3 flex flex-col gap-1.5">
@@ -1115,25 +1134,6 @@ export default function ProxyPoolsPage() {
             placeholder="my-relay"
             hint="Unique name for your Vercel project. Leave empty for auto-generated name."
           />
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <Button
-              fullWidth
-              onClick={handleVercelDeploy}
-              disabled={!vercelForm.vercelToken.trim() || deploying}
-              className="min-h-[38px]"
-            >
-              {deploying ? "Deploying... (~1 min)" : "Deploy"}
-            </Button>
-            <Button
-              fullWidth
-              variant="ghost"
-              onClick={closeVercelModal}
-              disabled={deploying}
-              className="min-h-[38px]"
-            >
-              Cancel
-            </Button>
-          </div>
         </div>
       </Modal>
 
@@ -1142,6 +1142,25 @@ export default function ProxyPoolsPage() {
         isOpen={showCloudflareModal}
         title="Deploy Cloudflare Relay"
         onClose={closeCloudflareModal}
+        footer={
+          <>
+            <Button
+              variant="ghost"
+              onClick={closeCloudflareModal}
+              disabled={deploying}
+              className="min-h-[38px]"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCloudflareDeploy}
+              disabled={!cloudflareForm.accountId.trim() || !cloudflareForm.apiToken.trim() || deploying}
+              className="min-h-[38px]"
+            >
+              {deploying ? "Deploying..." : "Deploy Worker"}
+            </Button>
+          </>
+        }
       >
         <div className="flex flex-col gap-4 font-mono">
           <div className="rounded-none bg-[var(--color-surface-soft)] border border-[var(--color-hairline)] p-3 flex flex-col gap-1.5">
@@ -1200,25 +1219,6 @@ export default function ProxyPoolsPage() {
             placeholder="my-relay"
             hint="Unique name for your Cloudflare Worker. Leave empty for auto-generated name."
           />
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <Button
-              fullWidth
-              onClick={handleCloudflareDeploy}
-              disabled={!cloudflareForm.accountId.trim() || !cloudflareForm.apiToken.trim() || deploying}
-              className="min-h-[38px]"
-            >
-              {deploying ? "Deploying..." : "Deploy Worker"}
-            </Button>
-            <Button
-              fullWidth
-              variant="ghost"
-              onClick={closeCloudflareModal}
-              disabled={deploying}
-              className="min-h-[38px]"
-            >
-              Cancel
-            </Button>
-          </div>
         </div>
       </Modal>
 
@@ -1227,6 +1227,25 @@ export default function ProxyPoolsPage() {
         isOpen={showDenoModal}
         title="Deploy Deno Relay"
         onClose={closeDenoModal}
+        footer={
+          <>
+            <Button
+              variant="ghost"
+              onClick={closeDenoModal}
+              disabled={deploying}
+              className="min-h-[38px]"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDenoDeploy}
+              disabled={!denoForm.denoToken.trim() || !denoForm.orgDomain.trim() || deploying}
+              className="min-h-[38px]"
+            >
+              {deploying ? "Deploying..." : "Deploy Relay"}
+            </Button>
+          </>
+        }
       >
         <div className="flex flex-col gap-4 font-mono">
           <div className="rounded-none bg-[var(--color-surface-soft)] border border-[var(--color-hairline)] p-3 flex flex-col gap-1.5">
@@ -1272,25 +1291,6 @@ export default function ProxyPoolsPage() {
             placeholder="deno-relay"
             hint="Unique app name. Leave empty for auto-generated name."
           />
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <Button
-              fullWidth
-              onClick={handleDenoDeploy}
-              disabled={!denoForm.denoToken.trim() || !denoForm.orgDomain.trim() || deploying}
-              className="min-h-[38px]"
-            >
-              {deploying ? "Deploying..." : "Deploy Relay"}
-            </Button>
-            <Button
-              fullWidth
-              variant="ghost"
-              onClick={closeDenoModal}
-              disabled={deploying}
-              className="min-h-[38px]"
-            >
-              Cancel
-            </Button>
-          </div>
         </div>
       </Modal>
 
@@ -1299,6 +1299,25 @@ export default function ProxyPoolsPage() {
         isOpen={showNetlifyModal}
         title="Deploy Netlify Relay"
         onClose={closeNetlifyModal}
+        footer={
+          <>
+            <Button
+              variant="ghost"
+              onClick={closeNetlifyModal}
+              disabled={deploying}
+              className="min-h-[38px]"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleNetlifyDeploy}
+              disabled={!netlifyForm.netlifyToken.trim() || deploying}
+              className="min-h-[38px]"
+            >
+              {deploying ? "Deploying... (~1 min)" : "Deploy"}
+            </Button>
+          </>
+        }
       >
         <div className="flex flex-col gap-4 font-mono">
           <div className="rounded-none bg-[var(--color-surface-soft)] border border-[var(--color-hairline)] p-3 flex flex-col gap-1.5">
@@ -1348,25 +1367,6 @@ export default function ProxyPoolsPage() {
             placeholder="netlify-relay"
             hint="Unique site name (lowercase letters, numbers, hyphens)."
           />
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <Button
-              fullWidth
-              onClick={handleNetlifyDeploy}
-              disabled={!netlifyForm.netlifyToken.trim() || deploying}
-              className="min-h-[38px]"
-            >
-              {deploying ? "Deploying... (~1 min)" : "Deploy"}
-            </Button>
-            <Button
-              fullWidth
-              variant="ghost"
-              onClick={closeNetlifyModal}
-              disabled={deploying}
-              className="min-h-[38px]"
-            >
-              Cancel
-            </Button>
-          </div>
         </div>
       </Modal>
 
@@ -1375,6 +1375,25 @@ export default function ProxyPoolsPage() {
         isOpen={showFormModal}
         title={editingProxyPool ? "Edit Proxy Pool" : "Add Proxy Pool"}
         onClose={closeFormModal}
+        footer={
+          <>
+            <Button
+              variant="ghost"
+              onClick={closeFormModal}
+              disabled={saving}
+              className="min-h-[38px]"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={!formData.name.trim() || !formData.proxyUrl.trim() || saving}
+              className="min-h-[38px]"
+            >
+              {saving ? "Saving..." : "Save"}
+            </Button>
+          </>
+        }
       >
         <div className="flex flex-col gap-4 font-mono">
           <Input
@@ -1421,26 +1440,6 @@ export default function ProxyPoolsPage() {
               onChange={() => setFormData((prev) => ({ ...prev, strictProxy: !prev.strictProxy }))}
               disabled={saving}
             />
-          </div>
-
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <Button
-              fullWidth
-              onClick={handleSave}
-              disabled={!formData.name.trim() || !formData.proxyUrl.trim() || saving}
-              className="min-h-[38px]"
-            >
-              {saving ? "Saving..." : "Save"}
-            </Button>
-            <Button
-              fullWidth
-              variant="ghost"
-              onClick={closeFormModal}
-              disabled={saving}
-              className="min-h-[38px]"
-            >
-              Cancel
-            </Button>
           </div>
         </div>
       </Modal>

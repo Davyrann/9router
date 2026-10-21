@@ -292,7 +292,31 @@ export default function ZedAuthModal({ isOpen, providerInfo, onSuccess, onClose 
   const showBrowserUi = phase === "browser" || phase === "error" || phase === "ide-found";
 
   return (
-    <Modal isOpen={isOpen} title={title} onClose={handleClose} size="lg">
+    <Modal
+      isOpen={isOpen}
+      title={title}
+      onClose={handleClose}
+      size="lg"
+      footer={
+        showBrowserUi && authData?.mode === "manual" ? (
+          <>
+            <Button onClick={handleClose} variant="ghost">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleManualCallback}
+              disabled={busy || !callbackUrl.trim() || !authData}
+            >
+              {busy ? "Connecting…" : "Connect"}
+            </Button>
+          </>
+        ) : (
+          <Button onClick={handleClose} variant="ghost">
+            Cancel
+          </Button>
+        )
+      }
+    >
       <div className="flex flex-col gap-4">
         {(phase === "booting" || phase === "importing") && (
           <div className="flex items-center gap-2 px-3 py-2 border border-border rounded-lg bg-sidebar/50">
@@ -387,19 +411,6 @@ export default function ZedAuthModal({ isOpen, providerInfo, onSuccess, onClose 
                 <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
               </div>
             )}
-
-            <div className="flex gap-2">
-              <Button
-                onClick={handleManualCallback}
-                fullWidth
-                disabled={busy || !callbackUrl.trim() || !authData}
-              >
-                {busy ? "Connecting…" : "Connect"}
-              </Button>
-              <Button onClick={handleClose} variant="ghost" fullWidth>
-                Cancel
-              </Button>
-            </div>
           </>
         )}
       </div>

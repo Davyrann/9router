@@ -1308,7 +1308,7 @@ export default function APIPageClient({ machineId }) {
               onClick={() => { setFilterStatus("all"); setKeyPage(1); }}
               className={`h-7 px-2.5 rounded-[4px] border transition-colors whitespace-nowrap cursor-pointer ${
                 filterStatus === "all"
-                  ? "bg-[var(--color-ink)] text-[var(--color-on-primary,#fdfcfc)] border-[var(--color-ink)] font-bold"
+                  ? "bg-[var(--color-ink)] text-[var(--color-canvas)] border-[var(--color-ink)] font-bold"
                   : "bg-[var(--color-surface-soft)] text-[var(--color-mute)] border-[var(--color-hairline)] hover:text-[var(--color-ink)]"
               }`}
             >
@@ -1318,7 +1318,7 @@ export default function APIPageClient({ machineId }) {
               onClick={() => { setFilterStatus("active"); setKeyPage(1); }}
               className={`h-7 px-2.5 rounded-[4px] border transition-colors whitespace-nowrap cursor-pointer ${
                 filterStatus === "active"
-                  ? "bg-[var(--color-ink)] text-[var(--color-on-primary,#fdfcfc)] border-[var(--color-ink)] font-bold"
+                  ? "bg-[var(--color-ink)] text-[var(--color-canvas)] border-[var(--color-ink)] font-bold"
                   : "bg-[var(--color-surface-soft)] text-[var(--color-mute)] border-[var(--color-hairline)] hover:text-[var(--color-ink)]"
               }`}
             >
@@ -1338,7 +1338,7 @@ export default function APIPageClient({ machineId }) {
               onClick={() => { setFilterStatus("paused"); setKeyPage(1); }}
               className={`h-7 px-2.5 rounded-[4px] border transition-colors whitespace-nowrap cursor-pointer ${
                 filterStatus === "paused"
-                  ? "bg-[var(--color-warning)] text-white border-[var(--color-warning)] font-bold"
+                  ? "bg-[var(--color-warning)] text-black border-[var(--color-warning)] font-bold"
                   : "bg-[var(--color-surface-soft)] text-[var(--color-mute)] border-[var(--color-hairline)] hover:text-[var(--color-warning)]"
               }`}
             >
@@ -1659,17 +1659,25 @@ export default function APIPageClient({ machineId }) {
                               </div>
                             );
                           })()
-                        ) : !key.quotaLimit ? (
-                          <div className="flex items-center justify-between text-[11px] text-[var(--color-mute)]">
-                            <span>
-                              <span className="text-[var(--color-ash)]">Token Usage: </span>
-                              <span className="text-[var(--color-ink)] font-medium">
-                                {fmtTokens((key.usage?.promptTokens || 0) + (key.usage?.completionTokens || 0))} tok (unlimited)
+                        ) : (
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center justify-between text-[11px] text-[var(--color-mute)]">
+                              <span>
+                                <span className="text-[var(--color-ash)]">Token Usage: </span>
+                                <span className="text-[var(--color-ink)] font-medium">
+                                  {fmtTokens((key.usage?.promptTokens || 0) + (key.usage?.completionTokens || 0))} tok (unlimited)
+                                </span>
                               </span>
-                            </span>
-                            <span className="font-medium text-[var(--color-ash)]">No Limit</span>
+                              <span className="font-medium text-[var(--color-ash)]">No Limit</span>
+                            </div>
+                            <div className="w-full h-2 bg-[var(--color-canvas)] border border-[var(--color-hairline)] overflow-hidden rounded-none">
+                              <div
+                                className="h-full bg-[var(--color-accent,#007aff)] transition-all duration-300"
+                                style={{ width: "100%" }}
+                              />
+                            </div>
                           </div>
-                        ) : null}
+                        )}
 
                         {(key.quotaLimit || key.quotaTokenLimit) && (
                           <div className="flex items-center justify-between pt-1 text-[11px] text-[var(--color-mute)]">
@@ -1861,6 +1869,11 @@ export default function APIPageClient({ machineId }) {
         isOpen={!!createdKey}
         title="API Key Created"
         onClose={() => setCreatedKey(null)}
+        footer={
+          <Button onClick={() => setCreatedKey(null)}>
+            Done
+          </Button>
+        }
       >
         <div className="flex flex-col gap-4">
           <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
@@ -1885,9 +1898,6 @@ export default function APIPageClient({ machineId }) {
               {copied === "created_key" ? "Copied!" : "Copy"}
             </Button>
           </div>
-          <Button onClick={() => setCreatedKey(null)} fullWidth>
-            Done
-          </Button>
         </div>
       </Modal>
 
@@ -1896,6 +1906,14 @@ export default function APIPageClient({ machineId }) {
         isOpen={showEnableTunnelModal}
         title="Enable Tunnel"
         onClose={() => setShowEnableTunnelModal(false)}
+        footer={
+          <>
+            <Button onClick={() => setShowEnableTunnelModal(false)} variant="secondary">Cancel</Button>
+            <Button onClick={handleEnableTunnel}>
+              Start Tunnel
+            </Button>
+          </>
+        }
       >
         <div className="flex flex-col gap-4">
           <div className="bg-surface-2 border border-border-subtle rounded-lg p-4">
@@ -1925,13 +1943,6 @@ export default function APIPageClient({ machineId }) {
           <p className="text-xs text-text-muted">
             Requires outbound port 7844 (TCP/UDP). Connection may take 10-30s.
           </p>
-
-          <div className="flex gap-2">
-            <Button onClick={handleEnableTunnel} fullWidth>
-              Start Tunnel
-            </Button>
-            <Button onClick={() => setShowEnableTunnelModal(false)} variant="ghost" fullWidth>Cancel</Button>
-          </div>
         </div>
       </Modal>
 
@@ -1940,15 +1951,17 @@ export default function APIPageClient({ machineId }) {
         isOpen={showDisableTunnelModal}
         title="Disable Tunnel"
         onClose={() => !tunnelLoading && setShowDisableTunnelModal(false)}
+        footer={
+          <>
+            <Button onClick={() => setShowDisableTunnelModal(false)} variant="secondary" disabled={tunnelLoading}>Cancel</Button>
+            <Button onClick={handleDisableTunnel} disabled={tunnelLoading} variant="danger">
+              {tunnelLoading ? "Disabling..." : "Disable"}
+            </Button>
+          </>
+        }
       >
         <div className="flex flex-col gap-4">
           <p className="text-sm text-text-muted">The Cloudflare tunnel will be disconnected. Remote access via tunnel URL will stop working.</p>
-          <div className="flex gap-2">
-            <Button onClick={handleDisableTunnel} fullWidth disabled={tunnelLoading} variant="danger">
-              {tunnelLoading ? "Disabling..." : "Disable"}
-            </Button>
-            <Button onClick={() => setShowDisableTunnelModal(false)} variant="ghost" fullWidth disabled={tunnelLoading}>Cancel</Button>
-          </div>
         </div>
       </Modal>
 
@@ -1957,6 +1970,23 @@ export default function APIPageClient({ machineId }) {
         isOpen={showTsModal}
         title="Tailscale Funnel"
         onClose={() => { if (!tsInstalling) { setShowTsModal(false); setTsSudoPassword(""); setTsStatus(null); } }}
+        footer={
+          !tsInstalling ? (
+            <>
+              <Button onClick={() => setShowTsModal(false)} variant="secondary">Cancel</Button>
+              {tsInstalled === false && (
+                <Button onClick={handleInstallTailscale}>
+                  Install Tailscale
+                </Button>
+              )}
+              {tsInstalled === true && (
+                <Button onClick={() => handleConnectTailscale()}>
+                  Connect
+                </Button>
+              )}
+            </>
+          ) : null
+        }
       >
         <div className="flex flex-col gap-4">
           {/* Checking state */}
@@ -1971,12 +2001,6 @@ export default function APIPageClient({ machineId }) {
           {tsInstalled === false && !tsInstalling && (
             <div className="flex flex-col gap-3">
               <p className="text-sm text-text-muted">Tailscale is not installed. Install it to enable Funnel.</p>
-              <div className="flex gap-2">
-                <Button onClick={handleInstallTailscale} fullWidth>
-                  Install Tailscale
-                </Button>
-                <Button onClick={() => setShowTsModal(false)} variant="ghost" fullWidth>Cancel</Button>
-              </div>
             </div>
           )}
 
@@ -2004,15 +2028,6 @@ export default function APIPageClient({ machineId }) {
                 <span className="material-symbols-outlined text-[16px]">check_circle</span>
                 Tailscale installed
               </div>
-              <div className="flex gap-2">
-                <Button
-                  onClick={() => handleConnectTailscale()}
-                  fullWidth
-                >
-                  Connect
-                </Button>
-                <Button onClick={() => setShowTsModal(false)} variant="ghost" fullWidth>Cancel</Button>
-              </div>
             </div>
           )}
 
@@ -2025,15 +2040,17 @@ export default function APIPageClient({ machineId }) {
         isOpen={showDisableTsModal}
         title="Disable Tailscale"
         onClose={() => !tsLoading && setShowDisableTsModal(false)}
+        footer={
+          <>
+            <Button onClick={() => setShowDisableTsModal(false)} variant="secondary" disabled={tsLoading}>Cancel</Button>
+            <Button onClick={handleDisableTailscale} disabled={tsLoading} variant="danger">
+              {tsLoading ? "Disabling..." : "Disable"}
+            </Button>
+          </>
+        }
       >
         <div className="flex flex-col gap-4">
           <p className="text-sm text-text-muted">Tailscale Funnel will be stopped. Remote access via Tailscale URL will stop working.</p>
-          <div className="flex gap-2">
-            <Button onClick={handleDisableTailscale} fullWidth disabled={tsLoading} variant="danger">
-              {tsLoading ? "Disabling..." : "Disable"}
-            </Button>
-            <Button onClick={() => setShowDisableTsModal(false)} variant="ghost" fullWidth disabled={tsLoading}>Cancel</Button>
-          </div>
         </div>
       </Modal>
 

@@ -65,7 +65,23 @@ export default function AddCustomModelModal({ isOpen, providerAlias, providerDis
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Add Custom Model">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Add Custom Model"
+      footer={
+        <>
+          <Button onClick={onClose} variant="ghost" size="sm">Cancel</Button>
+          <Button
+            onClick={handleSave}
+            size="sm"
+            disabled={!modelId.trim() || saving}
+          >
+            {saving ? "Adding..." : "Add Model"}
+          </Button>
+        </>
+      }
+    >
       <div className="flex flex-col gap-4">
         <div>
           <label className="text-sm font-medium mb-1.5 block">Model ID</label>
@@ -149,18 +165,6 @@ export default function AddCustomModelModal({ isOpen, providerAlias, providerDis
             <span>{testError || "Model not reachable"}</span>
           </div>
         )}
-
-        <div className="flex gap-2 pt-1">
-          <Button onClick={onClose} variant="ghost" fullWidth size="sm">Cancel</Button>
-          <Button
-            onClick={handleSave}
-            fullWidth
-            size="sm"
-            disabled={!modelId.trim() || saving}
-          >
-            {saving ? "Adding..." : "Add Model"}
-          </Button>
-        </div>
       </div>
     </Modal>
   );

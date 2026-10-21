@@ -447,6 +447,26 @@ export default function AntigravityToolCard({
         }}
         title="Sudo Password Required"
         size="sm"
+        footer={
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => { setShowPasswordModal(false); setSudoPassword(""); setMessage(null); }}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleConfirmPassword}
+              loading={loading}
+            >
+              Confirm
+            </Button>
+          </>
+        }
       >
         <div className="flex flex-col gap-4">
           <div className="flex items-start gap-3 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
@@ -470,25 +490,6 @@ export default function AntigravityToolCard({
               <span>{message.text}</span>
             </div>
           )}
-
-          <div className="flex items-center justify-end gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => { setShowPasswordModal(false); setSudoPassword(""); setMessage(null); }}
-              disabled={loading}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={handleConfirmPassword}
-              loading={loading}
-            >
-              Confirm
-            </Button>
-          </div>
         </div>
       </Modal>
 

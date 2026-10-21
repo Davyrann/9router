@@ -1126,6 +1126,11 @@ export default function ProviderDetailPage() {
       isOpen={showBulkProxyModal}
       onClose={closeBulkProxyModal}
       title={`Apply Proxy (${connections.length} connections)`}
+      footer={
+        <Button onClick={closeBulkProxyModal} variant="ghost" disabled={bulkUpdatingProxy}>
+          Cancel
+        </Button>
+      }
     >
       <div className="flex flex-col gap-3">
         <div className="flex flex-col">
@@ -1162,10 +1167,6 @@ export default function ProviderDetailPage() {
         </div>
 
         {bulkUpdatingProxy && <p className="text-xs text-text-muted">Applying...</p>}
-
-        <Button onClick={closeBulkProxyModal} variant="ghost" fullWidth disabled={bulkUpdatingProxy}>
-          Cancel
-        </Button>
       </div>
     </Modal>
   );

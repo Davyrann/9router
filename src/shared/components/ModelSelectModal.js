@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import PropTypes from "prop-types";
 import { cn } from "@/shared/utils/cn";
 import Modal from "./Modal";
+import Button from "./Button";
 import ProviderIcon from "./ProviderIcon";
 import CapacityBadges from "./CapacityBadges";
 import { useModelCaps } from "@/shared/hooks/useModelCaps";
@@ -653,7 +654,19 @@ export default function ModelSelectModal({
       title={title}
       size={size}
       className="p-3 sm:p-4!"
-      footer={null}
+      scrollable={false}
+      footer={
+        <Button
+          variant="secondary"
+          onClick={() => {
+            onClose();
+            setSearchQuery("");
+          }}
+          className="h-8 px-3 rounded-[4px] font-mono text-xs"
+        >
+          Done
+        </Button>
+      }
     >
       {/* Info bar */}
       <div className="flex items-center gap-2 mb-3 px-2.5 py-2 bg-[var(--color-surface-soft)] border border-[var(--color-hairline)] rounded text-xs text-[var(--color-mute)] font-mono">

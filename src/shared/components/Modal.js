@@ -65,16 +65,18 @@ export default function Modal({
         style={{ fontFamily: "var(--font-mono)" }}
       >
         {/* Header */}
-        {title && (
+        {(title || onClose) && (
           <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-hairline)]">
-            <h2 className="text-[16px] font-bold text-[var(--color-ink)]">{title}</h2>
-            <button
-              onClick={onClose}
-              aria-label="Close"
-              className="text-[var(--color-mute)] hover:text-[var(--color-ink)] transition-colors text-[13px]"
-            >
-              [x]
-            </button>
+            <h2 className="text-[16px] font-bold text-[var(--color-ink)]">{title || ""}</h2>
+            {onClose && (
+              <button
+                onClick={onClose}
+                aria-label="Close"
+                className="text-[var(--color-mute)] hover:text-[var(--color-ink)] transition-colors text-[13px] cursor-pointer"
+              >
+                [x]
+              </button>
+            )}
           </div>
         )}
 

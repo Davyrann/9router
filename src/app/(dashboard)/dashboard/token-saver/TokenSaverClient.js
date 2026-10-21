@@ -793,6 +793,21 @@ export default function TokenSaverClient() {
         isOpen={showHeadroomInstallModal}
         title={headroomRunning ? "Headroom" : "Setup Headroom"}
         onClose={() => setShowHeadroomInstallModal(false)}
+        footer={
+          <>
+            <Button
+              onClick={() => refreshHeadroomStatus()}
+              variant="ghost"
+            >
+              Recheck
+            </Button>
+            <Button
+              onClick={() => setShowHeadroomInstallModal(false)}
+            >
+              Done
+            </Button>
+          </>
+        }
       >
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between text-sm">
@@ -892,21 +907,6 @@ export default function TokenSaverClient() {
           {headroomActionError && (
             <p className="text-sm text-warning">{headroomActionError}</p>
           )}
-          <div className="flex gap-2">
-            <Button
-              onClick={() => refreshHeadroomStatus()}
-              variant="ghost"
-              fullWidth
-            >
-              Recheck
-            </Button>
-            <Button
-              onClick={() => setShowHeadroomInstallModal(false)}
-              fullWidth
-            >
-              Done
-            </Button>
-          </div>
         </div>
       </Modal>
 
@@ -914,6 +914,19 @@ export default function TokenSaverClient() {
         isOpen={false}
         title={pxpipeStatus.installed ? "PXPIPE" : "Setup PXPIPE"}
         onClose={() => setShowPxpipeModal(false)}
+        footer={
+          <>
+            <Button
+              onClick={() => refreshPxpipeStatus().then(runPxpipeHealth)}
+              variant="ghost"
+            >
+              Recheck
+            </Button>
+            <Button onClick={() => setShowPxpipeModal(false)}>
+              Done
+            </Button>
+          </>
+        }
       >
         <div className="flex flex-col gap-4">
           <p className="text-sm text-text-muted">
@@ -1003,18 +1016,6 @@ export default function TokenSaverClient() {
           {pxpipeActionError && (
             <p className="text-sm text-warning">{pxpipeActionError}</p>
           )}
-          <div className="flex gap-2">
-            <Button
-              onClick={() => refreshPxpipeStatus().then(runPxpipeHealth)}
-              variant="ghost"
-              fullWidth
-            >
-              Recheck
-            </Button>
-            <Button onClick={() => setShowPxpipeModal(false)} fullWidth>
-              Done
-            </Button>
-          </div>
         </div>
       </Modal>
 

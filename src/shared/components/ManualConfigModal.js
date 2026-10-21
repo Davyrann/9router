@@ -16,7 +16,17 @@ export default function ManualConfigModal({ isOpen, onClose, title = "Manual Con
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title} size="xl">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={title}
+      size="xl"
+      footer={
+        <Button variant="secondary" onClick={onClose}>
+          Close
+        </Button>
+      }
+    >
       <div className="flex flex-col gap-4">
         {configs.map((config, index) => (
           <div key={index} className="flex flex-col gap-2">
