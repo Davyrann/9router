@@ -83,9 +83,13 @@ export async function updateApiKey(id, data) {
     const merged = { ...rowToKey(row), ...data };
     const cols = keyAccessToColumns(merged.access);
     db.run(
-      `UPDATE apiKeys SET key = ?, name = ?, machineId = ?, isActive = ?, expiresAt = ?, quotaLimit = ?, quotaWindow = ?, quotaTokenLimit = ?, accessRestricted = ?, accessAllow = ? WHERE id = ?`,
+      `UPDATE apiKeys SET key = ?, name = ?, machineId = ?, isActive = ?, expiresAt = ?, quotaLimit = ?, quotaWindow = ?, quotaTokenLimit = ?, quotaUsed = ?, quotaTokensUsed = ?, quotaResetAt = ?, accessRestricted = ?, accessAllow = ? WHERE id = ?`,
       [merged.key, merged.name, merged.machineId, merged.isActive ? 1 : 0, merged.expiresAt || null,
-       merged.quotaLimit || null, merged.quotaWindow || null, merged.quotaTokenLimit || null, cols.accessRestricted, cols.accessAllow, id]
+       merged.quotaLimit || null, merged.quotaWindow || null, merged.quotaTokenLimit || null,
+       merged.quotaUsed != null ? merged.quotaUsed : 0,
+       merged.quotaTokensUsed != null ? merged.quotaTokensUsed : 0,
+       merged.quotaWindow === "onetime" ? null : (merged.quotaResetAt || null),
+       cols.accessRestricted, cols.accessAllow, id]
     );
     result = rowToKey(db.get(`SELECT * FROM apiKeys WHERE id = ?`, [id]));
   });
@@ -106,6 +110,7 @@ export async function deleteApiKey(id) {
 // boundary is computed — no cron needed. One atomic transaction per
 // request keeps the counter race-free within the single-process gateway.
 function nextWindowBoundaryIso(window) {
+  if (window === "onetime") return null;
   const now = new Date();
   if (window === "monthly") {
     return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)).toISOString();
@@ -127,8 +132,16 @@ export function bumpKeyQuota(db, apiKey, tokensCount = 0) {
   const hasTokenLimit = row.quotaTokenLimit && row.quotaTokenLimit > 0;
   if (!hasReqLimit && !hasTokenLimit) return;
 
-  const isExpired = !row.quotaResetAt || new Date(row.quotaResetAt).getTime() <= Date.now();
   const addedTokens = Number.isFinite(tokensCount) && tokensCount > 0 ? tokensCount : 0;
+  if (row.quotaWindow === "onetime") {
+    db.run(
+      `UPDATE apiKeys SET quotaUsed = quotaUsed + 1, quotaTokensUsed = COALESCE(quotaTokensUsed, 0) + ?, quotaResetAt = NULL WHERE key = ?`,
+      [addedTokens, apiKey]
+    );
+    return;
+  }
+
+  const isExpired = !row.quotaResetAt || new Date(row.quotaResetAt).getTime() <= Date.now();
   if (isExpired) {
     db.run(`UPDATE apiKeys SET quotaUsed = 1, quotaTokensUsed = ?, quotaResetAt = ? WHERE key = ?`, [
       addedTokens,
@@ -160,6 +173,29 @@ export async function checkKeyQuota(apiKey) {
 
     let reqUsed = row.quotaUsed || 0;
     let tokensUsed = row.quotaTokensUsed || 0;
+
+    if (row.quotaWindow === "onetime") {
+      if (hasReqLimit && reqUsed >= row.quotaLimit) {
+        return {
+          quotaExceeded: true,
+          type: "requests",
+          used: reqUsed,
+          limit: row.quotaLimit,
+          resetAt: null,
+        };
+      }
+      if (hasTokenLimit && tokensUsed >= row.quotaTokenLimit) {
+        return {
+          quotaExceeded: true,
+          type: "tokens",
+          used: tokensUsed,
+          limit: row.quotaTokenLimit,
+          resetAt: null,
+        };
+      }
+      return null;
+    }
+
     const isExpired = !row.quotaResetAt || new Date(row.quotaResetAt).getTime() <= Date.now();
     if (isExpired) {
       reqUsed = 0;

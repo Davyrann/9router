@@ -92,4 +92,42 @@ describe("API Key quota: request limit and token limit", () => {
     const fetched = await db.getApiKeyById(key.id);
     expect(fetched.quotaTokenLimit).toBe(10000);
   });
+
+  it("enforces onetime token limit without periodic reset and permits top-up", async () => {
+    const { db, adapter } = await boot();
+    const key = await db.createApiKey("Onetime Key", "mach-1", null, null, "onetime", 1000);
+    expect(key.quotaWindow).toBe("onetime");
+    expect(key.quotaResetAt).toBeNull();
+
+    // Bump 400 -> allowed
+    db.bumpKeyQuota(adapter, key.key, 400);
+    let check = await db.checkKeyQuota(key.key);
+    expect(check).toBeNull();
+
+    // Bump 600 -> reaches 1000 limit
+    db.bumpKeyQuota(adapter, key.key, 600);
+    check = await db.checkKeyQuota(key.key);
+    expect(check).toMatchObject({
+      quotaExceeded: true,
+      type: "tokens",
+      used: 1000,
+      limit: 1000,
+      resetAt: null,
+    });
+
+    // Check getKeyRejection formatting
+    const { getKeyRejection } = await import("@/sse/services/auth.js");
+    const rejection = await getKeyRejection(key.key);
+    expect(rejection).toMatchObject({
+      status: 429,
+      message: "API key token quota exhausted (1000/1000 tokens used).",
+    });
+
+    // Top up token limit to 2500 -> immediately allowed without unpause
+    await db.updateApiKey(key.id, { quotaTokenLimit: 2500 });
+    check = await db.checkKeyQuota(key.key);
+    expect(check).toBeNull();
+    const rejectionAfterTopup = await getKeyRejection(key.key);
+    expect(rejectionAfterTopup).toBeNull();
+  });
 });
