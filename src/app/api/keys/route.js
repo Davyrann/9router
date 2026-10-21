@@ -16,7 +16,9 @@ function parseQuota(quotaLimit, quotaTokenLimit, quotaWindow) {
     tokenLimit = Number(quotaTokenLimit);
     if (!Number.isInteger(tokenLimit) || tokenLimit <= 0) return { error: "Token limit must be a positive number" };
   }
-  const win = quotaWindow === "monthly" ? "monthly" : "daily";
+  let win = "daily";
+  if (quotaWindow === "monthly") win = "monthly";
+  else if (quotaWindow === "onetime") win = "onetime";
   return { limit, tokenLimit, window: (limit || tokenLimit) ? win : null, error: null };
 }
 
@@ -61,7 +63,7 @@ export async function POST(request) {
     const machineId = await getConsistentMachineId();
     const apiKey = await createApiKey(name, machineId, normalizedExpiry, quota.limit, quota.window, quota.tokenLimit);
 
-    return NextResponse.json({
+    const payload = {
       key: apiKey.key,
       name: apiKey.name,
       id: apiKey.id,
@@ -70,7 +72,8 @@ export async function POST(request) {
       quotaLimit: apiKey.quotaLimit,
       quotaWindow: apiKey.quotaWindow,
       quotaTokenLimit: apiKey.quotaTokenLimit,
-    }, { status: 201 });
+    };
+    return NextResponse.json({ ...payload, apiKey: payload }, { status: 201 });
   } catch (error) {
     console.log("Error creating key:", error);
     return NextResponse.json({ error: "Failed to create key" }, { status: 500 });

@@ -66,10 +66,27 @@ export async function PUT(request, { params }) {
         return NextResponse.json({ error: "Token limit must be a positive number" }, { status: 400 });
       }
       let win = existing.quotaWindow || "daily";
-      if (quotaWindow !== undefined) win = quotaWindow === "monthly" ? "monthly" : "daily";
+      if (quotaWindow !== undefined) {
+        win = quotaWindow === "monthly" ? "monthly" : (quotaWindow === "onetime" ? "onetime" : "daily");
+      }
       updateData.quotaLimit = limit;
       updateData.quotaTokenLimit = tokenLimit;
       updateData.quotaWindow = (limit || tokenLimit) ? win : null;
+    }
+
+    if (body.quotaTokensUsed !== undefined) {
+      const tokensUsed = Number(body.quotaTokensUsed);
+      if (!Number.isFinite(tokensUsed) || tokensUsed < 0) {
+        return NextResponse.json({ error: "quotaTokensUsed must be a non-negative number" }, { status: 400 });
+      }
+      updateData.quotaTokensUsed = Math.floor(tokensUsed);
+    }
+    if (body.quotaUsed !== undefined) {
+      const reqUsed = Number(body.quotaUsed);
+      if (!Number.isFinite(reqUsed) || reqUsed < 0) {
+        return NextResponse.json({ error: "quotaUsed must be a non-negative number" }, { status: 400 });
+      }
+      updateData.quotaUsed = Math.floor(reqUsed);
     }
 
     const updated = await updateApiKey(id, updateData);

@@ -130,4 +130,42 @@ describe("API Key quota: request limit and token limit", () => {
     const rejectionAfterTopup = await getKeyRejection(key.key);
     expect(rejectionAfterTopup).toBeNull();
   });
+
+  it("handles onetime quota in POST /api/keys and PUT /api/keys/[id]", async () => {
+    await boot();
+    const { POST } = await import("@/app/api/keys/route.js");
+    const { PUT, GET } = await import("@/app/api/keys/[id]/route.js");
+
+    // Create key with onetime token quota
+    const createReq = new Request("http://localhost/api/keys", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "Route Onetime Key",
+        quotaTokenLimit: 50000,
+        quotaWindow: "onetime",
+      }),
+    });
+    const createRes = await POST(createReq);
+    expect(createRes.status).toBe(201);
+    const { apiKey } = await createRes.json();
+    expect(apiKey.quotaWindow).toBe("onetime");
+    expect(apiKey.quotaTokenLimit).toBe(50000);
+
+    // Update key with token topup / quotaTokensUsed update via PUT
+    const updateReq = new Request(`http://localhost/api/keys/${apiKey.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        quotaTokenLimit: 100000,
+        quotaTokensUsed: 1234,
+      }),
+    });
+    const updateRes = await PUT(updateReq, { params: Promise.resolve({ id: apiKey.id }) });
+    expect(updateRes.status).toBe(200);
+    const { key: updatedKey } = await updateRes.json();
+    expect(updatedKey.quotaTokenLimit).toBe(100000);
+    expect(updatedKey.quotaTokensUsed).toBe(1234);
+    expect(updatedKey.quotaWindow).toBe("onetime");
+  });
 });
