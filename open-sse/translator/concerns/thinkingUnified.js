@@ -132,6 +132,14 @@ const NATIVE_ONLY_FORMATS = new Set(["gemini-level", "gemini-budget", "claude-bu
 
 function resolveFormat(targetFormat, model, provider) {
   if (targetFormat === "commandcode") return "commandcode";
+  // A multi-endpoint provider can declare, per transports[] entry, the thinking shape that
+  // endpoint accepts. It wins over the model's thinkingFormat, which describes the Chat wire:
+  // strict /responses upstreams (Meta, OpenCode Go) reject Chat-shaped reasoning_effort /
+  // thinking:{type} and need reasoning:{effort,summary} instead.
+  const transportFmt = provider
+    ? PROVIDERS[provider]?.transports?.find((t) => t.format === targetFormat)?.thinkingFormat
+    : null;
+  if (transportFmt) return transportFmt;
   const providerFmt = provider ? PROVIDERS[provider]?.thinkingFormat : null;
   if (providerFmt) return providerFmt;
   const caps = getCapabilitiesForModel(provider, model);
@@ -144,9 +152,6 @@ function resolveFormat(targetFormat, model, provider) {
       // Non-Gemini model thinking format (e.g. claude-adaptive) cannot be sent to Gemini wire
       return FORMAT_TO_NATIVE[targetFormat] || "gemini-level";
     } else {
-      if (provider === "muse" && targetFormat === "openai-responses") {
-        return "openai-responses";
-      }
       return caps.thinkingFormat;
     }
   }
