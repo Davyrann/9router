@@ -37,12 +37,12 @@ describe("opencodeFingerprint — request side", () => {
     expect(read.function.parameters.required).toEqual(["path"]);
   });
 
-  it("keeps a caller tool that reuses a fingerprint name without aliasing it", () => {
+  it("aliases a caller tool that reuses an exact fingerprint name", () => {
     const body = { tools: flat(["read", "read_client", "Edit"]) };
     const map = applyFingerprintTools(body, true);
 
-    expect(namesOf(body.tools)).toEqual(["read", "read_client", "Edit", "shell"]);
-    expect(map.size).toBe(0);
+    expect(namesOf(body.tools)).toEqual(["read_client2", "read_client", "Edit", "read", "shell"]);
+    expect(map.get("read_client2")).toBe("read");
   });
 
   it("keeps a caller tool that already carries OpenCode's exact definition", () => {
@@ -60,27 +60,10 @@ describe("opencodeFingerprint — request side", () => {
     expect(body.instructions).toContain("<env>");
   });
 
-  it("keeps the caller's name when only the tool wording differs", () => {
-    const official = { tools: [] };
-    applyFingerprintTools(official, true);
-    const callerTools = official.tools.map((tool) =>
-      tool.name === "shell"
-        ? { ...tool, description: "Execute a shell command. Commands run on Windows using powershell." }
-        : tool);
-
-    const body = { tools: callerTools };
-    const map = applyFingerprintTools(body, true);
-
-    expect(namesOf(body.tools)).toEqual(["read", "shell"]);
-    expect(map.size).toBe(0);
-    expect(body.tools[1].description).toBe(official.tools[1].description);
-    expect(body.instructions).toBeUndefined();
-  });
-
   it("drops duplicate declarations of one fingerprint name", () => {
     const body = { tools: flat(["shell", "shell"]) };
     applyFingerprintTools(body, true);
-    expect(namesOf(body.tools)).toEqual(["shell", "read"]);
+    expect(namesOf(body.tools)).toEqual(["shell_client", "read", "shell"]);
   });
 
   it("defaults Responses tool_choice to auto and never to none for chat", () => {
@@ -113,26 +96,25 @@ describe("opencodeFingerprint — request side", () => {
     expect(claudeShape.messages).toHaveLength(1);
   });
 
-  it("leaves flat tool_choice alone when the caller keeps its name", () => {
+  it("retargets flat tool_choice that points at an aliased tool", () => {
     const body = { tools: flat(["shell"]), tool_choice: { type: "function", name: "shell" } };
     applyFingerprintTools(body, true);
-    expect(body.tool_choice.name).toBe("shell");
+    expect(body.tool_choice.name).toBe("shell_client");
   });
 
-  it("leaves nested tool_choice alone when the caller keeps its name", () => {
+  it("retargets nested tool_choice that points at an aliased tool", () => {
     const body = {
       tools: chat(["read"]),
       tool_choice: { type: "function", function: { name: "read" } },
     };
     applyFingerprintTools(body, false);
-    expect(body.tool_choice.function.name).toBe("read");
+    expect(body.tool_choice.function.name).toBe("read_client");
   });
 
-  it("records no rename map when nothing was renamed", () => {
+  it("records the rename map against the body for the response side", () => {
     const body = { tools: flat(["read"]) };
     const map = applyFingerprintTools(body, true);
-    expect(map.size).toBe(0);
-    expect(takeRenamedToolNames(body)).toBeNull();
+    expect(takeRenamedToolNames(body)).toBe(map);
   });
 
   it("never throws on malformed tools", () => {
