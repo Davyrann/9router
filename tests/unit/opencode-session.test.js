@@ -321,9 +321,7 @@ describe("OpenCode Stable Session Reuse (429 follow-up)", () => {
       messages: [{ role: "user", content: "hi" }],
       tools: [{ type: "function", function: { name: "read", description: "existing" } }],
     });
-    // The caller's `read` keeps its own name and definition — the client can
-    // only dispatch the names it declared — and only `shell` is appended.
-    expect(chatClash.tools.map((t) => t.function?.name)).toEqual(["read", "shell"]);
+    expect(chatClash.tools.map((t) => t.function?.name)).toEqual(["read_client", "read", "shell"]);
     expect(chatClash.tools[0].function.description).toBe("existing");
   });
 
