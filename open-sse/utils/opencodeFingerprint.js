@@ -6,8 +6,11 @@
  * - Tools: free-tier requests must declare OpenCode's own `read` and `shell`
  *   tools with their exact descriptions and parameter schemas; stubbed
  *   descriptions, renamed schemas or tool_choice "none" are answered with 403
- *   FreeTierError. Caller tools are sent untouched, except one that already
- *   uses an exact fingerprint name with a different definition.
+ *   FreeTierError. Caller tools are sent untouched. A tool that already uses an
+ *   exact fingerprint name with a different definition adopts OpenCode's
+ *   definition in place whenever its arguments can carry them; only a genuinely
+ *   different schema travels under an alias, and the response side restores
+ *   that caller's original name.
  * - System prompt: the CLI's `<env>` marker must be present. A request missing
  *   either half (marker or tools) answers 429 FreeUsageLimitError regardless of
  *   headers, UA or session shape; both halves together pass.
@@ -87,23 +90,39 @@ function isFingerprintDefinition(tool, key) {
     && JSON.stringify(def.parameters) === JSON.stringify(want.parameters);
 }
 
-/** The schema parts that change what a call means: argument names + required. */
-function parameterShape(params) {
-  if (!params || typeof params !== "object" || Array.isArray(params)) return "";
-  const names = Object.keys(params.properties || {}).sort().join(",");
-  const required = [...(params.required || [])].sort().join(",");
-  return `${names}|${required}`;
+function withToolName(tool, name) {
+  const fn = chatFunctionOf(tool);
+  return fn ? { ...tool, function: { ...fn, name } } : { ...tool, name };
 }
 
-/** True when `tool` takes the same arguments as OpenCode's `key` tool. */
-function isFingerprintCompatible(tool, key) {
+/**
+ * True when `tool` already speaks OpenCode's parameter names for `key`, so the
+ * fingerprint definition can replace its own without hiding or adding an
+ * argument the caller's handler expects.
+ *
+ * This is the common case, not an edge: OpenCode composes `shell`'s description
+ * from `process.platform`, so the very same tool run on Windows reports
+ * "Commands run on Windows using pwsh." while the captured definition says
+ * "Commands run on Linux using bash." — a two-word difference that an exact
+ * string compare rejects.
+ */
+function canNormalizeInPlace(tool, key) {
   const def = tool && (chatFunctionOf(tool) || tool);
-  if (!def) return false;
-  return parameterShape(def.parameters) === parameterShape(FINGERPRINT_TOOL_DEFINITIONS[key].parameters);
+  const props = def?.parameters?.properties;
+  if (!props || typeof props !== "object" || Array.isArray(props)) return false;
+
+  const wanted = Object.keys(FINGERPRINT_TOOL_DEFINITIONS[key].parameters.properties || {});
+  const declared = Object.keys(props);
+  if (declared.some((name) => !wanted.includes(name))) return false;
+  return FINGERPRINT_TOOL_DEFINITIONS[key].parameters.required.every((name) => declared.includes(name));
 }
 
-/** Swap in OpenCode's exact description/parameters, keeping the caller's name. */
-function adoptFingerprintDefinition(tool, key) {
+/**
+ * Replace `tool`'s definition with OpenCode's while keeping its name, so the
+ * wire carries a single, gate-satisfying tool instead of a caller tool plus a
+ * placeholder of the same purpose.
+ */
+function withFingerprintDefinition(tool, key) {
   const { description, parameters } = FINGERPRINT_TOOL_DEFINITIONS[key];
   const fn = chatFunctionOf(tool);
   return fn
@@ -112,14 +131,11 @@ function adoptFingerprintDefinition(tool, key) {
 }
 
 /**
- * Reconcile caller tools with the fingerprint names.
- *
- * A tool that already carries OpenCode's exact definition is kept. One that
- * takes the same arguments but words them differently keeps its name and adopts
- * OpenCode's definition. A caller tool whose schema really differs keeps its own
- * name AND definition — never alias: the client has no `shell_client` to
- * dispatch. Other tools, including case variants such as `Read`, pass through
- * untouched; upstream accepts them alongside `read`.
+ * Keep caller tools on the fingerprint names whenever their arguments can carry
+ * OpenCode's, and move the remaining ones off them so the exact definitions can
+ * be appended without a duplicate name. Everything else, including case
+ * variants such as `Read`, is preserved verbatim; upstream accepts them
+ * alongside `read`.
  *
  * @param {Array} tools
  * @returns {{ tools: Array, map: Map<string,string> }} map: sent name -> original name
@@ -128,6 +144,7 @@ export function concealFingerprintToolNames(tools) {
   const map = new Map();
   if (!Array.isArray(tools) || tools.length === 0) return { tools, map };
 
+  const taken = new Set(tools.map(toolNameOf));
   const seen = new Set();
   const out = [];
   for (const tool of tools) {
@@ -151,12 +168,19 @@ export function concealFingerprintToolNames(tools) {
       continue;
     }
 
-    if (isFingerprintCompatible(tool, key)) {
-      out.push(adoptFingerprintDefinition(tool, key));
+    // Same tool, different wording. Adopt OpenCode's definition in place: the
+    // caller keeps its own name, so there is no alias to restore, no alias name
+    // for the model to collide with, and no placeholder to explain away.
+    if (canNormalizeInPlace(tool, key)) {
+      out.push(withFingerprintDefinition(tool, key));
       continue;
     }
 
-    out.push(tool);
+    let alias = `${key}_client`;
+    for (let i = 2; taken.has(alias); i++) alias = `${key}_client${i}`;
+    taken.add(alias);
+    map.set(alias, key);
+    out.push(withToolName(tool, alias));
   }
   return { tools: out, map };
 }
@@ -356,8 +380,9 @@ export function applyEnvFingerprint(body, flat, { claude = false } = {}) {
 }
 
 /**
- * Full request-side pass: alias conflicting caller tools, append OpenCode's
- * fingerprint definitions, and tell the model the appended ones are off-limits.
+ * Full request-side pass: normalize caller tools that collide with a
+ * fingerprint name, append OpenCode's definitions for any that are missing, and
+ * tell the model the appended ones are off-limits.
  *
  * @param {object} body
  * @param {boolean} flat - true for Responses tools ({name}), false for chat tools
