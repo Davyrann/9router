@@ -1,5 +1,3 @@
-import { withCodexReviewModels } from "../models/helpers.js";
-
 // Codex CLI version seen by OpenAI's backend — single source for the Version /
 // User-Agent identity headers. Bump when the installed codex CLI is upgraded.
 const CODEX_CLI_VERSION = "0.159.0";
@@ -21,6 +19,7 @@ export default {
     deprecated: true,
     deprecationNotice: "RISK_NOTICE",
     kindNotice: {
+      stt: "Uses the same Codex OAuth connection as chat, not an OpenAI API key. Requires ffmpeg; maximum 25 MiB and 120 seconds. Returns json or text only; language, prompt and timestamps are unsupported. This internal ChatGPT endpoint may change without notice.",
       image: "Requires a ChatGPT Plus (or higher) account. Free accounts are not supported for image generation.",
     },
   },
@@ -82,10 +81,16 @@ export default {
     { id: "gpt-image-2", name: "GPT Image 2", capabilities: ["text2img","edit","multiImage"], params: ["size","quality","background","image_detail","output_format"], kind: "image" },
     { id: "gpt-image-1.5", name: "GPT Image 1.5", capabilities: ["text2img","edit","multiImage"], params: ["size","quality","background","image_detail","output_format"], kind: "image" },
     { id: "gpt-6-sol-image", name: "GPT 6.0 Sol Image", capabilities: ["text2img","edit"], params: ["size","quality","background","image_detail","output_format"], kind: "image" },
+    { id: "transcribe", name: "Codex Transcription", kind: "stt", params: ["response_format"], responseFormats: ["json", "text"] },
     // gpt-5.5-image / gpt-5.4-image / gpt-5.3-image removed alongside base models.
     // gpt-5.6-{sol,terra,luna}-image removed: superseded by gpt-6-sol-image.
   ],
-  serviceKinds: ["llm","image"],
+  serviceKinds: ["llm","image","stt"],
+  sttConfig: {
+    baseUrl: "https://chatgpt.com/backend-api/transcribe",
+    authType: "oauth",
+    format: "codex-transcribe",
+  },
   oauth: {
     clientId: "app_EMoamEEZ73f0CkXaXp7hrann",
     authorizeUrl: "https://auth.openai.com/oauth/authorize",

@@ -234,13 +234,21 @@ export function GenericExampleCard({ providerId, kind }) {
     if (Array.isArray(obj)) return obj.map(maskB64);
     const out = {};
     for (const [k, v] of Object.entries(obj)) {
-      out[k] = (k === "b64_json" && typeof v === "string" && v.length > 100)
-        ? `<${v.length} chars base64>`
-        : maskB64(v);
+      if (k === "b64_json" && typeof v === "string" && v.length > 100) {
+        out[k] = `<${v.length} chars base64>`;
+      } else if (typeof v === "string" && v.length > 100 && /^data:[^,]+,/.test(v)) {
+        out[k] = `<${v.length} chars data URI>`;
+      } else {
+        out[k] = maskB64(v);
+      }
     }
     return out;
   };
   const resultJson = result ? JSON.stringify(maskB64(result.data), null, 2) : "";
+  // Video preview: xAI/grok shape {video:{url}} or array shape {data:[{url}]}
+  const videoUrl = result
+    ? result.data?.video?.url || result.data?.data?.[0]?.url || null
+    : null;
 
   return (
     <div className="border border-[var(--color-hairline)] bg-[var(--color-canvas)] p-3.5 sm:p-5 rounded-none font-mono">
@@ -475,6 +483,42 @@ export function GenericExampleCard({ providerId, kind }) {
                 onChange={(e) => setExtraValues((s) => ({ ...s, [f.key]: e.target.value }))}
                 className="w-full px-3 py-2 text-xs sm:text-sm border border-[var(--color-hairline)] rounded-[4px] bg-[var(--color-surface-soft)] text-[var(--color-ink)] focus:bg-[var(--color-canvas)] focus:border-[var(--color-ink)] focus:outline-none min-h-[38px] transition-colors"
               />
+            ) : f.type === "image" ? (
+              <div className="flex gap-2 items-center w-full">
+                <input
+                  type="text"
+                  value={extraValues[f.key] ?? ""}
+                  placeholder="https://… or click Upload"
+                  onChange={(e) => setExtraValues((s) => ({ ...s, [f.key]: e.target.value }))}
+                  className="flex-1 min-w-0 px-3 py-2 text-xs sm:text-sm border border-[var(--color-hairline)] rounded-[4px] bg-[var(--color-surface-soft)] text-[var(--color-ink)] focus:bg-[var(--color-canvas)] focus:border-[var(--color-ink)] focus:outline-none transition-colors font-mono"
+                />
+                <label className="shrink-0 inline-flex items-center gap-1 px-3 py-2 text-xs sm:text-sm border border-[var(--color-hairline)] rounded-[4px] bg-[var(--color-surface-soft)] hover:bg-[var(--color-surface-card)] text-[var(--color-ink)] cursor-pointer transition-colors font-mono">
+                  <span className="material-symbols-outlined text-[15px]">upload</span>
+                  Upload
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = () => setExtraValues((s) => ({ ...s, [f.key]: String(reader.result || "") }));
+                      reader.readAsDataURL(file);
+                    }}
+                  />
+                </label>
+              </div>
+            ) : f.type === "boolean" ? (
+              <label className="inline-flex items-center gap-2 text-xs sm:text-sm font-mono text-[var(--color-ink)] select-none cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={extraValues[f.key] === true}
+                  onChange={(e) => setExtraValues((s) => ({ ...s, [f.key]: e.target.checked }))}
+                  className="h-4 w-4 rounded border-[var(--color-hairline-strong)] text-[var(--color-primary)] focus:ring-0 cursor-pointer"
+                />
+                <span>{extraValues[f.key] ? "[x] Enabled" : "[ ] Disabled"}</span>
+              </label>
             ) : (
               <input
                 type="number"
@@ -582,9 +626,6 @@ export function GenericExampleCard({ providerId, kind }) {
               </button>
             )}
           </div>
-          <pre className="bg-[var(--color-surface-card)] border border-[var(--color-hairline)] rounded-[4px] p-3 text-xs text-[var(--color-ink)] overflow-x-auto whitespace-pre-wrap break-all leading-relaxed opacity-90">
-            {result ? resultJson : exConfig.defaultResponse}
-          </pre>
           {kind === "image" && (binaryImageUrl || result?.data?.data?.[0]) && (
             <div className="mt-2 flex flex-col gap-2">
               <div className="flex items-center justify-end">
@@ -606,6 +647,27 @@ export function GenericExampleCard({ providerId, kind }) {
               />
             </div>
           )}
+          {kind === "video" && videoUrl && (
+            <div className="mt-2 flex flex-col gap-2">
+              <div className="flex items-center justify-end">
+                <a
+                  href={videoUrl}
+                  download="video.mp4"
+                  className="inline-flex items-center gap-1 text-xs border border-[var(--color-hairline)] rounded-[4px] bg-[var(--color-surface-soft)] hover:bg-[var(--color-surface-card)] px-3 py-1.5 text-[var(--color-ink)] transition-colors min-h-[32px]"
+                >
+                  [download]
+                </a>
+              </div>
+              <video
+                controls
+                src={videoUrl}
+                className="max-w-full rounded-[4px] border border-[var(--color-hairline)] bg-[var(--color-surface-soft)]"
+              />
+            </div>
+          )}
+          <pre className="bg-[var(--color-surface-card)] border border-[var(--color-hairline)] rounded-[4px] p-3 text-xs text-[var(--color-ink)] overflow-x-auto whitespace-pre-wrap break-all leading-relaxed opacity-90">
+            {result ? resultJson : exConfig.defaultResponse}
+          </pre>
         </div>
       </div>
     </div>

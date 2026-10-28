@@ -1,15 +1,17 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { restrictToVerticalAxis, restrictToParentElement } from "@dnd-kit/modifiers";
-import { Card, Button, Modal, Input, CardSkeleton, ModelSelectModal, ConfirmModal, CapacityBadges, Select, Toggle } from "@/shared/components";
+import { Card, Button, Modal, Input, CardSkeleton, ModelSelectModal, ConfirmModal, CapacityBadges, Select, Toggle, Badge, SmartPolicyModal } from "@/shared/components";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { useModelCaps } from "@/shared/hooks/useModelCaps";
 import { aggregateComboCapabilities } from "open-sse/providers/capabilities.js";
 import { cn } from "@/shared/utils/cn";
+import { resolveProviderId, AI_PROVIDERS } from "@/shared/constants/providers";
 
 // Validate combo name: only a-z, A-Z, 0-9, -, _
 const VALID_NAME_REGEX = /^[a-zA-Z0-9_.\-]+$/;
@@ -50,8 +52,21 @@ function normalizeCapEntry(entry) {
 const STRATEGY_OPTIONS = [
   { value: "fallback", label: "Fallback — try in order" },
   { value: "round-robin", label: "Round Robin — rotate" },
+  { value: "smart", label: "Smart Router — System One" },
   { value: "fusion", label: "Fusion — panel + judge" },
 ];
+
+function getPolicyBadgeLabel(strategy = {}) {
+  const policy = strategy.smartPolicy || (strategy.sessionSticky === false ? "per-turn" : "smart");
+  if (policy === "strict") return "Strict Lock";
+  if (policy === "per-turn") return "Per-Turn";
+  if (policy === "custom") {
+    const raw = strategy.confidenceThreshold;
+    const pct = Math.round((raw || 0.8) * (raw && raw <= 1 ? 100 : 1));
+    return `Custom (≥${pct || 80}%)`;
+  }
+  return "Smart (≥80%)";
+}
 
 export default function CombosPage() {
   const [combos, setCombos] = useState([]);
@@ -67,6 +82,7 @@ export default function CombosPage() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const { copied, copy } = useCopyToClipboard();
 
   useEffect(() => {
@@ -80,8 +96,21 @@ export default function CombosPage() {
   }, [combos]);
 
   const selectedCombos = combos.filter((c) => selectedIds.includes(c.id));
-  const allSelected = combos.length > 0 && selectedIds.length === combos.length;
   const someSelected = selectedIds.length > 0;
+
+  // Case-insensitive search over the combo name and its model ids, so both
+  // "deepseek" and "deepseek-v4.1-flash" find the right rows.
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const filteredCombos = normalizedQuery
+    ? combos.filter((c) => {
+        if (String(c.name || "").toLowerCase().includes(normalizedQuery)) return true;
+        return (c.models || []).some((m) => String(m).toLowerCase().includes(normalizedQuery));
+      })
+    : combos;
+
+  // Select-all follows the search: with a query active it must only reach the
+  // rows on screen, otherwise the bulk Delete would take out hidden combos.
+  const allSelected = filteredCombos.length > 0 && filteredCombos.every((c) => selectedIds.includes(c.id));
 
   const toggleSelect = (id) => {
     setSelectedIds((prev) => (
@@ -90,7 +119,7 @@ export default function CombosPage() {
   };
 
   const toggleSelectAll = () => {
-    setSelectedIds(allSelected ? [] : combos.map((c) => c.id));
+    setSelectedIds(allSelected ? [] : filteredCombos.map((c) => c.id));
   };
 
   const clearSelection = () => setSelectedIds([]);
@@ -372,14 +401,35 @@ export default function CombosPage() {
             <h1 className="text-[16px] font-bold text-[var(--color-ink)]">Model Combos</h1>
           </div>
           <p className="text-[13px] text-[var(--color-mute)] mt-0.5 leading-tight">
-            Group models under a single route with fallback or load balancing.
+            Group models under a single route with fallback, smart routing, or load balancing.
           </p>
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+          {/* Search box */}
+          <div className="relative w-full sm:w-56">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search combos…"
+              aria-label="Search combos"
+              className="w-full h-8 px-2.5 pr-7 border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] rounded-[4px] text-[12px] font-mono text-[var(--color-ink)] outline-none focus:bg-[var(--color-canvas)] focus:border-[var(--color-ink)] transition-colors placeholder:text-[var(--color-ash)]"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--color-mute)] hover:text-[var(--color-ink)] text-xs p-0.5"
+              >
+                [x]
+              </button>
+            )}
+          </div>
           <button
             onClick={() => setShowGuide((v) => !v)}
-            className="h-8 px-2.5 border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] text-[12px] font-mono text-[var(--color-mute)] hover:text-[var(--color-ink)] rounded transition-colors text-center cursor-pointer whitespace-nowrap shrink-0"
+            className="h-8 px-2.5 border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] text-[12px] font-mono text-[var(--color-mute)] hover:text-[var(--color-ink)] rounded-[4px] transition-colors text-center cursor-pointer whitespace-nowrap shrink-0"
             title="Toggle strategy explanation"
           >
             {showGuide ? "[x] Close" : "[?] Guide"}
@@ -388,7 +438,7 @@ export default function CombosPage() {
             size="sm"
             icon="add"
             onClick={() => setShowCreateModal(true)}
-            className="flex-1 sm:flex-initial shrink-0 whitespace-nowrap"
+            className="shrink-0 whitespace-nowrap"
           >
             Create Combo
           </Button>
@@ -413,6 +463,9 @@ export default function CombosPage() {
             </div>
             <div>
               <strong className="text-[var(--color-ink)]">[+] Round Robin:</strong> Distributes requests evenly across models in the combo to balance quota.
+            </div>
+            <div>
+              <strong className="text-[var(--color-ink)]">[+] Smart Router:</strong> Evaluates a System One decision model to pick the optimal model per request or session to maximize prompt cache retention.
             </div>
             <div>
               <strong className="text-[var(--color-ink)]">[+] Fusion:</strong> Queries models in parallel, then uses a judge model to synthesize the final answer (bills all models + judge).
@@ -450,53 +503,75 @@ export default function CombosPage() {
               <span>
                 {someSelected
                   ? `${selectedIds.length} of ${combos.length} selected`
-                  : `Select all (${combos.length})`}
+                  : `Select all (${filteredCombos.length})`}
               </span>
             </label>
 
-            {someSelected && (
-              <div className="flex flex-wrap items-center gap-2">
-                <select
-                  value=""
-                  disabled={bulkBusy}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    if (v) handleBulkSetStrategy(v);
-                  }}
-                  className="h-8 rounded border border-[var(--color-hairline)] bg-[var(--color-canvas)] px-2.5 text-[12px] font-mono text-[var(--color-ink)] outline-none"
-                >
-                  <option value="" disabled>Set strategy…</option>
-                  {STRATEGY_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-                <Button
-                  size="xs"
-                  variant="danger"
-                  icon="delete"
-                  disabled={bulkBusy}
-                  loading={bulkBusy}
-                  onClick={handleBulkDelete}
-                >
-                  Delete ({selectedIds.length})
-                </Button>
-                <Button
-                  size="xs"
-                  variant="ghost"
-                  onClick={clearSelection}
-                  disabled={bulkBusy}
-                >
-                  Clear
-                </Button>
-              </div>
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              {normalizedQuery && (
+                <span className="text-[12px] text-[var(--color-mute)] font-mono">
+                  {filteredCombos.length} of {combos.length} shown
+                </span>
+              )}
+              {someSelected && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    value=""
+                    disabled={bulkBusy}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v) handleBulkSetStrategy(v);
+                    }}
+                    className="h-8 rounded-[4px] border border-[var(--color-hairline)] bg-[var(--color-canvas)] px-2.5 text-[12px] font-mono text-[var(--color-ink)] outline-none"
+                  >
+                    <option value="" disabled>Set strategy…</option>
+                    {STRATEGY_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                  <Button
+                    size="xs"
+                    variant="danger"
+                    icon="delete"
+                    disabled={bulkBusy}
+                    loading={bulkBusy}
+                    onClick={handleBulkDelete}
+                  >
+                    Delete ({selectedIds.length})
+                  </Button>
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    onClick={clearSelection}
+                    disabled={bulkBusy}
+                  >
+                    Clear
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Cards Grid / Stack */}
           <div className="flex flex-col gap-3">
             {(() => {
               const comboByName = Object.fromEntries(combos.map((c) => [c.name, c.models]));
-              return combos.map((combo) => (
+              if (filteredCombos.length === 0) {
+                return (
+                  <div className="text-center py-10 px-4 border border-[var(--color-hairline)] bg-[var(--color-canvas)] text-[var(--color-mute)] font-mono text-[13px] rounded-[4px]">
+                    <p className="font-bold text-[var(--color-ink)] mb-1">[-] No combos match &ldquo;{searchQuery.trim()}&rdquo;</p>
+                    <p className="text-[12px] text-[var(--color-mute)] mb-3">Try a shorter query, or clear the search to see all {combos.length} combos.</p>
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery("")}
+                      className="h-8 px-3 text-xs border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] rounded-[4px] hover:text-[var(--color-ink)] font-mono cursor-pointer"
+                    >
+                      Clear search
+                    </button>
+                  </div>
+                );
+              }
+              return filteredCombos.map((combo) => (
                 <ComboCard
                   key={combo.id}
                   combo={combo}
@@ -572,6 +647,28 @@ const fmtK = (n) => {
   return `${Math.round(n / 1000)}k`;
 };
 
+function getRouterModelStatus(routerModel, activeProviders) {
+  const effectiveModel = (typeof routerModel === "string" && routerModel.trim())
+    ? routerModel.trim()
+    : "oc/jev-1.13-free";
+  const slashIdx = effectiveModel.indexOf("/");
+  const prefix = slashIdx !== -1 ? effectiveModel.slice(0, slashIdx) : effectiveModel;
+  const providerId = resolveProviderId(prefix);
+  const providerDef = AI_PROVIDERS[providerId];
+  const isNoAuth = !!providerDef?.noAuth;
+
+  if (isNoAuth) {
+    return { ready: true, label: "Ready (Free)", providerId };
+  }
+
+  const isConnected = (activeProviders || []).some((c) => c.provider === providerId && c.isActive !== false);
+  if (isConnected) {
+    return { ready: true, label: "Connected", providerId };
+  }
+
+  return { ready: false, label: "Not configured", providerId };
+}
+
 function ComboCard({
   combo,
   getCaps,
@@ -587,15 +684,19 @@ function ComboCard({
   onToggleSelect,
 }) {
   const [showJudgeSelect, setShowJudgeSelect] = useState(false);
+  const [showRouterSelect, setShowRouterSelect] = useState(false);
+  const [showPolicyModal, setShowPolicyModal] = useState(false);
   const current = strategy.fallbackStrategy || "fallback";
   const judge = strategy.judgeModel || "";
+  const routerModel = strategy.routerModel || "";
   const isFusion = current === "fusion";
+  const isSmart = current === "smart";
   const comboCaps = aggregateComboCapabilities(combo.models, comboByName, getCaps);
 
   return (
     <div
       className={cn(
-        "p-3.5 sm:p-4 border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] rounded flex flex-col gap-3 transition-colors",
+        "p-3.5 sm:p-4 border border-[var(--color-hairline)] bg-[var(--color-surface-soft)] rounded-[4px] flex flex-col gap-3 transition-colors font-mono",
         selected && "border-[var(--color-primary)] ring-1 ring-[var(--color-primary)]/30"
       )}
     >
@@ -764,6 +865,60 @@ function ComboCard({
             )}
           </div>
         )}
+
+        {/* Smart Router Selector */}
+        {isSmart && (() => {
+          const routerStatus = getRouterModelStatus(routerModel, activeProviders);
+          const policyLabel = getPolicyBadgeLabel(strategy);
+          return (
+            <div className="flex items-center gap-1.5 flex-wrap font-mono text-[12px]">
+              <span className="text-[var(--color-mute)]">Router:</span>
+              <button
+                onClick={() => setShowRouterSelect(true)}
+                className="h-7 px-2 border border-dashed border-[var(--color-hairline-strong)] bg-[var(--color-canvas)] rounded-[4px] text-[var(--color-primary)] hover:border-[var(--color-primary)] transition-colors inline-flex items-center gap-1 cursor-pointer"
+                title="Pick the System One model that decides model routing"
+              >
+                <span className="material-symbols-outlined text-[13px]">psychology</span>
+                <span className="truncate max-w-[180px]">{routerModel || "Auto (oc/jev-1.13-free)"}</span>
+              </button>
+              {routerStatus.ready ? (
+                <span className="px-1.5 py-0.5 rounded-[4px] text-[10px] font-mono border text-[var(--color-success)] border-[rgba(48,209,88,0.3)] bg-[rgba(48,209,88,0.08)]">
+                  [{routerStatus.label}]
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1">
+                  <span className="px-1.5 py-0.5 rounded-[4px] text-[10px] font-mono border text-[var(--color-danger)] border-[rgba(255,59,48,0.3)] bg-[rgba(255,59,48,0.08)]">
+                    [{routerStatus.label}]
+                  </span>
+                  <Link
+                    href={`/dashboard/media-providers/systemone/${routerStatus.providerId}`}
+                    className="text-[10px] text-[var(--color-primary)] hover:underline font-medium"
+                    title="Configure in Media Providers"
+                  >
+                    Configure
+                  </Link>
+                </span>
+              )}
+              <button
+                onClick={() => setShowPolicyModal(true)}
+                className="h-7 px-2 border border-[var(--color-hairline)] bg-[var(--color-canvas)] rounded-[4px] text-[11px] font-mono text-[var(--color-ink)] hover:border-[var(--color-hairline-strong)] transition-colors inline-flex items-center gap-1 cursor-pointer"
+                title="Configure routing policy and prompt cache retention"
+              >
+                <span className="material-symbols-outlined text-[13px] text-[var(--color-mute)]">tune</span>
+                <span>[{policyLabel}]</span>
+              </button>
+              {routerModel && (
+                <button
+                  onClick={() => onSetStrategy({ routerModel: "" })}
+                  className="h-7 px-1.5 text-[var(--color-mute)] hover:text-red-500 cursor-pointer"
+                  title="Reset router to Auto"
+                >
+                  [x]
+                </button>
+              )}
+            </div>
+          );
+        })()}
       </div>
 
       {/* Judge model picker */}
@@ -779,6 +934,35 @@ function ComboCard({
           title="Select Judge Model"
           addedModelValues={judge ? [judge] : []}
           closeOnSelect={true}
+        />
+      )}
+
+      {/* System One Router model picker (single-select from systemone kind) */}
+      {showRouterSelect && (
+        <ModelSelectModal
+          isOpen={showRouterSelect}
+          onClose={() => setShowRouterSelect(false)}
+          onSelect={(m) => {
+            onSetStrategy({ routerModel: m?.value || "" });
+            setShowRouterSelect(false);
+          }}
+          activeProviders={activeProviders}
+          title="Select System One Router Model"
+          kindFilter="systemone"
+          addedModelValues={routerModel ? [routerModel] : []}
+          closeOnSelect={true}
+        />
+      )}
+
+      {/* Smart Router Policy Settings Modal */}
+      {showPolicyModal && (
+        <SmartPolicyModal
+          isOpen={showPolicyModal}
+          onClose={() => setShowPolicyModal(false)}
+          comboName={combo.name}
+          currentPolicy={strategy.smartPolicy || (strategy.sessionSticky === false ? "per-turn" : "smart")}
+          currentThreshold={strategy.confidenceThreshold ?? 80}
+          onSave={onSetStrategy}
         />
       )}
     </div>
