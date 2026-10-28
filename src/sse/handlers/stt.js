@@ -1,5 +1,5 @@
 import {
-  extractApiKey, getKeyRejection,
+  extractApiKey, isValidApiKey,
   getProviderCredentials, markAccountUnavailable, clearAccountError,
 } from "../services/auth.js";
 import { getSettings, getCustomModels } from "@/lib/localDb";
@@ -52,8 +52,8 @@ export async function handleStt(request) {
   if (settings.requireApiKey) {
     const apiKey = extractApiKey(request);
     if (!apiKey) return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Missing API key");
-    const rejection = await getKeyRejection(apiKey);
-    if (rejection) return errorResponse(rejection.status, rejection.message);
+    const valid = await isValidApiKey(apiKey);
+    if (!valid) return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key");
   }
 
   if (!modelStr) return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing model");
@@ -115,7 +115,7 @@ export async function handleStt(request) {
         if (credentials.accessToken !== previous) result = await handleSttCore({ ...args, credentials });
       }
       if (result.success) {
-        await clearAccountError(credentials.connectionId, credentials, model);
+        if (isCodex) await clearAccountError(credentials.connectionId, credentials, model);
         return result.response;
       }
     } catch {

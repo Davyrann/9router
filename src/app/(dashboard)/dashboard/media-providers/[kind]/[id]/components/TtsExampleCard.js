@@ -531,7 +531,6 @@ export function TtsExampleCard({ providerId }) {
                   </button>
                 )}
               </div>
-              </div>
             </Row>
           )}
 
