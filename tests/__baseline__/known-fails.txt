@@ -24,6 +24,10 @@ tests/unit/codex-gpt6-lite.test.js :: Codex GPT-6 Sol/Luna transport lists gpt-6
 tests/unit/codex-image-fetch.test.js :: CodexExecutor image handling execute() prefetches images before sending to upstream
 tests/unit/codex-image-fetch.test.js :: CodexExecutor image handling fetches 1MB remote image and inlines it as base64 data URI
 tests/unit/codex-refresh-token.test.js :: Codex Refresh Token getRefreshLeadMs (early refresh config) should return provider-specific lead time for OAuth providers
+tests/unit/codex-stt-persisted-refresh.test.js :: uses the real persisted refresh service before sending expired-account OAuth audio
+tests/unit/codex-stt-transport.test.js :: converts real stereo 48k WAV to mono24k PCM16 and removes temporary files
+tests/unit/codex-stt-transport.test.js :: rejects malformed and overlong audio and cleans up
+tests/unit/codex-stt-transport.test.js :: sends only the converted file and projects upstream metadata out of the response through a local relay
 tests/unit/combo-autoswitch.test.js :: detectRequiredCapabilities web_search tool -> search
 tests/unit/combo-autoswitch.test.js :: reorderByCapabilities keeps order when no model matches
 tests/unit/combo-caps-resolver.test.js :: aggregateComboCapabilities: resolveCaps override falls back to the pattern default without a resolver
